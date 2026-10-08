@@ -81,9 +81,7 @@ export default function HomeScreen() {
         <View style={styles.panchangamBanner}>
           <View style={styles.bannerHeader}>
             <Text style={styles.bannerDate}>{formattedDate}</Text>
-            <View style={styles.sampleBadge}>
-              <Text style={styles.sampleBadgeText}>SAMPLE DATA</Text>
-            </View>
+            
           </View>
           <Text style={styles.bannerTitle}>{t('todaysPanchangam')}</Text>
           <Text style={styles.bannerSubtitle}>

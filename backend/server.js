@@ -16,6 +16,7 @@ app.use('/api/services', poojaRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/panchangam', require('./routes/panchangamRoutes'));
 app.use('/api/home', require('./routes/homeRoutes'));
+app.use('/api/notifications', require('./routes/notificationRoutes'));
 
 const PORT = process.env.PORT || 5000;
 const db = require('./config/db');

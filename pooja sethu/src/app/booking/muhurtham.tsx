@@ -36,7 +36,6 @@ export default function DateAndVenueScreen() {
         {/* Suggested Muhurthams */}
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>Suggested muhurthams</Text>
-          <Text style={styles.sampleBadge}>SAMPLE</Text>
         </View>
         <Text style={styles.sectionDesc}>Calculated for Hyderabad. Your Purohit confirms the final time.</Text>
 

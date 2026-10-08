@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { colors } from '../../constants/colors';
+import { useUser } from '../../context/UserContext';
 
 type FilterType = 'all' | 'bookings' | 'payments';
 
@@ -17,62 +18,32 @@ interface NotificationItem {
   category: 'bookings' | 'payments';
 }
 
-const notificationsData: { title: string; data: NotificationItem[] }[] = [
-  {
-    title: 'Today',
-    data: [
-      {
-        id: '1',
-        type: 'booking',
-        title: 'Booking Confirmed',
-        message: 'Your Satyanarayana Vratham has been successfully booked.',
-        time: '2 minutes ago',
-        isRead: false,
-        navigateTo: '/notifications/details?id=1',
-        category: 'bookings',
-      },
-      {
-        id: '2',
-        type: 'payment',
-        title: 'Payment Successful',
-        message: '₹ 4,600 payment received for Booking PS20261012001.',
-        time: '10 minutes ago',
-        isRead: false,
-        navigateTo: '/notifications/details?id=2',
-        category: 'payments',
-      },
-      {
-        id: '3',
-        type: 'reminder',
-        title: 'Pooja Reminder',
-        message: 'Your Pooja is tomorrow at 08:15 AM.',
-        time: '1 hour ago',
-        isRead: true,
-        navigateTo: '/notifications/details?id=3',
-        category: 'bookings',
-      },
-    ],
-  },
-  {
-    title: 'Yesterday',
-    data: [
-      {
-        id: '4',
-        type: 'update',
-        title: 'Purohit On The Way',
-        message: 'Sri Venkatesh Sharma is on the way to your location.',
-        time: '1 day ago',
-        isRead: true,
-        navigateTo: '/notifications/details?id=4',
-        category: 'bookings',
-      },
-    ],
-  },
-];
-
 export default function NotificationsScreen() {
   const router = useRouter();
+  const { user } = useUser();
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+  const [notificationsData, setNotificationsData] = useState<{ title: string; data: NotificationItem[] }[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  const fetchNotifications = async () => {
+    try {
+      setIsLoading(true);
+      const userId = user?.id || 'd3790ec3-2c1b-410a-86c5-a6e54ef864c2'; // fallback mock userId if not logged in
+      const res = await fetch(`http://192.168.88.6:5000/api/notifications?userId=${userId}`);
+      const data = await res.json();
+      if (data.success) {
+        setNotificationsData(data.data);
+      }
+    } catch (err) {
+      console.error('Error fetching notifications:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const getIconConfig = (type: string) => {
     switch (type) {
@@ -103,13 +74,20 @@ export default function NotificationsScreen() {
       </View>
 
       <View style={styles.filterContainer}>
-        {renderFilterPill('all', 'All (12)')}
-        {renderFilterPill('bookings', 'Bookings (5)')}
-        {renderFilterPill('payments', 'Payments (3)')}
+        {renderFilterPill('all', 'All')}
+        {renderFilterPill('bookings', 'Bookings')}
+        {renderFilterPill('payments', 'Payments')}
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {notificationsData.map((section, idx) => {
+        {isLoading ? (
+          <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 50 }} />
+        ) : notificationsData.length === 0 ? (
+          <View style={{ alignItems: 'center', marginTop: 50 }}>
+            <Ionicons name="notifications-off-outline" size={48} color="#ccc" />
+            <Text style={{ marginTop: 16, color: '#888', fontSize: 16 }}>No notifications found.</Text>
+          </View>
+        ) : notificationsData.map((section, idx) => {
           // Filter section data
           const filteredData = section.data.filter(
             item => activeFilter === 'all' || item.category === activeFilter
