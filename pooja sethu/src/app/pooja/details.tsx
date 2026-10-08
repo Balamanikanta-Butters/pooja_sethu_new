@@ -17,7 +17,7 @@ export default function PoojaDetailsScreen() {
   useEffect(() => {
     if (!params.id) return;
     setLoading(true);
-    fetch(`http://192.168.88.6:5000/api/services/poojas/${params.id}/details?sampradayam=${sampradayam}`)
+    fetch(`http://localhost:5000/api/services/poojas/${params.id}/details?sampradayam=${sampradayam}`)
       .then(res => res.json())
       .then(data => {
         if (data.success) {

@@ -33,7 +33,7 @@ export default function NotificationsScreen() {
     try {
       setIsLoading(true);
       const userId = user?.id || 'd3790ec3-2c1b-410a-86c5-a6e54ef864c2'; // fallback mock userId if not logged in
-      const res = await fetch(`http://192.168.88.6:5000/api/notifications?userId=${userId}`);
+      const res = await fetch(`http://localhost:5000/api/notifications?userId=${userId}`);
       const data = await res.json();
       if (data.success) {
         setNotificationsData(data.data);

@@ -48,7 +48,7 @@ export default function PackageSelectionScreen() {
   });
 
   useEffect(() => {
-    fetch('http://192.168.88.6:5000/api/services/package-options')
+    fetch('http://localhost:5000/api/services/package-options')
       .then(res => res.json())
       .then(data => {
         if (data.success) {

@@ -29,7 +29,7 @@ export default function PurohitDetailsScreen() {
   useEffect(() => {
     if (id) {
       // ALWAYS fetch reviews to ensure we have the most up-to-date data regardless of URL params
-      fetch(`http://192.168.88.6:5000/api/services/purohits/${id}/reviews?t=${new Date().getTime()}`)
+      fetch(`http://localhost:5000/api/services/purohits/${id}/reviews?t=${new Date().getTime()}`)
         .then(res => res.json())
         .then(data => {
           if (data.success && data.data) {

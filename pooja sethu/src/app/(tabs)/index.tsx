@@ -25,7 +25,7 @@ export default function HomeScreen() {
   useEffect(() => {
     const fetchPanchangam = async () => {
       try {
-        const res = await fetch('http://192.168.88.6:5000/api/panchangam');
+        const res = await fetch('http://localhost:5000/api/panchangam');
         const data = await res.json();
         if (data.success && data.panchangam && data.panchangam.length > 0) {
           setPanchangam(data.panchangam[0]);
@@ -37,7 +37,7 @@ export default function HomeScreen() {
     fetchPanchangam();
     const fetchHomeData = async () => {
       try {
-        const res = await fetch('http://192.168.88.6:5000/api/home');
+        const res = await fetch('http://localhost:5000/api/home');
         const data = await res.json();
         if (data.success) {
           setHomeData(data);
@@ -240,16 +240,16 @@ export default function HomeScreen() {
                  pathname: '/pooja/details',
                  params: {
                    id: pooja.id,
-                   title: pooja.name,
-                   subtitle: pooja.name,
+                   title: pooja.name?.en || '',
+                   subtitle: pooja.name?.te || '',
                    price: 'Check Details',
                    desc: pooja.significance?.en || 'Detailed pooja services',
                    duration: 'Varies'
                  }
                })}
              >
-               <Text style={styles.cardMainTitle}>{pooja.name}</Text>
-               <Text style={styles.cardSubTitle}>{pooja.name}</Text>
+               <Text style={styles.cardMainTitle}>{pooja.name?.en || ''}</Text>
+               <Text style={styles.cardSubTitle}>{pooja.name?.te || ''}</Text>
                <Text style={[styles.cardDesc, { marginTop: 16 }]}>{pooja.code}</Text>
              </TouchableOpacity>
           ))}

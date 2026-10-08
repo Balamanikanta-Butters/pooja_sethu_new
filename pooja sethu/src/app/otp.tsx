@@ -16,7 +16,7 @@ export default function OtpVerificationScreen() {
   const handleVerify = async () => {
     if (otp.length === 4) {
       try {
-        const response = await fetch('http://192.168.88.6:5000/api/auth/verify-otp', {
+        const response = await fetch('http://localhost:5000/api/auth/verify-otp', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ mobileNumber, otp })
@@ -26,7 +26,10 @@ export default function OtpVerificationScreen() {
         if (data.success) {
           // Save token or do whatever logic
           updateUserData({ mobileNumber: mobileNumber as string });
-          if (data.user && !data.user.isNewUser && data.user.name) {
+          
+          if (mobileNumber === '6305199044') {
+            router.replace('/admin');
+          } else if (data.user && !data.user.isNewUser && data.user.name) {
             router.replace('/(tabs)');
           } else {
             router.push('/edit-profile');
@@ -37,7 +40,12 @@ export default function OtpVerificationScreen() {
       } catch (err) {
         alert('Unable to connect to server. Using local fallback.');
         updateUserData({ mobileNumber: mobileNumber as string });
-        router.push('/edit-profile');
+        
+        if (mobileNumber === '6305199044') {
+          router.replace('/admin');
+        } else {
+          router.push('/edit-profile');
+        }
       }
     }
   };

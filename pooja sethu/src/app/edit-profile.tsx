@@ -55,7 +55,7 @@ export default function ProfileScreen() {
 
   const handleSave = async () => {
     try {
-      const response = await fetch('http://192.168.88.6:5000/api/auth/profile', {
+      const response = await fetch('http://localhost:5000/api/auth/profile', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'

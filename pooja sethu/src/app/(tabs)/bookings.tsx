@@ -20,7 +20,7 @@ export default function BookingsTabScreen() {
           setLoading(false);
           return;
         }
-        const response = await fetch(`http://192.168.88.6:5000/api/bookings/my-bookings?mobileNumber=${userData.mobileNumber}`);
+        const response = await fetch(`http://localhost:5000/api/bookings/my-bookings?mobileNumber=${userData.mobileNumber}`);
         const data = await response.json();
         if (data.success) {
           setBookings(data.bookings || []);

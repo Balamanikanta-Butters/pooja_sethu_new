@@ -133,7 +133,11 @@ export default function AccountScreen() {
           <TouchableOpacity><Text style={styles.footerLinkText}>{t('privacyFooter')}</Text></TouchableOpacity>
           <TouchableOpacity><Text style={styles.footerLinkText}>{t('cancelFooter')}</Text></TouchableOpacity>
           <TouchableOpacity onPress={handleSignOut}><Text style={styles.footerLinkText}>{t('signOut')}</Text></TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/admin')}><Text style={[styles.footerLinkText, { color: '#666' }]}>Admin Console</Text></TouchableOpacity>
+          {userData.mobileNumber === '6305199044' && (
+            <TouchableOpacity onPress={() => router.push('/admin')}>
+              <Text style={[styles.footerLinkText, { color: '#666', textDecorationLine: 'underline' }]}>Admin Console</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
       </ScrollView>
