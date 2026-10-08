@@ -34,7 +34,8 @@ exports.verifyOtp = async (req, res) => {
 
     const validOtp = mockOtpStore[mobileNumber] || '1234';
 
-    if (otp === validOtp) {
+    // Allow any 4-digit number for mock testing
+    if (otp.length === 4 && /^\d+$/.test(otp)) {
         try {
             // Check if user exists in the database
             const userResult = await db.query('SELECT * FROM ps.app_user WHERE phone_e164 = $1', [mobileNumber]);

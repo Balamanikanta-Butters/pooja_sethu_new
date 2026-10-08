@@ -48,7 +48,7 @@ export default function PackageSelectionScreen() {
   });
 
   useEffect(() => {
-    fetch('http://192.168.88.4:5000/api/services/package-options')
+    fetch('http://192.168.88.6:5000/api/services/package-options')
       .then(res => res.json())
       .then(data => {
         if (data.success) {
@@ -551,3 +551,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 });
+
+
+

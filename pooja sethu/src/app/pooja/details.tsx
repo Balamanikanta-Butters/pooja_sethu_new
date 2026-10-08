@@ -17,7 +17,7 @@ export default function PoojaDetailsScreen() {
   useEffect(() => {
     if (!params.id) return;
     setLoading(true);
-    fetch(`http://192.168.88.4:5000/api/services/poojas/${params.id}/details?sampradayam=${sampradayam}`)
+    fetch(`http://192.168.88.6:5000/api/services/poojas/${params.id}/details?sampradayam=${sampradayam}`)
       .then(res => res.json())
       .then(data => {
         if (data.success) {
@@ -74,7 +74,7 @@ export default function PoojaDetailsScreen() {
             Vidhi and Samagri differ by tradition. We match a Purohit who follows yours.
           </Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillsScroll}>
-            {['Smartha', 'Madhva', 'Sri Vaishnava', 'Vaikhanasa', 'Not sure'].map((s) => (
+            {['Smartha', 'Madhva', 'Sri Vaishnava', 'Vaikhanasa', 'Pancharatra', 'Samanya (General)', 'Not sure', 'Veerashaiva'].map((s) => (
               <TouchableOpacity
                 key={s}
                 style={[styles.pill, sampradayam === s && styles.pillActive]}
@@ -402,3 +402,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 });
+
+
+

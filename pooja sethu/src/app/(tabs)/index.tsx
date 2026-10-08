@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Platform } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { colors } from '../../constants/colors';
@@ -18,6 +18,37 @@ export default function HomeScreen() {
   const today = new Date();
   const dateOptions: Intl.DateTimeFormatOptions = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
   const formattedDate = today.toLocaleDateString('en-US', dateOptions);
+
+  const [panchangam, setPanchangam] = useState<any>(null);
+  const [homeData, setHomeData] = useState<any>({ popularPoojas: [], upcomingMuhurthams: [], festivals: [] });
+
+  useEffect(() => {
+    const fetchPanchangam = async () => {
+      try {
+        const res = await fetch('http://192.168.88.6:5000/api/panchangam');
+        const data = await res.json();
+        if (data.success && data.panchangam && data.panchangam.length > 0) {
+          setPanchangam(data.panchangam[0]);
+        }
+      } catch (e) {
+        console.error('Error fetching panchangam:', e);
+      }
+    };
+    fetchPanchangam();
+    const fetchHomeData = async () => {
+      try {
+        const res = await fetch('http://192.168.88.6:5000/api/home');
+        const data = await res.json();
+        if (data.success) {
+          setHomeData(data);
+        }
+      } catch (e) {
+        console.error('Error fetching home data:', e);
+      }
+    };
+    fetchHomeData();
+  }, []);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
@@ -517,3 +548,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
 });
+
+
+

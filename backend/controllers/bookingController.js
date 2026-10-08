@@ -94,3 +94,20 @@ exports.createBooking = async (req, res) => {
     client.release();
   }
 };
+
+exports.getMyBookings = async (req, res) => {
+  const { mobileNumber } = req.query;
+  if (!mobileNumber) return res.status(400).json({ success: false, message: 'mobileNumber required' });
+  const client = await pool.connect();
+  try {
+    await client.query('SET search_path TO ps, public');
+    const query = "SELECT b.*, pv.pooja_id, p.name->>'en' as pooja_name, a.line1 as address, pur.name as purohit_name, s.name->>'en' as status_name FROM booking b JOIN app_user u ON b.user_id = u.id JOIN pooja_vidhi pv ON b.pooja_vidhi_id = pv.id JOIN pooja p ON pv.pooja_id = p.id LEFT JOIN address a ON b.address_id = a.id LEFT JOIN booking_assignment ba ON b.id = ba.booking_id LEFT JOIN purohit pur ON ba.purohit_id = pur.id LEFT JOIN booking_status_history bsh ON b.id = bsh.booking_id JOIN booking_status_history s ON b.id = s.booking_id WHERE u.phone_e164 = $1";
+    const result = await client.query(query, [mobileNumber]);
+    res.json({ success: true, bookings: result.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
+  }
+};

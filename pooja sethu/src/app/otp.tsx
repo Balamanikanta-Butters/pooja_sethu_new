@@ -16,7 +16,7 @@ export default function OtpVerificationScreen() {
   const handleVerify = async () => {
     if (otp.length === 4) {
       try {
-        const response = await fetch('http://192.168.88.4:5000/api/auth/verify-otp', {
+        const response = await fetch('http://192.168.88.6:5000/api/auth/verify-otp', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ mobileNumber, otp })
@@ -26,9 +26,13 @@ export default function OtpVerificationScreen() {
         if (data.success) {
           // Save token or do whatever logic
           updateUserData({ mobileNumber: mobileNumber as string });
-          router.push('/edit-profile');
+          if (data.user && !data.user.isNewUser && data.user.name) {
+            router.replace('/(tabs)');
+          } else {
+            router.push('/edit-profile');
+          }
         } else {
-          alert('Invalid OTP');
+          alert(data.message || 'Invalid OTP');
         }
       } catch (err) {
         alert('Unable to connect to server. Using local fallback.');
@@ -45,7 +49,7 @@ export default function OtpVerificationScreen() {
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.scrollContainer}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <TouchableOpacity onPress={() => { if (router.canGoBack()) { router.back(); } else { router.replace('/'); } }} style={styles.backButton}>
             <Text style={styles.backButtonText}>{t('back')}</Text>
           </TouchableOpacity>
 
@@ -162,3 +166,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 });
+
+
+

@@ -19,8 +19,8 @@ const translations: Translations = {
     useLocation: '⌖ Use my current location',
     mobileLabel: 'Mobile number',
     mobilePlaceholder: '10-digit number',
-    helpText: 'We send a one-time password. No spam, ever.',
-    sendOtp: 'Send OTP',
+    helpText: 'Log in seamlessly. No spam, ever.',
+    sendOtp: 'Login / Continue',
     exploreFirst: 'Explore first, sign in later',
     terms: 'By continuing you agree to the Terms and Privacy Policy.',
     // Profile
@@ -87,8 +87,8 @@ const translations: Translations = {
     useLocation: '⌖ నా ప్రస్తుత స్థానాన్ని ఉపయోగించండి',
     mobileLabel: 'మొబైల్ నంబర్',
     mobilePlaceholder: '10-అంకెల నంబర్',
-    helpText: 'మేము వన్-టైమ్ పాస్‌వర్డ్ పంపుతాము. ఎటువంటి స్పామ్ ఉండదు.',
-    sendOtp: 'OTP పంపండి',
+    helpText: 'సులభంగా లాగిన్ అవ్వండి. ఎటువంటి స్పామ్ ఉండదు.',
+    sendOtp: 'లాగిన్ / కొనసాగండి',
     exploreFirst: 'ముందుగా అన్వేషించండి, తర్వాత లాగిన్ అవ్వండి',
     terms: 'కొనసాగించడం ద్వారా మీరు నిబంధనలు మరియు గోప్యతా విధానానికి అంగీకరిస్తున్నారు.',
     // Profile

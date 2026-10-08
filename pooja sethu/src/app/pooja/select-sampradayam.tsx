@@ -6,11 +6,12 @@ import { useRouter } from 'expo-router';
 const sampradayams = [
   { id: 'smartha', title: 'Smartha · స్మార్త', desc: 'Advaita tradition of Adi Shankaracharya' },
   { id: 'madhva', title: 'Madhva · మాధ్వ', desc: 'Dvaita tradition of Sri Madhvacharya' },
-  { id: 'vaishnava', title: 'Sri Vaishnava · శ్రీ వైష్ణవ', desc: 'Vishishtadvaita · Thenkalai and Vadakalai' },
+  { id: 'srivaishnava', title: 'Sri Vaishnava · శ్రీ వైష్ణవ', desc: 'Vishishtadvaita of Sri Ramanujacharya' },
   { id: 'vaikhanasa', title: 'Vaikhanasa · వైఖానస', desc: 'Agama tradition, Vaikhanasa Sutra' },
   { id: 'pancharatra', title: 'Pancharatra · పాంచరాత్ర', desc: 'Agama-based Vaishnava worship' },
-  { id: 'other', title: 'Other / Regional · ఇతర', desc: 'Your tradition is not listed' },
-  { id: 'unknown', title: 'Not sure · తెలియదు', desc: 'Show Samanya Poojas any Purohit can perform' },
+  { id: 'samanya', title: 'Samanya (General) · సామాన్య', desc: 'Common to all traditions' },
+  { id: 'unknown', title: 'Not sure · తెలియదు', desc: 'Resolves to Samanya Poojas' },
+  { id: 'veerashaiva', title: 'Veerashaiva · వీరశైవ', desc: 'Draft: Vidhis not yet prepared' },
 ];
 
 export default function SelectSampradayamScreen() {

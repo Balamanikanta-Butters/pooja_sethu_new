@@ -39,24 +39,8 @@ export default function MobileLoginScreen() {
 
   const handleSendOtp = async () => {
     if (mobileNumber.length === 10) {
-      try {
-        // Skip actual send, just mock verify directly
-        const verifyResponse = await fetch('http://192.168.88.4:5000/api/auth/verify-otp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mobileNumber, otp: '1234' })
-        });
-        const verifyData = await verifyResponse.json();
-        
-        if (verifyData.success) {
-          updateUserData({ mobileNumber: mobileNumber });
-          router.push('/edit-profile');
-        } else {
-          Alert.alert('Error', verifyData.message || 'Verification failed. Please try again.');
-        }
-      } catch (err: any) {
-        Alert.alert('Connection Error', err.message || 'Unable to connect to server. Check your network and IP address.');
-      }
+      updateUserData({ mobileNumber: mobileNumber });
+      router.push({ pathname: '/otp', params: { mobileNumber } });
     }
   };
 

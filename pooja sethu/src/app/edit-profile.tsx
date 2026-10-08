@@ -8,11 +8,12 @@ import { useUser } from '../context/UserContext';
 const sampradayamsList = [
   { id: 'smartha', title: 'Smartha · స్మార్త', desc: 'Advaita tradition of Adi Shankaracharya' },
   { id: 'madhva', title: 'Madhva · మాధ్వ', desc: 'Dvaita tradition of Sri Madhvacharya' },
-  { id: 'vaishnava', title: 'Sri Vaishnava · శ్రీ వైష్ణవ', desc: 'Vishishtadvaita - Thenkalai and Vadakalai' },
+  { id: 'srivaishnava', title: 'Sri Vaishnava · శ్రీ వైష్ణవ', desc: 'Vishishtadvaita of Sri Ramanujacharya' },
   { id: 'vaikhanasa', title: 'Vaikhanasa · వైఖానస', desc: 'Agama tradition, Vaikhanasa Sutra' },
   { id: 'pancharatra', title: 'Pancharatra · పాంచరాత్ర', desc: 'Agama-based Vaishnava worship' },
-  { id: 'other', title: 'Other / Regional · ఇతర', desc: 'Your tradition is not listed' },
-  { id: 'unknown', title: 'Not sure · తెలియదు', desc: 'Show Samanya Poojas any Purohit can perform' },
+  { id: 'samanya', title: 'Samanya (General) · సామాన్య', desc: 'Common to all traditions' },
+  { id: 'unknown', title: 'Not sure · తెలియదు', desc: 'Resolves to Samanya Poojas' },
+  { id: 'veerashaiva', title: 'Veerashaiva · వీరశైవ', desc: 'Draft: Vidhis not yet prepared' },
 ];
 
 export default function ProfileScreen() {
@@ -54,7 +55,7 @@ export default function ProfileScreen() {
 
   const handleSave = async () => {
     try {
-      const response = await fetch('http://192.168.88.4:5000/api/auth/profile', {
+      const response = await fetch('http://192.168.88.6:5000/api/auth/profile', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
@@ -72,7 +73,11 @@ export default function ProfileScreen() {
       const data = await response.json();
       if (data.success) {
         if (isEdit) {
-          router.back();
+          if (router.canGoBack()) {
+            router.back();
+          } else {
+            router.replace('/(tabs)/profile');
+          }
         } else {
           router.replace('/(tabs)');
         }
@@ -495,3 +500,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 });
+
+
+
