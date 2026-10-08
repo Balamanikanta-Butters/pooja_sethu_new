@@ -6,10 +6,11 @@ exports.getHomeData = async (req, res) => {
     await client.query('SET search_path TO ps, public');
 
     // Popular poojas
-    const poojaResult = await client.query('SELECT id, code, name, description, tags, slug FROM pooja LIMIT 5');
+    // Removed description, tags, slug since they do not exist in pooja
+    const poojaResult = await client.query('SELECT id, code, name, significance, image_url FROM pooja WHERE status = \'active\' LIMIT 5');
 
     // Upcoming muhurthams
-    const muhurthamResult = await client.query('SELECT date, start_time, end_time, details FROM muhurtham_suggestion WHERE date >= NOW() ORDER BY date ASC LIMIT 5');
+    const muhurthamResult = await client.query('SELECT starts_at, ends_at, lagnam, note, quality FROM muhurtham_suggestion WHERE starts_at >= NOW() ORDER BY starts_at ASC LIMIT 5');
 
     // Festivals
     const festivalsResult = await client.query(`

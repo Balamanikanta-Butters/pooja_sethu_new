@@ -185,96 +185,77 @@ export default function HomeScreen() {
         {/* Upcoming good muhurthams */}
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>{t('upcomingMuhurthams')}</Text>
-          <View style={styles.sampleBadgeInline}>
-            <Text style={styles.sampleBadgeTextInline}>SAMPLE</Text>
-          </View>
         </View>
         
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-          <TouchableOpacity style={styles.horizontalCard} onPress={() => router.push('/pooja/list')}>
-            <View style={styles.muhurthamBadge}>
-              <Text style={styles.muhurthamBadgeText}>Gruhapravesam</Text>
-            </View>
-            <Text style={styles.cardMainTitle}>Thu, 22 Oct</Text>
-            <Text style={styles.cardDesc}>7:10 – 8:52 AM · Vrischika lagnam</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.horizontalCard} onPress={() => router.push('/pooja/list')}>
-            <View style={styles.muhurthamBadge}>
-              <Text style={styles.muhurthamBadgeText}>Vivaham</Text>
-            </View>
-            <Text style={styles.cardMainTitle}>Sun, 25 Oct</Text>
-            <Text style={styles.cardDesc}>Night 10:32 PM · Simha lagnam</Text>
-          </TouchableOpacity>
+          {homeData.upcomingMuhurthams && homeData.upcomingMuhurthams.map((muhurtham: any, idx: number) => {
+             const start = new Date(muhurtham.starts_at);
+             const end = new Date(muhurtham.ends_at);
+             const dateStr = start.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' });
+             const timeStr = `${start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} - ${end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+
+             return (
+               <TouchableOpacity key={idx} style={styles.horizontalCard} onPress={() => router.push('/pooja/list')}>
+                 <View style={styles.muhurthamBadge}>
+                   <Text style={styles.muhurthamBadgeText}>{muhurtham.quality || 'Good'}</Text>
+                 </View>
+                 <Text style={styles.cardMainTitle}>{dateStr}</Text>
+                 <Text style={styles.cardDesc}>{timeStr} · {muhurtham.lagnam} lagnam</Text>
+               </TouchableOpacity>
+             );
+          })}
+          {(!homeData.upcomingMuhurthams || homeData.upcomingMuhurthams.length === 0) && (
+            <Text style={{ color: '#888', marginTop: 10, paddingLeft: 10 }}>No upcoming muhurthams found.</Text>
+          )}
         </ScrollView>
 
         {/* Festivals ahead */}
         <Text style={[styles.sectionTitle, { marginTop: 24 }]}>{t('festivalsAhead')}</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-          <TouchableOpacity style={[styles.horizontalCard, { height: 100 }]} onPress={() => router.push('/pooja/list')}>
-            <Text style={styles.cardMainTitle}>Devi Navaratri</Text>
-            <Text style={[styles.cardDesc, { marginTop: 8 }]}>Begins Sun, 11 Oct</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.horizontalCard, { height: 100 }]} onPress={() => router.push('/pooja/list')}>
-            <Text style={styles.cardMainTitle}>Vijaya Dashami</Text>
-            <Text style={[styles.cardDesc, { marginTop: 8 }]}>Tue, 20 Oct</Text>
-          </TouchableOpacity>
+          {homeData.festivals && homeData.festivals.map((festival: any, idx: number) => {
+             const date = new Date(festival.day);
+             const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' });
+             const significanceEn = festival.significance?.en || 'Festival';
+
+             return (
+               <TouchableOpacity key={idx} style={[styles.horizontalCard, { height: 100 }]} onPress={() => router.push('/pooja/list')}>
+                 <Text style={styles.cardMainTitle}>{significanceEn}</Text>
+                 <Text style={[styles.cardDesc, { marginTop: 8 }]}>{dateStr}</Text>
+               </TouchableOpacity>
+             );
+          })}
+          {(!homeData.festivals || homeData.festivals.length === 0) && (
+            <Text style={{ color: '#888', marginTop: 10, paddingLeft: 10 }}>No festivals coming up soon.</Text>
+          )}
         </ScrollView>
 
         {/* Popular Poojas */}
         <Text style={[styles.sectionTitle, { marginTop: 24 }]}>{t('popularPoojas')}</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.horizontalScroll, { marginBottom: 40 }]}>
-          <TouchableOpacity 
-            style={styles.horizontalCard} 
-            onPress={() => router.push({
-              pathname: '/pooja/details',
-              params: {
-                title: 'Gruhapravesam',
-                subtitle: 'గృహప్రవేశం',
-                price: 'Dakshina From ₹4,300',
-                desc: 'House-warming with Ganapathi Pooja, Vastu Pooja and milk boiling before the family moves in.',
-                duration: '3 hrs'
-              }
-            })}
-          >
-            <Text style={styles.cardMainTitle}>Gruhapravesam</Text>
-            <Text style={styles.cardSubTitle}>గృహప్రవేశం</Text>
-            <Text style={[styles.cardDesc, { marginTop: 16 }]}>From ₹4,300</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.horizontalCard} 
-            onPress={() => router.push({
-              pathname: '/pooja/details',
-              params: {
-                title: 'Satyanarayana Vratham',
-                subtitle: 'సత్యనారాయణ వ్రతం',
-                price: 'Dakshina From ₹2,600',
-                desc: 'A powerful vratham dedicated to Lord Vishnu for peace, prosperity and resolving obstacles.',
-                duration: '2.5 hrs'
-              }
-            })}
-          >
-            <Text style={styles.cardMainTitle}>Satyanarayana Vratham</Text>
-            <Text style={styles.cardSubTitle}>సత్యనారాయణ వ్రతం</Text>
-            <Text style={[styles.cardDesc, { marginTop: 16 }]}>From ₹2,600</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.horizontalCard} 
-            onPress={() => router.push({
-              pathname: '/pooja/details',
-              params: {
-                title: 'Ganapathi Homam',
-                subtitle: 'గణపతి హోమం',
-                price: 'Dakshina From ₹3,800',
-                desc: 'Invoking Lord Ganesha to remove obstacles and bless new beginnings.',
-                duration: '2 hrs'
-              }
-            })}
-          >
-            <Text style={styles.cardMainTitle}>Ganapathi Homam</Text>
-            <Text style={styles.cardSubTitle}>గణపతి హోమం</Text>
-            <Text style={[styles.cardDesc, { marginTop: 16 }]}>From ₹3,800</Text>
-          </TouchableOpacity>
+          {homeData.popularPoojas && homeData.popularPoojas.map((pooja: any) => (
+             <TouchableOpacity 
+               key={pooja.id}
+               style={styles.horizontalCard} 
+               onPress={() => router.push({
+                 pathname: '/pooja/details',
+                 params: {
+                   id: pooja.id,
+                   title: pooja.name,
+                   subtitle: pooja.name,
+                   price: 'Check Details',
+                   desc: pooja.significance?.en || 'Detailed pooja services',
+                   duration: 'Varies'
+                 }
+               })}
+             >
+               <Text style={styles.cardMainTitle}>{pooja.name}</Text>
+               <Text style={styles.cardSubTitle}>{pooja.name}</Text>
+               <Text style={[styles.cardDesc, { marginTop: 16 }]}>{pooja.code}</Text>
+             </TouchableOpacity>
+          ))}
+          {(!homeData.popularPoojas || homeData.popularPoojas.length === 0) && (
+            <Text style={{ color: '#888', marginTop: 10, paddingLeft: 10 }}>No poojas available right now.</Text>
+          )}
         </ScrollView>
       </ScrollView>
     </SafeAreaView>
