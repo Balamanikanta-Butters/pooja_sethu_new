@@ -3,10 +3,12 @@ import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Pla
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useUser } from '../../context/UserContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function ReviewScreen() {
   const router = useRouter();
   const { addReview } = useUser();
+  const { t } = useLanguage();
   const [rating, setRating] = useState(0);
   const [selectedPills, setSelectedPills] = useState<string[]>([]);
   const [reviewText, setReviewText] = useState('');
@@ -19,7 +21,7 @@ export default function ReviewScreen() {
     }
   };
 
-  const pills = ['On time', 'Authentic Vidhi', 'Explained clearly', 'Samagri complete', 'Bhojanam tasty'];
+  const pills = [t('pillOnTime'), t('pillAuthentic'), t('pillExplained'), t('pillSamagri'), t('pillBhojanam')];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -27,7 +29,7 @@ export default function ReviewScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="chevron-back" size={24} color="#333333" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>How was the ceremony?</Text>
+        <Text style={styles.headerTitle}>{t('howWasCeremony')}</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -38,7 +40,7 @@ export default function ReviewScreen() {
             <Text style={styles.avatarText}>VS</Text>
           </View>
           <Text style={styles.ceremonyText}>
-            <Text style={{ fontWeight: 'bold' }}>Gruhapravesam</Text> with Brahmasri V. Subrahmanya Sastry
+            <Text style={{ fontWeight: 'bold' }}>Gruhapravesam</Text> {t('withPurohit')} Brahmasri V. Subrahmanya Sastry
           </Text>
 
           <View style={styles.starsRow}>
@@ -53,10 +55,10 @@ export default function ReviewScreen() {
               </TouchableOpacity>
             ))}
           </View>
-          <Text style={styles.rateHintText}>Tap a star to rate</Text>
+          <Text style={styles.rateHintText}>{t('tapStarToRate')}</Text>
         </View>
 
-        <Text style={styles.sectionLabel}>WHAT STOOD OUT?</Text>
+        <Text style={styles.sectionLabel}>{t('whatStoodOut')}</Text>
         
         <View style={styles.pillsContainer}>
           {pills.map((pill) => {
@@ -73,10 +75,10 @@ export default function ReviewScreen() {
           })}
         </View>
 
-        <Text style={[styles.sectionLabel, { marginTop: 8, marginBottom: 8 }]}>Your review (optional)</Text>
+        <Text style={[styles.sectionLabel, { marginTop: 8, marginBottom: 8 }]}>{t('yourReview')}</Text>
         <TextInput 
           style={styles.textArea}
-          placeholder="Share what other families should know"
+          placeholder={t('reviewPlaceholder')}
           placeholderTextColor="#888888"
           multiline
           numberOfLines={4}
@@ -86,11 +88,11 @@ export default function ReviewScreen() {
         />
 
         <TouchableOpacity style={styles.addPhotosButton}>
-          <Text style={styles.addPhotosText}>Add photos</Text>
+          <Text style={styles.addPhotosText}>{t('addPhotos')}</Text>
         </TouchableOpacity>
 
         <View style={styles.nextRitualCard}>
-          <Text style={styles.nextRitualText}>Plan the next ritual</Text>
+          <Text style={styles.nextRitualText}>{t('planNextRitual')}</Text>
         </View>
 
         <View style={{ height: 40 }} />
@@ -110,9 +112,9 @@ export default function ReviewScreen() {
           });
           router.replace('/bookings');
         }}>
-          <Text style={styles.submitButtonText}>Submit review</Text>
+          <Text style={styles.submitButtonText}>{t('submitReview')}</Text>
         </TouchableOpacity>
-        <Text style={styles.footerNote}>Payment to the Purohit is released once you confirm.</Text>
+        <Text style={styles.footerNote}>{t('paymentReleasedNote')}</Text>
       </View>
     </SafeAreaView>
   );

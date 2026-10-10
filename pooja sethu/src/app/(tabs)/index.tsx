@@ -25,7 +25,7 @@ export default function HomeScreen() {
   useEffect(() => {
     const fetchPanchangam = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/panchangam');
+        const res = await fetch('http://192.168.88.20:5000/api/panchangam');
         const data = await res.json();
         if (data.success && data.panchangam && data.panchangam.length > 0) {
           setPanchangam(data.panchangam[0]);
@@ -37,7 +37,7 @@ export default function HomeScreen() {
     fetchPanchangam();
     const fetchHomeData = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/home');
+        const res = await fetch('http://192.168.88.20:5000/api/home');
         const data = await res.json();
         if (data.success) {
           setHomeData(data);
@@ -91,19 +91,19 @@ export default function HomeScreen() {
           <View style={styles.bannerGrid}>
             <View style={styles.gridItem}>
               <Text style={styles.gridLabel}>{t('tithi')}</Text>
-              <Text style={styles.gridValue}>Bahula Saptami</Text>
+              <Text style={styles.gridValue}>{homeData?.todaysPanchangam?.tithi || 'Bahula Saptami'}</Text>
             </View>
             <View style={styles.gridItem}>
               <Text style={styles.gridLabel}>{t('nakshatram')}</Text>
-              <Text style={styles.gridValue}>Mrigasira</Text>
+              <Text style={styles.gridValue}>{homeData?.todaysPanchangam?.nakshatram || 'Mrigasira'}</Text>
             </View>
             <View style={styles.gridItem}>
               <Text style={styles.gridLabel}>{t('masamSamvatsaram')}</Text>
-              <Text style={styles.gridValue}>Bhadrapada - Parabhava</Text>
+              <Text style={styles.gridValue}>{homeData?.todaysPanchangam ? `${homeData.todaysPanchangam.masam} - ${homeData.todaysPanchangam.samvatsaram}` : 'Bhadrapada - Parabhava'}</Text>
             </View>
             <View style={styles.gridItem}>
               <Text style={styles.gridLabel}>{t('sunriseSunset')}</Text>
-              <Text style={styles.gridValue}>6:05 AM - 5:58 PM</Text>
+              <Text style={styles.gridValue}>{homeData?.todaysPanchangam ? `${homeData.todaysPanchangam.sunrise?.substring(0,5)} AM - ${homeData.todaysPanchangam.sunset?.substring(0,5)} PM` : '6:05 AM - 5:58 PM'}</Text>
             </View>
           </View>
 

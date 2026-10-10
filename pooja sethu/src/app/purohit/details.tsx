@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Platform, Image } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function PurohitDetailsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { t } = useLanguage();
   const [dbReviews, setDbReviews] = useState([]);
   const [loadingReviews, setLoadingReviews] = useState(true);
   
@@ -29,7 +31,7 @@ export default function PurohitDetailsScreen() {
   useEffect(() => {
     if (id) {
       // ALWAYS fetch reviews to ensure we have the most up-to-date data regardless of URL params
-      fetch(`http://localhost:5000/api/services/purohits/${id}/reviews?t=${new Date().getTime()}`)
+      fetch(`http://192.168.88.20:5000/api/services/purohits/${id}/reviews?t=${new Date().getTime()}`)
         .then(res => res.json())
         .then(data => {
           if (data.success && data.data) {
@@ -63,7 +65,7 @@ export default function PurohitDetailsScreen() {
         <TouchableOpacity onPress={() => { if(router.canGoBack()) { router.back(); } else { router.push('/purohit/list'); } }} style={styles.backButton}>
           <Ionicons name="chevron-back" size={24} color="#333333" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Profile</Text>
+        <Text style={styles.headerTitle}>{t('profileLink')}</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -78,20 +80,20 @@ export default function PurohitDetailsScreen() {
           
           <View style={styles.verifiedBadge}>
             <Ionicons name="shield-checkmark" size={14} color="#137333" />
-            <Text style={styles.verifiedText}>Verified Purohit</Text>
+            <Text style={styles.verifiedText}>{t('verifiedPurohit')}</Text>
           </View>
           
           <View style={styles.quickStatsRow}>
             <View style={styles.statItem}>
               <Ionicons name="star" size={20} color="#FDB528" />
               <Text style={styles.statValue}>{calculatedRating}</Text>
-              <Text style={styles.statLabel}>{reviewsCount} reviews</Text>
+              <Text style={styles.statLabel}>{reviewsCount} {t('reviewsLabel')}</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <Ionicons name="briefcase" size={20} color="#666666" />
               <Text style={styles.statValue}>{experience}</Text>
-              <Text style={styles.statLabel}>Experience</Text>
+              <Text style={styles.statLabel}>{t('experience')}</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
@@ -104,7 +106,7 @@ export default function PurohitDetailsScreen() {
 
         {/* About */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>About</Text>
+          <Text style={styles.sectionTitle}>{t('about')}</Text>
           <Text style={styles.aboutText}>
             {desc}
           </Text>
@@ -114,10 +116,10 @@ export default function PurohitDetailsScreen() {
 
         {/* Expertise */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Sampradayams & Expertise</Text>
+          <Text style={styles.sectionTitle}>{t('sampradayamsExpertise')}</Text>
           <View style={styles.tagsContainer}>
             {sampradayam.split(',').map((s, i) => (
-              <View key={i} style={styles.tag}><Text style={styles.tagText}>{s.trim()} Tradition</Text></View>
+              <View key={i} style={styles.tag}><Text style={styles.tagText}>{s.trim()} {t('tradition')}</Text></View>
             ))}
             {gurukulam !== 'N/A' && (
               <View style={styles.tag}><Text style={styles.tagText}>{gurukulam}</Text></View>
@@ -130,16 +132,16 @@ export default function PurohitDetailsScreen() {
         {/* Reviews */}
         <View style={styles.section}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Reviews</Text>
-            <Text style={styles.seeAllText}>{reviewsCount !== '0' ? `See all ${reviewsCount}` : 'No reviews yet'}</Text>
+            <Text style={styles.sectionTitle}>{t('reviewsHeading')}</Text>
+            <Text style={styles.seeAllText}>{reviewsCount !== '0' ? `${t('seeAllReviews')} ${reviewsCount}` : t('noReviewsYet')}</Text>
           </View>
           
           {reviewsCount === '0' ? (
-            <Text style={styles.reviewText}>This Purohit has no reviews yet.</Text>
+            <Text style={styles.reviewText}>{t('noReviewsYetDesc')}</Text>
           ) : loadingReviews ? (
-            <Text style={styles.reviewText}>Loading reviews...</Text>
+            <Text style={styles.reviewText}>{t('loadingReviews')}</Text>
           ) : dbReviews.length === 0 ? (
-            <Text style={styles.reviewText}>No verified reviews found.</Text>
+            <Text style={styles.reviewText}>{t('noVerifiedReviews')}</Text>
           ) : (
             dbReviews.map(review => (
               <View key={review.id} style={styles.reviewCard}>
@@ -183,7 +185,7 @@ export default function PurohitDetailsScreen() {
             rawDakshina: params.raw_dakshina
           }
         })}>
-          <Text style={styles.selectButtonText}>Select Purohit</Text>
+          <Text style={styles.selectButtonText}>{t('selectPurohit')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

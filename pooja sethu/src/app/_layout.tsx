@@ -9,7 +9,6 @@ export default function Layout() {
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
           <Stack.Screen name="otp" />
-          <Stack.Screen name="profile" />
           <Stack.Screen name="(tabs)" />
         </Stack>
       </UserProvider>

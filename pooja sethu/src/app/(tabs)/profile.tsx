@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Platform } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Platform, Modal, ActivityIndicator } from 'react-native';
 import { colors } from '../../constants/colors';
 import { useUser } from '../../context/UserContext';
 import { useRouter } from 'expo-router';
@@ -11,10 +11,33 @@ export default function AccountScreen() {
   const { t, language, setLanguage } = useLanguage();
 
   useEffect(() => {
-    if (!userData.name) {
+    // Only redirect if logged in (mobileNumber exists) but name is missing
+    if (userData.mobileNumber && !userData.name) {
       router.replace('/edit-profile');
     }
-  }, [userData.name, router]);
+  }, [userData.name, userData.mobileNumber, router]);
+
+  // Content modal state
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalContent, setModalContent] = useState('');
+  const [modalLoading, setModalLoading] = useState(false);
+
+  const fetchContent = async (type: 'terms' | 'privacy' | 'cancellation', title: string) => {
+    setModalTitle(title);
+    setModalContent('');
+    setModalLoading(true);
+    setModalVisible(true);
+    try {
+      const res = await fetch(`http://192.168.88.20:5000/api/content/${type}`);
+      const data = await res.json();
+      setModalContent(data.content || 'Content not available.');
+    } catch {
+      setModalContent('Could not load content. Please check your connection.');
+    } finally {
+      setModalLoading(false);
+    }
+  };
 
   const displayName = userData.name || '';
   
@@ -129,10 +152,18 @@ export default function AccountScreen() {
 
         {/* Footer Links */}
         <View style={styles.footerLinks}>
-          <TouchableOpacity><Text style={styles.footerLinkText}>{t('termsFooter')}</Text></TouchableOpacity>
-          <TouchableOpacity><Text style={styles.footerLinkText}>{t('privacyFooter')}</Text></TouchableOpacity>
-          <TouchableOpacity><Text style={styles.footerLinkText}>{t('cancelFooter')}</Text></TouchableOpacity>
-          <TouchableOpacity onPress={handleSignOut}><Text style={styles.footerLinkText}>{t('signOut')}</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => fetchContent('terms', 'Terms & Conditions')}>
+            <Text style={styles.footerLinkText}>{t('termsFooter')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => fetchContent('privacy', 'Privacy Policy')}>
+            <Text style={styles.footerLinkText}>{t('privacyFooter')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => fetchContent('cancellation', 'Cancellation Policy')}>
+            <Text style={styles.footerLinkText}>{t('cancelFooter')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleSignOut}>
+            <Text style={styles.footerLinkText}>{t('signOut')}</Text>
+          </TouchableOpacity>
           {userData.mobileNumber === '6305199044' && (
             <TouchableOpacity onPress={() => router.push('/admin')}>
               <Text style={[styles.footerLinkText, { color: '#666', textDecorationLine: 'underline' }]}>Admin Console</Text>
@@ -141,6 +172,33 @@ export default function AccountScreen() {
         </View>
 
       </ScrollView>
+
+      {/* Content Modal for Terms / Privacy / Cancellation */}
+      <Modal
+        visible={modalVisible}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.modalCloseBtn}>
+              <Text style={styles.modalCloseIcon}>✕</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>{modalTitle}</Text>
+            <View style={{ width: 32 }} />
+          </View>
+          {modalLoading ? (
+            <View style={styles.modalLoading}>
+              <ActivityIndicator size="large" color="#7C1B2C" />
+            </View>
+          ) : (
+            <ScrollView contentContainerStyle={styles.modalScroll}>
+              <Text style={styles.modalText}>{modalContent}</Text>
+            </ScrollView>
+          )}
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -292,6 +350,50 @@ const styles = StyleSheet.create({
     color: '#7C1B2C',
     fontWeight: '500',
     marginRight: 16,
+    marginBottom: 8,
     textDecorationLine: 'underline',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#FDFBF7',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2D9C8',
+    backgroundColor: '#FFFFFF',
+  },
+  modalCloseBtn: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCloseIcon: {
+    fontSize: 18,
+    color: '#555555',
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    color: '#1A365D',
+  },
+  modalLoading: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalScroll: {
+    padding: 20,
+    paddingBottom: 40,
+  },
+  modalText: {
+    fontSize: 14,
+    color: '#444444',
+    lineHeight: 22,
   },
 });

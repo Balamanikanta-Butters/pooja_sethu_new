@@ -1,20 +1,24 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, TextInput, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { colors } from '../../constants/colors';
+import { useLanguage } from '../../context/LanguageContext';
 
 const filters = ['All', 'Gruha', 'Samskaras', 'Vratams', 'Homams', 'Festivals'];
 
 export default function PoojaListScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const { t } = useLanguage();
+  const passedSampradayam = params.sampradayam as string;
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState('All');
   const [poojas, setPoojas] = useState([]);
   const [loading, setLoading] = useState(true);
 
   React.useEffect(() => {
-    fetch('http://localhost:5000/api/services/poojas')
+    fetch('http://192.168.88.20:5000/api/services/poojas')
       .then(res => res.json())
       .then(data => {
         if (data.success) {
@@ -42,8 +46,8 @@ export default function PoojaListScreen() {
           <Ionicons name="chevron-back" size={24} color="#333333" />
         </TouchableOpacity>
         <View style={styles.headerTextContainer}>
-          <Text style={styles.headerTitle}>Choose a Pooja</Text>
-          <Text style={styles.headerSubtitle}>Samanyanusaram · all Poojas</Text>
+          <Text style={styles.headerTitle}>{t('chooseAPooja')}</Text>
+          <Text style={styles.headerSubtitle}>{t('allPoojas')}</Text>
         </View>
       </View>
 
@@ -53,7 +57,7 @@ export default function PoojaListScreen() {
           <Ionicons name="search" size={20} color="#666666" style={styles.searchIcon} />
           <TextInput 
             style={styles.searchInput}
-            placeholder="Search Gruhapravesam, Homam..."
+            placeholder={t('searchPooja')}
             placeholderTextColor="#888888"
             value={search}
             onChangeText={setSearch}
@@ -78,7 +82,7 @@ export default function PoojaListScreen() {
 
       {/* List */}
       <ScrollView style={styles.listContainer} showsVerticalScrollIndicator={false}>
-        <Text style={styles.resultsCount}>{filteredPoojas.length} Poojas in All</Text>
+        <Text style={styles.resultsCount}>{t('poojasInAll', { count: filteredPoojas.length.toString() })}</Text>
         
         {filteredPoojas.map(pooja => (
           <TouchableOpacity 
@@ -92,7 +96,8 @@ export default function PoojaListScreen() {
                 subtitle: pooja.subtitle,
                 desc: pooja.desc,
                 duration: pooja.duration,
-                price: `Dakshina ${pooja.price}`
+                price: `${t('dakshina')} ${pooja.price}`,
+                sampradayam: passedSampradayam
               }
             })}
           >
@@ -110,7 +115,7 @@ export default function PoojaListScreen() {
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>{pooja.sampradayam}</Text>
               </View>
-              <Text style={styles.priceText}>Dakshina {pooja.price}</Text>
+              <Text style={styles.priceText}>{t('dakshina')} {pooja.price}</Text>
             </View>
           </TouchableOpacity>
         ))}

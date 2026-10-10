@@ -23,7 +23,9 @@ exports.createBooking = async (req, res) => {
       tax_amount,
       discount_amount,
       total_payable,
-      diet_preference
+      diet_preference,
+      booked_for_name,
+      booked_for_phone
     } = req.body;
 
     // Hardcode user and address for now since auth is mocked
@@ -58,11 +60,13 @@ exports.createBooking = async (req, res) => {
         booking_no, user_id, pooja_vidhi_id, vidhi_version_id, sampradayam_id,
         starts_at, ends_at, venue_type, address_id, zone_id, guests, mode, status,
         dakshina_amount, samagri_amount, food_amount, addon_amount, platform_fee,
-        tax_amount, discount_amount, total_payable, diet_preference
+        tax_amount, discount_amount, total_payable, diet_preference,
+        booked_for_name, booked_for_phone
       ) VALUES (
         'BK-' || extract(epoch from now())::int, $1, $2, $3, $4,
         $5, $6, $7, $8, $9, $10, $11, 'draft',
-        $12, $13, $14, $15, $16, $17, $18, $19, $20
+        $12, $13, $14, $15, $16, $17, $18, $19, $20,
+        $21, $22
       ) RETURNING id, booking_no
     `;
 
@@ -70,7 +74,8 @@ exports.createBooking = async (req, res) => {
       userId, pooja_vidhi_id, current_version_id, sampradayam_id,
       starts_at, ends_at, venue_type, addressId, zoneId, guests, mode,
       dakshina_amount, samagri_amount, food_amount, addon_amount, platform_fee,
-      tax_amount, discount_amount, total_payable, diet_preference || 'none'
+      tax_amount, discount_amount, total_payable, diet_preference || 'none',
+      booked_for_name || null, booked_for_phone || null
     ]);
 
     const bookingId = bookingResult.rows[0].id;

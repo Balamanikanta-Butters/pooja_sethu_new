@@ -1,51 +1,71 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { colors } from '../constants/colors';
 import { useLanguage } from '../context/LanguageContext';
 import { useUser } from '../context/UserContext';
+import FieldError from '../components/FieldError';
+import { validateOtp, apiFetch } from '../utils/validation';
 
 export default function OtpVerificationScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const mobileNumber = params.mobileNumber || '';
   const [otp, setOtp] = useState('');
+  const [otpError, setOtpError] = useState('');
+  const [otpTouched, setOtpTouched] = useState(false);
   const { t } = useLanguage();
   const { updateUserData } = useUser();
 
   const handleVerify = async () => {
-    if (otp.length === 4) {
-      try {
-        const response = await fetch('http://localhost:5000/api/auth/verify-otp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mobileNumber, otp })
-        });
-        const data = await response.json();
-        
-        if (data.success) {
-          // Save token or do whatever logic
-          updateUserData({ mobileNumber: mobileNumber as string });
-          
-          if (mobileNumber === '6305199044') {
-            router.replace('/admin');
-          } else if (data.user && !data.user.isNewUser && data.user.name) {
-            router.replace('/(tabs)');
-          } else {
-            router.push('/edit-profile');
-          }
+    setOtpTouched(true);
+    const result = validateOtp(otp);
+    setOtpError(result.message);
+    if (!result.valid) return;
+    try {
+      const data = await apiFetch('http://192.168.88.20:5000/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mobileNumber, otp })
+      });
+      
+      if (data.success) {
+        if (data.user) {
+          updateUserData({ 
+            mobileNumber: mobileNumber as string,
+            name: data.user.name || '',
+            email: data.user.email || '',
+            sampradayam: data.user.sampradayam || '',
+            gotra: data.user.gotra || '',
+            address: data.user.address || '',
+            addressLine2: data.user.addressLine2 || '',
+            landmark: data.user.landmark || '',
+            addressLabel: data.user.addressLabel || 'Home',
+            pincode: data.user.pincode || '',
+            familyMembers: data.user.familyMembers || []
+          });
         } else {
-          alert(data.message || 'Invalid OTP');
+          updateUserData({ mobileNumber: mobileNumber as string });
         }
-      } catch (err) {
-        alert('Unable to connect to server. Using local fallback.');
-        updateUserData({ mobileNumber: mobileNumber as string });
-        
         if (mobileNumber === '6305199044') {
           router.replace('/admin');
+        } else if (data.user && !data.user.isNewUser && data.user.name) {
+          router.replace('/(tabs)');
         } else {
           router.push('/edit-profile');
         }
+      } else {
+        setOtpError(data.message || 'Incorrect OTP. Please try again.');
+      }
+    } catch (err: any) {
+      // Friendly network/server error
+      Alert.alert('Connection Issue', err.message || 'Unable to verify OTP. Please try again.');
+      // Fallback for dev/demo
+      updateUserData({ mobileNumber: mobileNumber as string });
+      if (mobileNumber === '6305199044') {
+        router.replace('/admin');
+      } else {
+        router.push('/edit-profile');
       }
     }
   };
@@ -68,7 +88,10 @@ export default function OtpVerificationScreen() {
 
           <View style={styles.inputContainer}>
             <TextInput
-              style={styles.otpInput}
+              style={[
+                styles.otpInput,
+                otpTouched && otpError ? styles.inputError : null
+              ]}
               placeholder="0000"
               keyboardType="number-pad"
               maxLength={4}
@@ -76,10 +99,16 @@ export default function OtpVerificationScreen() {
               onChangeText={(text) => {
                 const numericValue = text.replace(/[^0-9]/g, '');
                 setOtp(numericValue);
+                if (otpTouched) setOtpError(validateOtp(numericValue).message);
+              }}
+              onBlur={() => {
+                setOtpTouched(true);
+                setOtpError(validateOtp(otp).message);
               }}
               textAlign="center"
             />
           </View>
+          <FieldError message={otpTouched ? otpError : ''} />
 
           <TouchableOpacity 
             style={[
@@ -87,7 +116,6 @@ export default function OtpVerificationScreen() {
               otp.length !== 4 && styles.verifyButtonDisabled
             ]}
             onPress={handleVerify}
-            disabled={otp.length !== 4}
           >
             <Text style={[
               styles.verifyButtonText,
@@ -146,6 +174,10 @@ const styles = StyleSheet.create({
     fontSize: 32,
     letterSpacing: 16,
     width: '100%',
+  },
+  inputError: {
+    borderColor: '#C0392B',
+    backgroundColor: '#FFF5F5',
   },
   verifyButton: {
     backgroundColor: colors.primary,

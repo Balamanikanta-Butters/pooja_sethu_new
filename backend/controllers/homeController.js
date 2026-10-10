@@ -23,11 +23,20 @@ exports.getHomeData = async (req, res) => {
         LIMIT 5
     `);
 
+    // Today's Panchangam
+    const panchangamResult = await client.query(`
+        SELECT *
+        FROM panchangam_day
+        WHERE day = CURRENT_DATE
+        LIMIT 1
+    `);
+
     res.json({
       success: true,
       popularPoojas: poojaResult.rows,
       upcomingMuhurthams: muhurthamResult.rows,
       festivals: festivalsResult.rows,
+      todaysPanchangam: panchangamResult.rows[0] || null,
     });
   } catch (err) {
     console.error('Error fetching home data:', err);

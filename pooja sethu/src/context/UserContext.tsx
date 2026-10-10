@@ -23,15 +23,23 @@ export type FamilyMember = {
   id: string;
   name: string;
   relation: string;
+  gotram?: string;
+  janma_nakshatram?: string;
+  date_of_birth?: string;
+  is_deceased?: boolean;
 };
 
 type UserData = {
   mobileNumber: string;
+  email?: string;
   name: string;
   familyMembers: FamilyMember[];
   sampradayam: string;
   gotra: string;
   address: string;
+  addressLine2?: string;
+  landmark?: string;
+  addressLabel?: string;
   pincode: string;
   familyDates: FamilyDateItem[];
   reviews: ReviewItem[];
@@ -46,32 +54,17 @@ type UserContextType = {
 
 const defaultUserData: UserData = {
   mobileNumber: '',
+  email: '',
   name: '',
   familyMembers: [],
   sampradayam: '',
   gotra: '',
   address: '',
+  addressLine2: '',
+  landmark: '',
+  addressLabel: 'Home',
   pincode: '',
-  familyDates: [
-    {
-      id: '1',
-      title: "Amma's Janma Nakshatram",
-      subtitle: 'Rohini · next on Sat, 17 Oct',
-      type: 'Birthday'
-    },
-    {
-      id: '2',
-      title: "Nanna garu's Abdikam",
-      subtitle: 'Tithi-based · Ashwayuja Bahula Dashami',
-      type: 'Pitru'
-    },
-    {
-      id: '3',
-      title: 'Wedding anniversary',
-      subtitle: 'Sun, 6 Dec',
-      type: 'Family'
-    }
-  ],
+  familyDates: [],
   reviews: [],
 };
 

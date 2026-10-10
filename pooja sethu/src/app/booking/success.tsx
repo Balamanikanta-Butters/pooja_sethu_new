@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function BookingSuccessScreen() {
   const router = useRouter();
   const { useLocalSearchParams } = require('expo-router');
   const params = useLocalSearchParams();
+  const { t } = useLanguage();
 
   return (
     <SafeAreaView style={styles.container}>
@@ -14,7 +16,7 @@ export default function BookingSuccessScreen() {
         <TouchableOpacity onPress={() => router.replace('/')} style={styles.closeButton}>
           <Ionicons name="close" size={24} color="#333333" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Booking {params.booking_no || 'PS-26-10482'}</Text>
+        <Text style={styles.headerTitle}>{t('bookingTitle')} {params.booking_no || 'PS-26-10482'}</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -24,12 +26,12 @@ export default function BookingSuccessScreen() {
           <View style={styles.iconCircle}>
             <Ionicons name="checkmark" size={32} color="#137333" />
           </View>
-          <Text style={styles.title}>Booking confirmed</Text>
-          <Text style={styles.subtitle}>{params.title || 'Pooja Title'} · {params.selectedMuhurtham || `${params.customDate || ''} ${params.customTime || ''}`.trim() || 'Date & Time not selected'}</Text>
+          <Text style={styles.title}>{t('bookingConfirmed')}</Text>
+          <Text style={styles.subtitle}>{params.title || 'Pooja Title'} · {params.selectedMuhurtham || `${params.customDate || ''} ${params.customTime || ''}`.trim() || t('dateTimeNotSelected')}</Text>
         </View>
 
         <View style={styles.timelineCard}>
-          <Text style={styles.timelineTitle}>What happens next</Text>
+          <Text style={styles.timelineTitle}>{t('whatHappensNext')}</Text>
 
           {/* Step 1: Confirmed */}
           <View style={styles.timelineStep}>
@@ -40,8 +42,8 @@ export default function BookingSuccessScreen() {
               <View style={[styles.stepLine, { backgroundColor: '#E8E1D5' }]} />
             </View>
             <View style={styles.stepContent}>
-              <Text style={styles.stepTitle}>Confirmed with {params.purohitName || 'Brahmasri V. Subrahmanya Sastry'}</Text>
-              <Text style={styles.stepDesc}>Today · confirmation sent on WhatsApp</Text>
+              <Text style={styles.stepTitle}>{t('confirmedWith')} {params.purohitName || 'Brahmasri V. Subrahmanya Sastry'}</Text>
+              <Text style={styles.stepDesc}>{t('confirmationSent')}</Text>
             </View>
           </View>
 
@@ -52,8 +54,8 @@ export default function BookingSuccessScreen() {
               <View style={[styles.stepLine, { backgroundColor: '#E8E1D5' }]} />
             </View>
             <View style={styles.stepContent}>
-              <Text style={[styles.stepTitle, { color: '#333333' }]}>Samagri kit delivered</Text>
-              <Text style={styles.stepDesc}>The day before, 4 – 7 PM</Text>
+              <Text style={[styles.stepTitle, { color: '#333333' }]}>{t('samagriKitDelivered')}</Text>
+              <Text style={styles.stepDesc}>{t('dayBeforeDelivery')}</Text>
             </View>
           </View>
 
@@ -64,8 +66,8 @@ export default function BookingSuccessScreen() {
               <View style={[styles.stepLine, { backgroundColor: '#E8E1D5' }]} />
             </View>
             <View style={styles.stepContent}>
-              <Text style={styles.stepTitle}>Purohit contact unlocks</Text>
-              <Text style={styles.stepDesc}>24 hours before the muhurtham</Text>
+              <Text style={styles.stepTitle}>{t('purohitContactUnlocks')}</Text>
+              <Text style={styles.stepDesc}>{t('twentyFourHoursBefore')}</Text>
             </View>
           </View>
 
@@ -76,8 +78,8 @@ export default function BookingSuccessScreen() {
               <View style={[styles.stepLine, { backgroundColor: '#E8E1D5' }]} />
             </View>
             <View style={styles.stepContent}>
-              <Text style={styles.stepTitle}>Purohit on the way</Text>
-              <Text style={styles.stepDesc}>Live status on the day</Text>
+              <Text style={styles.stepTitle}>{t('purohitOnTheWay')}</Text>
+              <Text style={styles.stepDesc}>{t('liveStatusOnTheDay')}</Text>
             </View>
           </View>
 
@@ -87,8 +89,8 @@ export default function BookingSuccessScreen() {
               <View style={styles.stepCircleEmpty} />
             </View>
             <View style={styles.stepContent}>
-              <Text style={styles.stepTitle}>Ceremony complete</Text>
-              <Text style={styles.stepDesc}>Share the start and end OTP with the Purohit</Text>
+              <Text style={styles.stepTitle}>{t('ceremonyComplete')}</Text>
+              <Text style={styles.stepDesc}>{t('shareOtp')}</Text>
             </View>
           </View>
         </View>
@@ -96,33 +98,33 @@ export default function BookingSuccessScreen() {
         <View style={styles.helpBanner}>
           <Ionicons name="lock-closed-outline" size={16} color="#333333" style={{ marginRight: 12, marginTop: 2 }} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.helpText}>Purohit's number appears here 24 hours before.</Text>
-            <Text style={styles.helpText}>Need help now? <Text style={styles.helpLink}>Chat with us</Text></Text>
+            <Text style={styles.helpText}>{t('purohitNumberAppears')}</Text>
+            <Text style={styles.helpText}>{t('needHelpNow')} <Text style={styles.helpLink}>{t('chatWithUs')}</Text></Text>
           </View>
         </View>
 
         <View style={styles.actionRow}>
           <TouchableOpacity style={styles.actionButton}>
-            <Text style={styles.actionButtonText}>Add to calendar</Text>
+            <Text style={styles.actionButtonText}>{t('addToCalendar')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionButton}>
-            <Text style={styles.actionButtonText}>Reschedule</Text>
+            <Text style={styles.actionButtonText}>{t('reschedule')}</Text>
           </TouchableOpacity>
         </View>
 
         <TouchableOpacity onPress={() => router.replace('/bookings')}>
-          <Text style={styles.viewAllText}>View all bookings</Text>
+          <Text style={styles.viewAllText}>{t('viewAllBookings')}</Text>
         </TouchableOpacity>
 
         {/* Prototype Controls */}
         <View style={styles.prototypeBox}>
-          <Text style={styles.prototypeLabel}>PROTOTYPE CONTROLS</Text>
+          <Text style={styles.prototypeLabel}>{t('prototypeControls')}</Text>
           <View style={styles.actionRow}>
             <TouchableOpacity style={styles.actionButton}>
-              <Text style={[styles.actionButtonText, { textAlign: 'center' }]}>Simulate next status</Text>
+              <Text style={[styles.actionButtonText, { textAlign: 'center' }]}>{t('simulateNextStatus')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionButton} onPress={() => router.push('/booking/review')}>
-              <Text style={[styles.actionButtonText, { textAlign: 'center' }]}>Ceremony done</Text>
+              <Text style={[styles.actionButtonText, { textAlign: 'center' }]}>{t('ceremonyDone')}</Text>
             </TouchableOpacity>
           </View>
         </View>

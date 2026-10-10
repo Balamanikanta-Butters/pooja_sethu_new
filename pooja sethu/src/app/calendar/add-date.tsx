@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TextInput, TouchableOpacity, ScrollView, Switch } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, TextInput, TouchableOpacity, ScrollView, Switch, Platform } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useUser, FamilyDateItem } from '../../context/UserContext';
@@ -35,7 +36,8 @@ export default function AddFamilyDateScreen() {
   
   // --- English calendar specific state ---
   // Standard gregorian date
-  const [englishDate, setEnglishDate] = useState('15 Oct 1990');
+  const [englishDate, setEnglishDate] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const handleSave = () => {
     if (!memberName.trim()) return;
@@ -126,9 +128,49 @@ export default function AddFamilyDateScreen() {
               </View>
             </>
           ) : (
-            <View style={styles.row}>
+            <View style={[styles.row, { position: 'relative' }]}>
               <Text style={styles.inputLabel}>Select Date</Text>
-              <TextInput style={styles.rowInput} value={englishDate} onChangeText={setEnglishDate} />
+              
+              {Platform.OS === 'web' ? (
+                <>
+                  <Text style={[styles.rowInput, { color: englishDate ? '#333333' : '#888888', marginTop: 2 }]}>
+                    {englishDate || "Select Date (YYYY-MM-DD)"}
+                  </Text>
+                  <input 
+                    type="date"
+                    value={englishDate}
+                    onChange={(e: any) => setEnglishDate(e.target.value)}
+                    onKeyDown={(e: any) => e.preventDefault()}
+                    style={{ 
+                      position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+                      opacity: 0, cursor: 'pointer', boxSizing: 'border-box'
+                    }}
+                  />
+                </>
+              ) : (
+                <TouchableOpacity onPress={() => setShowDatePicker(true)} style={{ flex: 1, paddingVertical: 2 }}>
+                  <Text style={[styles.rowInput, { color: englishDate ? '#333333' : '#888888' }]}>
+                    {englishDate || "Select Date (YYYY-MM-DD)"}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              
+              {showDatePicker && Platform.OS !== 'web' && (
+                <DateTimePicker
+                  value={englishDate ? new Date(englishDate) : new Date()}
+                  mode="date"
+                  display="default"
+                  onChange={(event: any, selectedDate: any) => {
+                    setShowDatePicker(Platform.OS === 'ios');
+                    if (event.type === 'set' && selectedDate) {
+                      setEnglishDate(selectedDate.toISOString().split('T')[0]);
+                      if (Platform.OS === 'android') setShowDatePicker(false);
+                    } else if (event.type === 'dismissed') {
+                      setShowDatePicker(false);
+                    }
+                  }}
+                />
+              )}
             </View>
           )}
         </View>

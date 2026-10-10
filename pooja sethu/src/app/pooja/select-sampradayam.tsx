@@ -2,25 +2,35 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Platform } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useUser } from '../../context/UserContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 const sampradayams = [
-  { id: 'smartha', title: 'Smartha · స్మార్త', desc: 'Advaita tradition of Adi Shankaracharya' },
-  { id: 'madhva', title: 'Madhva · మాధ్వ', desc: 'Dvaita tradition of Sri Madhvacharya' },
-  { id: 'srivaishnava', title: 'Sri Vaishnava · శ్రీ వైష్ణవ', desc: 'Vishishtadvaita of Sri Ramanujacharya' },
-  { id: 'vaikhanasa', title: 'Vaikhanasa · వైఖానస', desc: 'Agama tradition, Vaikhanasa Sutra' },
-  { id: 'pancharatra', title: 'Pancharatra · పాంచరాత్ర', desc: 'Agama-based Vaishnava worship' },
-  { id: 'samanya', title: 'Samanya (General) · సామాన్య', desc: 'Common to all traditions' },
-  { id: 'unknown', title: 'Not sure · తెలియదు', desc: 'Resolves to Samanya Poojas' },
-  { id: 'veerashaiva', title: 'Veerashaiva · వీరశైవ', desc: 'Draft: Vidhis not yet prepared' },
+  { id: 'Smartha', title: 'Smartha · స్మార్త', desc: 'Advaita tradition of Adi Shankaracharya' },
+  { id: 'Madhva', title: 'Madhva · మాధ్వ', desc: 'Dvaita tradition of Sri Madhvacharya' },
+  { id: 'Sri Vaishnava', title: 'Sri Vaishnava · శ్రీ వైష్ణవ', desc: 'Vishishtadvaita of Sri Ramanujacharya' },
+  { id: 'Vaikhanasa', title: 'Vaikhanasa · వైఖానస', desc: 'Agama tradition, Vaikhanasa Sutra' },
+  { id: 'Pancharatra', title: 'Pancharatra · పాంచరాత్ర', desc: 'Agama-based Vaishnava worship' },
+  { id: 'Samanya', title: 'Samanya (General) · సామాన్య', desc: 'Common to all traditions' },
+  { id: 'Not sure', title: 'Not sure · తెలియదు', desc: 'Resolves to Samanya Poojas' },
+  { id: 'Veerashaiva', title: 'Veerashaiva · వీరశైవ', desc: 'Draft: Vidhis not yet prepared' },
 ];
 
 export default function SelectSampradayamScreen() {
   const router = useRouter();
-  const [selected, setSelected] = useState<string>('unknown');
+  const { userData, updateUserData } = useUser();
+  const { t } = useLanguage();
+  const [selected, setSelected] = useState<string>('Not sure');
   const [remember, setRemember] = useState<boolean>(true);
 
   const handleContinue = () => {
-    router.push('/pooja/list');
+    if (remember) {
+      updateUserData({ sampradayam: selected });
+    }
+    router.push({
+      pathname: '/pooja/list',
+      params: { sampradayam: selected }
+    });
   };
 
   return (
@@ -30,14 +40,14 @@ export default function SelectSampradayamScreen() {
           <Ionicons name="chevron-back" size={24} color="#333333" />
         </TouchableOpacity>
         <View style={styles.headerTextContainer}>
-          <Text style={styles.headerTitle}>Your Sampradayam</Text>
-          <Text style={styles.headerSubtitle}>మీ సంప్రదాయం</Text>
+          <Text style={styles.headerTitle}>{t('yourSampradayam')}</Text>
+          <Text style={styles.headerSubtitle}>{t('yourSampradayamTel')}</Text>
         </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.infoText}>
-          We show only Poojas and Purohits that follow your family's tradition. You can change this anytime in Account.
+          {t('sampradayamInfoText')}
         </Text>
 
         <View style={styles.list}>
@@ -68,14 +78,14 @@ export default function SelectSampradayamScreen() {
           <View style={[styles.checkbox, remember && styles.checkboxChecked]}>
             {remember && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
           </View>
-          <Text style={styles.checkboxLabel}>Remember for future bookings</Text>
+          <Text style={styles.checkboxLabel}>{t('rememberForFuture')}</Text>
         </TouchableOpacity>
 
       </ScrollView>
 
       <View style={styles.footer}>
         <TouchableOpacity style={styles.continueButton} onPress={handleContinue}>
-          <Text style={styles.continueButtonText}>Continue</Text>
+          <Text style={styles.continueButtonText}>{t('continue')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

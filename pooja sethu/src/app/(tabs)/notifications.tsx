@@ -4,6 +4,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { colors } from '../../constants/colors';
 import { useUser } from '../../context/UserContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 type FilterType = 'all' | 'bookings' | 'payments';
 
@@ -21,6 +22,7 @@ interface NotificationItem {
 export default function NotificationsScreen() {
   const router = useRouter();
   const { user } = useUser();
+  const { t } = useLanguage();
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [notificationsData, setNotificationsData] = useState<{ title: string; data: NotificationItem[] }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -33,7 +35,7 @@ export default function NotificationsScreen() {
     try {
       setIsLoading(true);
       const userId = user?.id || 'd3790ec3-2c1b-410a-86c5-a6e54ef864c2'; // fallback mock userId if not logged in
-      const res = await fetch(`http://localhost:5000/api/notifications?userId=${userId}`);
+      const res = await fetch(`http://192.168.88.20:5000/api/notifications?userId=${userId}`);
       const data = await res.json();
       if (data.success) {
         setNotificationsData(data.data);
@@ -67,16 +69,16 @@ export default function NotificationsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Notifications</Text>
+        <Text style={styles.headerTitle}>{t('notificationsTitle')}</Text>
         <TouchableOpacity onPress={() => router.push('/notifications/settings')}>
           <MaterialCommunityIcons name="dots-vertical" size={24} color={colors.textDark} />
         </TouchableOpacity>
       </View>
 
       <View style={styles.filterContainer}>
-        {renderFilterPill('all', 'All')}
-        {renderFilterPill('bookings', 'Bookings')}
-        {renderFilterPill('payments', 'Payments')}
+        {renderFilterPill('all', t('allFilter'))}
+        {renderFilterPill('bookings', t('bookingsFilter'))}
+        {renderFilterPill('payments', t('paymentsFilter'))}
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -85,7 +87,7 @@ export default function NotificationsScreen() {
         ) : notificationsData.length === 0 ? (
           <View style={{ alignItems: 'center', marginTop: 50 }}>
             <Ionicons name="notifications-off-outline" size={48} color="#ccc" />
-            <Text style={{ marginTop: 16, color: '#888', fontSize: 16 }}>No notifications found.</Text>
+            <Text style={{ marginTop: 16, color: '#888', fontSize: 16 }}>{t('noNotifications')}</Text>
           </View>
         ) : notificationsData.map((section, idx) => {
           // Filter section data

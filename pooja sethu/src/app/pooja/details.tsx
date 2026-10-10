@@ -2,22 +2,28 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useUser } from '../../context/UserContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function PoojaDetailsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const [sampradayam, setSampradayam] = useState('Smartha');
+  const { userData } = useUser();
+  const { t } = useLanguage();
+  const initialSampradayam = (params.sampradayam as string) || userData.sampradayam || 'Smartha';
+  const [sampradayam, setSampradayam] = useState(initialSampradayam);
   const [loading, setLoading] = useState(true);
   const [vidhiData, setVidhiData] = useState({
     vidhiSteps: [],
     samagriItems: [],
     familyArranges: []
   });
+  const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
 
   useEffect(() => {
     if (!params.id) return;
     setLoading(true);
-    fetch(`http://localhost:5000/api/services/poojas/${params.id}/details?sampradayam=${sampradayam}`)
+    fetch(`http://192.168.88.20:5000/api/services/poojas/${params.id}/details?sampradayam=${sampradayam}`)
       .then(res => res.json())
       .then(data => {
         if (data.success) {
@@ -44,7 +50,7 @@ export default function PoojaDetailsScreen() {
         <TouchableOpacity onPress={() => { if(router.canGoBack()) { router.back(); } else { router.push('/pooja/list'); } }} style={styles.backButton}>
           <Ionicons name="chevron-back" size={24} color="#333333" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Pooja Details</Text>
+        <Text style={styles.headerTitle}>{t('poojaDetails')}</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -59,7 +65,7 @@ export default function PoojaDetailsScreen() {
           <Text style={styles.desc}>{desc}</Text>
           <View style={styles.tagsRow}>
             <View style={styles.tag}>
-              <Text style={styles.tagText}>All Sampradayams</Text>
+              <Text style={styles.tagText}>{t('allSampradayams')}</Text>
             </View>
             <Text style={styles.price}>{price}</Text>
           </View>
@@ -69,9 +75,9 @@ export default function PoojaDetailsScreen() {
 
         {/* Sampradayam Selector */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Your Sampradayam</Text>
+          <Text style={styles.sectionTitle}>{t('yourSampradayam')}</Text>
           <Text style={styles.sectionDesc}>
-            Vidhi and Samagri differ by tradition. We match a Purohit who follows yours.
+            {t('vidhiDiffers')}
           </Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillsScroll}>
             {['Smartha', 'Madhva', 'Sri Vaishnava', 'Vaikhanasa', 'Pancharatra', 'Samanya (General)', 'Not sure', 'Veerashaiva'].map((s) => (
@@ -90,7 +96,7 @@ export default function PoojaDetailsScreen() {
 
         {/* Vidhi */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Vidhi at a glance · {sampradayam === 'Not sure' ? 'Samanya' : sampradayam}</Text>
+          <Text style={styles.sectionTitle}>{t('vidhiAtGlance')} · {sampradayam === 'Not sure' ? t('notSureSamanya') : sampradayam}</Text>
           {loading ? (
             <ActivityIndicator size="small" color="#7C1B2C" style={{ marginTop: 20 }} />
           ) : (
@@ -101,7 +107,7 @@ export default function PoojaDetailsScreen() {
                   <Text style={styles.listItemText}>{item}</Text>
                 </View>
               )) : (
-                <Text style={styles.desc}>Vidhi details not available for this sampradayam.</Text>
+                <Text style={styles.desc}>{t('vidhiNotAvailable')}</Text>
               )}
             </View>
           )}
@@ -112,11 +118,11 @@ export default function PoojaDetailsScreen() {
         {/* Samagri */}
         <View style={styles.section}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Pooja Samagri</Text>
-            {!loading && <Text style={styles.countBadge}>{vidhiData.samagriItems.length} items</Text>}
+            <Text style={styles.sectionTitle}>{t('poojaSamagri')}</Text>
+            {!loading && <Text style={styles.countBadge}>{vidhiData.samagriItems.length} {t('items')}</Text>}
           </View>
           <Text style={styles.sectionDesc}>
-            Order as a ready kit at checkout, or arrange yourself.
+            {t('orderReadyKit')}
           </Text>
           {loading ? (
             <ActivityIndicator size="small" color="#7C1B2C" style={{ marginTop: 20 }} />
@@ -127,7 +133,7 @@ export default function PoojaDetailsScreen() {
                   <Text style={styles.samagriName}>{item}</Text>
                 </View>
               )) : (
-                <Text style={styles.desc}>Samagri list not available.</Text>
+                <Text style={styles.desc}>{t('samagriNotAvailable')}</Text>
               )}
             </View>
           )}
@@ -137,7 +143,7 @@ export default function PoojaDetailsScreen() {
 
         {/* Family Arranges */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>What the family arranges</Text>
+          <Text style={styles.sectionTitle}>{t('familyArrangesTitle')}</Text>
           {loading ? (
             <ActivityIndicator size="small" color="#7C1B2C" style={{ marginTop: 20 }} />
           ) : (
@@ -148,7 +154,7 @@ export default function PoojaDetailsScreen() {
                   <Text style={styles.listItemText}>{item}</Text>
                 </View>
               )) : (
-                <Text style={styles.desc}>No specific arrangements required from the family.</Text>
+                <Text style={styles.desc}>{t('noSpecificArrangements')}</Text>
               )}
             </View>
           )}
@@ -158,27 +164,47 @@ export default function PoojaDetailsScreen() {
 
         {/* FAQs */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Questions families ask</Text>
+          <Text style={styles.sectionTitle}>{t('questionsFamiliesAsk')}</Text>
           {[
-            'Can we do it on a weekend without a muhurtham?',
-            'Is dakshina fixed?'
-          ].map((item, index) => (
-            <TouchableOpacity key={index} style={styles.faqItem}>
-              <Text style={styles.faqText}>{item}</Text>
-              <Ionicons name="chevron-down" size={20} color="#666666" />
-            </TouchableOpacity>
-          ))}
+            { q: t('faq1q'), a: t('faq1a') },
+            { q: t('faq2q'), a: t('faq2a') }
+          ].map((item, index) => {
+            const isExpanded = expandedFaq === index;
+            return (
+              <View key={index} style={styles.faqWrapper}>
+                <TouchableOpacity 
+                  style={styles.faqItem} 
+                  onPress={() => setExpandedFaq(isExpanded ? null : index)}
+                >
+                  <Text style={styles.faqText}>{item.q}</Text>
+                  <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={20} color="#666666" />
+                </TouchableOpacity>
+                {isExpanded && (
+                  <View style={styles.faqAnswerContainer}>
+                    <Text style={styles.faqAnswerText}>{item.a}</Text>
+                  </View>
+                )}
+              </View>
+            );
+          })}
         </View>
 
         <View style={{ height: 40 }} />
       </ScrollView>
 
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.bookButton} onPress={() => router.push({
-          pathname: '/booking/muhurtham',
-          params: { id: params.id, title, sampradayam }
-        })}>
-          <Text style={styles.bookButtonText}>Continue Booking</Text>
+        <TouchableOpacity style={styles.bookButton} onPress={() => {
+          if (!userData.mobileNumber) {
+            alert(t('loginToBook'));
+            router.replace('/');
+            return;
+          }
+          router.push({
+            pathname: '/booking/muhurtham',
+            params: { id: params.id, title, sampradayam }
+          });
+        }}>
+          <Text style={styles.bookButtonText}>{t('continueBooking')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -370,19 +396,31 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#666666',
   },
+  faqWrapper: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2D9C8',
+  },
   faqItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2D9C8',
   },
   faqText: {
     fontSize: 15,
     color: '#333333',
     fontWeight: '500',
     flex: 1,
+    paddingRight: 10,
+  },
+  faqAnswerContainer: {
+    paddingBottom: 16,
+    paddingRight: 30,
+  },
+  faqAnswerText: {
+    fontSize: 14,
+    color: '#666666',
+    lineHeight: 20,
   },
   footer: {
     padding: 20,

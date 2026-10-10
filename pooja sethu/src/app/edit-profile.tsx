@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Modal } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Modal, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { colors } from '../constants/colors';
 import { useLanguage } from '../context/LanguageContext';
 import { useUser } from '../context/UserContext';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import FieldError from '../components/FieldError';
+import { validateName, validateEmail, validateGotra, validateAddress, apiFetch } from '../utils/validation';
 
 const sampradayamsList = [
   { id: 'smartha', title: 'Smartha · స్మార్త', desc: 'Advaita tradition of Adi Shankaracharya' },
@@ -16,25 +19,32 @@ const sampradayamsList = [
   { id: 'veerashaiva', title: 'Veerashaiva · వీరశైవ', desc: 'Draft: Vidhis not yet prepared' },
 ];
 
+const pincodesList = ['500003', '500007', '500016', '500017', '500026', '500032', '500038', '500039', '500049', '500072', '500081', '500082', '500084', '500085', '500089'];
+
 export default function ProfileScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const isEdit = params.fromAccount === 'true';
   const { t } = useLanguage();
   const { userData, updateUserData } = useUser();
-  const { name, familyMembers = [], sampradayam, gotra, address, pincode } = userData;
+  const { name, email, familyMembers = [], sampradayam, gotra, address, addressLine2, landmark, addressLabel, pincode } = userData;
 
   const setName = (val: string) => {
     const alphaValue = val.replace(/[^a-zA-Z\s]/g, '');
     updateUserData({ name: alphaValue });
   };
+  const setEmail = (val: string) => updateUserData({ email: val });
   const addFamilyMember = () => {
-    updateUserData({ familyMembers: [...familyMembers, { id: Date.now().toString(), name: '', relation: '' }] });
+    updateUserData({ familyMembers: [...familyMembers, { id: Date.now().toString(), name: '', relation: '', gotram: '', janma_nakshatram: '', date_of_birth: '', is_deceased: false }] });
   };
 
-  const updateFamilyMember = (id: string, field: 'name' | 'relation', value: string) => {
+  const updateFamilyMember = (id: string, field: 'name' | 'relation' | 'gotram' | 'janma_nakshatram' | 'date_of_birth' | 'is_deceased', value: string | boolean) => {
+    let finalValue = value;
+    if (field === 'name' && typeof value === 'string') {
+      finalValue = value.replace(/[^a-zA-Z\s]/g, '');
+    }
     updateUserData({
-      familyMembers: familyMembers.map(m => m.id === id ? { ...m, [field]: value } : m)
+      familyMembers: familyMembers.map(m => m.id === id ? { ...m, [field]: finalValue } : m)
     });
   };
 
@@ -46,47 +56,86 @@ export default function ProfileScreen() {
   const setSampradayam = (val: string) => updateUserData({ sampradayam: val });
   const setGotra = (val: string) => updateUserData({ gotra: val });
   const setAddress = (val: string) => updateUserData({ address: val });
-  const setPincode = (val: string) => updateUserData({ pincode: val.replace(/[^0-9]/g, '') });
+  const setAddressLine2 = (val: string) => updateUserData({ addressLine2: val });
+  const setLandmark = (val: string) => updateUserData({ landmark: val });
+  const setAddressLabel = (val: string) => updateUserData({ addressLabel: val });
+  const setPincode = (val: string) => {
+    const areaMap: Record<string, string> = {
+      '500003': 'Secunderabad', '500007': 'Tarnaka', '500016': 'Begumpet', '500017': 'Lallaguda',
+      '500026': 'Mettuguda', '500032': 'Gachibowli', '500038': 'Ameerpet', '500039': 'Uppal',
+      '500049': 'Miyapur', '500072': 'KPHB', '500081': 'Madhapur', '500082': 'Somajiguda',
+      '500084': 'Kondapur', '500085': 'Kukatpally', '500089': 'Manikonda'
+    };
+    if (areaMap[val] && !addressLine2) {
+      updateUserData({ pincode: val, addressLine2: areaMap[val] });
+    } else {
+      updateUserData({ pincode: val });
+    }
+  };
 
   // Modal State
   const [modalVisible, setModalVisible] = useState(false);
+  const [pincodeModalVisible, setPincodeModalVisible] = useState(false);
   const [tempSampradayam, setTempSampradayam] = useState('');
   const [remember, setRemember] = useState(true);
+  const [editingMemberDateId, setEditingMemberDateId] = useState<string | null>(null);
+  // Validation error states
+  const [nameError, setNameError] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [gotraError, setGotraError] = useState('');
+  const [address1Error, setAddress1Error] = useState('');
+
 
   const handleSave = async () => {
+    // Run all validations at once
+    const nameResult = validateName(name || '', 'Full Name');
+    const emailResult = validateEmail(email || '');
+    const address1Result = validateAddress(address || '', 'Address Line 1');
+    setNameError(nameResult.message);
+    setEmailError(emailResult.message);
+    setAddress1Error(address1Result.message);
+
+    if (!nameResult.valid || !emailResult.valid || !address1Result.valid) return;
+
+    if (!sampradayam || !sampradayam.trim()) {
+      Alert.alert('Required', 'Please select your Sampradayam.');
+      return;
+    }
+    if (!pincode || !pincode.trim()) {
+      Alert.alert('Required', 'Please select a pincode for your saved address.');
+      return;
+    }
+
     try {
-      const response = await fetch('http://localhost:5000/api/auth/profile', {
+      const data = await apiFetch('http://192.168.88.20:5000/api/auth/profile', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          mobileNumber: userData.mobileNumber || '9999999999', // Fallback if state is lost due to refresh
-          name,
-          familyMembers,
-          sampradayam,
+          mobileNumber: userData.mobileNumber || '9999999999',
+          name, email, familyMembers,
+          // Send the shortcode (e.g. 'smartha') to backend, not the display title
+          sampradayam: sampradayamsList.find(s => s.title === sampradayam)?.id || sampradayam,
           gotra,
-          address,
-          pincode
+          address, addressLine2, landmark, addressLabel, pincode
         })
       });
-      const data = await response.json();
       if (data.success) {
+        updateUserData({
+          mobileNumber: userData.mobileNumber || '9999999999',
+          name, email, familyMembers, sampradayam, gotra,
+          address, addressLine2, landmark, addressLabel, pincode
+        });
         if (isEdit) {
-          if (router.canGoBack()) {
-            router.back();
-          } else {
-            router.replace('/(tabs)/profile');
-          }
+          if (router.canGoBack()) router.back();
+          else router.replace('/(tabs)/profile');
         } else {
           router.replace('/(tabs)');
         }
       } else {
-        alert('Failed to save profile: ' + data.message);
+        Alert.alert('Save Failed', data.message || 'Something went wrong. Please try again.');
       }
-    } catch (err) {
-      alert('Error connecting to backend');
-      console.error(err);
+    } catch (err: any) {
+      Alert.alert('Connection Issue', err.message || 'Could not reach the server.');
     }
   };
 
@@ -102,16 +151,38 @@ export default function ProfileScreen() {
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-          <Text style={styles.title}>{isEdit ? 'Edit Profile' : t('profileTitle')}</Text>
-          <Text style={styles.description}>{isEdit ? 'Update your personal details below.' : t('profileDesc')}</Text>
+          <Text style={styles.title}>{isEdit ? t('editProfile') : t('profileTitle')}</Text>
+          <Text style={styles.description}>{isEdit ? t('updateDetails') : t('profileDesc')}</Text>
 
-          <Text style={styles.sectionLabel}>{t('fullName')}</Text>
+          <Text style={styles.sectionLabel}>{t('fullName')}<Text style={{color: '#C0392B'}}> *</Text></Text>
           <TextInput
-            style={styles.input}
-            placeholder="Enter your name"
+            style={[styles.input, nameError ? styles.inputError : null]}
+            placeholder={t('namePlaceholder')}
             value={name}
-            onChangeText={setName}
+            onChangeText={(val) => {
+              const clean = val.replace(/[^A-Za-z\s]/g, '');
+              setName(clean);
+              setNameError(validateName(clean, 'Full Name').message);
+            }}
+            onBlur={() => setNameError(validateName(name || '', 'Full Name').message)}
           />
+          <FieldError message={nameError} />
+
+          <Text style={styles.sectionLabel}>{t('emailAddress')}<Text style={{color: '#C0392B'}}> *</Text></Text>
+          <TextInput
+            style={[styles.input, emailError ? styles.inputError : null]}
+            placeholder={t('enterEmail')}
+            value={email}
+            onChangeText={(val) => {
+              const clean = val.replace(/\s/g, '');
+              setEmail(clean);
+              setEmailError(validateEmail(clean).message);
+            }}
+            onBlur={() => setEmailError(validateEmail(email || '').message)}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+          <FieldError message={emailError} />
 
           <View style={styles.sectionHeaderRow}>
             <Text style={[styles.sectionLabel, { marginTop: 0 }]}>{t('familyDetails')}</Text>
@@ -123,23 +194,92 @@ export default function ProfileScreen() {
           {familyMembers.map((member, index) => (
             <View key={member.id} style={styles.memberCard}>
               <View style={styles.memberHeader}>
-                <Text style={styles.memberTitle}>Member {index + 1}</Text>
+                <Text style={styles.memberTitle}>{t('memberNum')} {index + 1}</Text>
                 <TouchableOpacity onPress={() => removeFamilyMember(member.id)}>
-                  <Text style={styles.removeText}>Remove</Text>
+                  <Text style={styles.removeText}>{t('remove')}</Text>
                 </TouchableOpacity>
               </View>
               <TextInput
                 style={styles.input}
-                placeholder="Name"
+                placeholder={t('namePlaceholder')}
                 value={member.name}
-                onChangeText={(val) => updateFamilyMember(member.id, 'name', val)}
+                onChangeText={(val) => updateFamilyMember(member.id, 'name', val.replace(/[^A-Za-z\s]/g, ''))}
               />
               <TextInput
                 style={styles.input}
-                placeholder="Relation (e.g. Wife, Son)"
+                placeholder={t('relationPlaceholder')}
                 value={member.relation}
                 onChangeText={(val) => updateFamilyMember(member.id, 'relation', val)}
               />
+              <TextInput
+                style={styles.input}
+                placeholder={t('gotramPlaceholder')}
+                value={member.gotram}
+                onChangeText={(val) => updateFamilyMember(member.id, 'gotram', val)}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder={t('janmaNakshatramPlaceholder')}
+                value={member.janma_nakshatram}
+                onChangeText={(val) => updateFamilyMember(member.id, 'janma_nakshatram', val)}
+              />
+              {Platform.OS === 'web' ? (
+                <View style={{ position: 'relative' }}>
+                  <View style={styles.input}>
+                    <Text style={{ color: member.date_of_birth ? '#333333' : '#888888', fontSize: 15 }}>
+                      {member.date_of_birth || t('dobPlaceholder')}
+                    </Text>
+                  </View>
+                  <input 
+                    type="date"
+                    value={member.date_of_birth}
+                    onChange={(e: any) => updateFamilyMember(member.id, 'date_of_birth', e.target.value)}
+                    onKeyDown={(e: any) => e.preventDefault()}
+                    style={{ 
+                      position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+                      opacity: 0, cursor: 'pointer', boxSizing: 'border-box'
+                    }}
+                  />
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={styles.input}
+                  onPress={() => setEditingMemberDateId(member.id)}
+                >
+                  <Text style={{ color: member.date_of_birth ? '#333333' : '#888888', fontSize: 15 }}>
+                    {member.date_of_birth || t('dobPlaceholder')}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              {editingMemberDateId === member.id && Platform.OS !== 'web' && (
+                <DateTimePicker
+                  value={(() => {
+                    const d = new Date(member.date_of_birth);
+                    return isNaN(d.getTime()) ? new Date() : d;
+                  })()}
+                  mode="date"
+                  display="default"
+                  maximumDate={new Date()}
+                  onChange={(event: any, selectedDate: any) => {
+                    setEditingMemberDateId(Platform.OS === 'ios' ? member.id : null);
+                    if (event.type === 'set' && selectedDate) {
+                      updateFamilyMember(member.id, 'date_of_birth', selectedDate.toISOString().split('T')[0]);
+                      if (Platform.OS === 'android') setEditingMemberDateId(null);
+                    } else if (event.type === 'dismissed') {
+                      setEditingMemberDateId(null);
+                    }
+                  }}
+                />
+              )}
+              <TouchableOpacity 
+                style={styles.checkboxContainer} 
+                onPress={() => updateFamilyMember(member.id, 'is_deceased', !member.is_deceased)}
+              >
+                <View style={[styles.checkbox, member.is_deceased && styles.checkboxChecked]}>
+                  {member.is_deceased && <Text style={styles.checkmark}>✓</Text>}
+                </View>
+                <Text style={styles.checkboxLabel}>{t('deceased')}</Text>
+              </TouchableOpacity>
             </View>
           ))}
 
@@ -152,7 +292,7 @@ export default function ProfileScreen() {
             }}
           >
             <Text style={sampradayam ? styles.dropdownTextSelected : styles.dropdownTextPlaceholder}>
-              {sampradayam ? sampradayamsList.find(s => s.id === sampradayam)?.title : "Select Sampradayam"}
+              {sampradayam ? sampradayam : t('selectSampradayamPlaceholder')}
             </Text>
             <Text style={styles.dropdownIcon}>▼</Text>
           </TouchableOpacity>
@@ -160,33 +300,57 @@ export default function ProfileScreen() {
           <Text style={styles.sectionLabel}>{t('gotra')}</Text>
           <TextInput
             style={styles.input}
-            placeholder="e.g. Bharadwaja, Kashyapa"
+            placeholder={t('gotraPlaceholder')}
             value={gotra}
             onChangeText={setGotra}
           />
 
-          <Text style={styles.sectionLabel}>{t('savedAddress')}</Text>
+          <Text style={styles.sectionLabel}>{t('savedAddress')}<Text style={{color: '#C0392B'}}> *</Text></Text>
           <TextInput
-            style={[styles.input, styles.textArea]}
-            placeholder="Enter full address"
-            multiline
-            numberOfLines={3}
+            style={[styles.input, address1Error ? styles.inputError : null]}
+            placeholder={t('address1Placeholder')}
             value={address}
-            onChangeText={setAddress}
+            onChangeText={(val) => {
+              setAddress(val);
+              if (val.trim()) setAddress1Error('');
+            }}
+            onBlur={() => setAddress1Error(validateAddress(address || '', 'Address Line 1').message)}
           />
-
-          <Text style={styles.sectionLabel}>Pincode</Text>
+          <FieldError message={address1Error} />
           <TextInput
             style={styles.input}
-            placeholder="e.g. 500089"
-            keyboardType="number-pad"
-            maxLength={6}
-            value={pincode}
-            onChangeText={setPincode}
+            placeholder={t('address2Placeholder')}
+            value={addressLine2}
+            onChangeText={setAddressLine2}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder={t('landmarkPlaceholder')}
+            value={landmark}
+            onChangeText={setLandmark}
+          />
+          
+          <Text style={styles.sectionLabel}>{t('addressLabelLocal')}</Text>
+          <TextInput
+            style={styles.input}
+            placeholder={t('addressLabelPlaceholder')}
+            value={addressLabel}
+            onChangeText={setAddressLabel}
           />
 
+          <Text style={styles.sectionLabel}>{t('pincodeLabel')}</Text>
+          <TouchableOpacity 
+            style={styles.dropdownInput}
+            onPress={() => setPincodeModalVisible(true)}
+          >
+            <Text style={pincode ? styles.dropdownTextSelected : styles.dropdownTextPlaceholder}>
+              {pincode ? pincode : t('selectPincode')}
+            </Text>
+            <Text style={styles.dropdownIcon}>▼</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-            <Text style={styles.saveButtonText}>{isEdit ? 'Save Changes' : t('saveProfile')}</Text>
+            <Text style={styles.saveButtonText}>{isEdit ? t('saveChanges') : t('saveProfile')}</Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -214,12 +378,12 @@ export default function ProfileScreen() {
             <Text style={styles.modalDesc}>{t('sampDesc')}</Text>
 
             {sampradayamsList.map((item) => {
-              const isSelected = tempSampradayam === item.id;
+              const isSelected = tempSampradayam === item.title;
               return (
                 <TouchableOpacity 
                   key={item.id} 
                   style={[styles.radioItem, isSelected && styles.radioItemSelected]}
-                  onPress={() => setTempSampradayam(item.id)}
+                  onPress={() => setTempSampradayam(item.title)}
                 >
                   <View style={styles.radioCircle}>
                     {isSelected && <View style={styles.radioInnerCircle} />}
@@ -253,6 +417,54 @@ export default function ProfileScreen() {
               <Text style={styles.continueButtonText}>{t('continue')}</Text>
             </TouchableOpacity>
           </View>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Pincode Selection Modal */}
+      <Modal
+        visible={pincodeModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setPincodeModalVisible(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>{t('selectPincode')}</Text>
+            <TouchableOpacity onPress={() => setPincodeModalVisible(false)} style={styles.closeButton}>
+              <Text style={styles.closeButtonText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView contentContainerStyle={styles.modalScroll}>
+            <Text style={styles.modalDesc}>{t('selectPincodeDesc')}</Text>
+
+            {pincodesList.map((code) => {
+              const isSelected = pincode === code;
+              const areaMap: Record<string, string> = {
+                '500003': 'Secunderabad', '500007': 'Tarnaka', '500016': 'Begumpet', '500017': 'Lallaguda',
+                '500026': 'Mettuguda', '500032': 'Gachibowli', '500038': 'Ameerpet', '500039': 'Uppal',
+                '500049': 'Miyapur', '500072': 'KPHB', '500081': 'Madhapur', '500082': 'Somajiguda',
+                '500084': 'Kondapur', '500085': 'Kukatpally', '500089': 'Manikonda'
+              };
+              return (
+                <TouchableOpacity 
+                  key={code} 
+                  style={[styles.radioItem, isSelected && styles.radioItemSelected]}
+                  onPress={() => {
+                    setPincode(code);
+                    setPincodeModalVisible(false);
+                  }}
+                >
+                  <View style={styles.radioCircle}>
+                    {isSelected && <View style={styles.radioInnerCircle} />}
+                  </View>
+                  <View style={styles.radioTextContainer}>
+                    <Text style={styles.radioTitle}>{code} - {areaMap[code]}</Text>
+                  </View>
+                </TouchableOpacity>
+              )
+            })}
+          </ScrollView>
         </SafeAreaView>
       </Modal>
     </SafeAreaView>
@@ -498,6 +710,10 @@ const styles = StyleSheet.create({
   removeText: {
     color: '#e74c3c',
     fontSize: 12,
+  },
+  inputError: {
+    borderColor: '#C0392B',
+    backgroundColor: '#FFF5F5',
   },
 });
 

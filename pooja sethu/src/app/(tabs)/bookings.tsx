@@ -3,10 +3,12 @@ import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Pla
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useUser } from '../../context/UserContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function BookingsTabScreen() {
   const router = useRouter();
   const { userData } = useUser();
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState('Upcoming');
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,7 +22,7 @@ export default function BookingsTabScreen() {
           setLoading(false);
           return;
         }
-        const response = await fetch(`http://localhost:5000/api/bookings/my-bookings?mobileNumber=${userData.mobileNumber}`);
+        const response = await fetch(`http://192.168.88.20:5000/api/bookings/my-bookings?mobileNumber=${userData.mobileNumber}`);
         const data = await response.json();
         if (data.success) {
           setBookings(data.bookings || []);
@@ -46,18 +48,18 @@ export default function BookingsTabScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>My Bookings</Text>
+        <Text style={styles.headerTitle}>{t('myBookings')}</Text>
       </View>
 
       <View style={styles.tabsRow}>
-        {['Upcoming', 'Completed', 'Cancelled'].map((tab) => (
+        {[{id: 'Upcoming', label: t('upcoming')}, {id: 'Completed', label: t('completed')}, {id: 'Cancelled', label: t('cancelled')}].map((tab) => (
           <TouchableOpacity 
-            key={tab} 
-            style={[styles.tab, activeTab === tab && styles.tabActive]}
-            onPress={() => setActiveTab(tab)}
+            key={tab.id} 
+            style={[styles.tab, activeTab === tab.id && styles.tabActive]}
+            onPress={() => setActiveTab(tab.id)}
           >
-            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
-              {tab}
+            <Text style={[styles.tabText, activeTab === tab.id && styles.tabTextActive]}>
+              {tab.label}
             </Text>
           </TouchableOpacity>
         ))}
@@ -71,7 +73,7 @@ export default function BookingsTabScreen() {
             <View key={idx} style={styles.bookingCard}>
               <View style={styles.cardHeaderRow}>
                 <View style={[styles.statusBadge, b.status === 'cancelled' ? styles.statusBadgeCancelled : null]}>
-                  <Text style={[styles.statusText, b.status === 'cancelled' ? styles.statusTextCancelled : null]}>{b.status_name || b.status || 'Confirmed'}</Text>
+                  <Text style={[styles.statusText, b.status === 'cancelled' ? styles.statusTextCancelled : null]}>{b.status_name || b.status || t('confirmed')}</Text>
                 </View>
                 <Text style={styles.bookingId}>{b.booking_no}</Text>
               </View>
@@ -85,12 +87,12 @@ export default function BookingsTabScreen() {
               
               <View style={styles.detailsRow}>
                 <Ionicons name="location-outline" size={16} color="#666666" />
-                <Text style={styles.detailsText}>{b.address || 'Home'}</Text>
+                <Text style={styles.detailsText}>{b.address || t('home')}</Text>
               </View>
               
               <View style={styles.detailsRow}>
                 <Ionicons name="person-outline" size={16} color="#666666" />
-                <Text style={styles.detailsText}>{b.purohit_name || 'Pending assignment'}</Text>
+                <Text style={styles.detailsText}>{b.purohit_name || t('pendingAssignment')}</Text>
               </View>
 
               <View style={styles.divider} />
@@ -101,7 +103,7 @@ export default function BookingsTabScreen() {
                   style={styles.viewButton}
                   onPress={() => router.push('/booking/success')}
                 >
-                  <Text style={styles.viewButtonText}>View Details</Text>
+                  <Text style={styles.viewButtonText}>{t('viewDetails')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -109,8 +111,8 @@ export default function BookingsTabScreen() {
         ) : (
           <View style={styles.emptyState}>
             <Ionicons name="calendar-outline" size={64} color="#DCD4CB" />
-            <Text style={styles.emptyTitle}>No {activeTab.toLowerCase()} bookings</Text>
-            <Text style={styles.emptyDesc}>You have no {activeTab.toLowerCase()} poojas at the moment.</Text>
+            <Text style={styles.emptyTitle}>{t('noBookingsFound')}</Text>
+            <Text style={styles.emptyDesc}>{t('noBookingsFoundDesc')}</Text>
           </View>
         )}
         

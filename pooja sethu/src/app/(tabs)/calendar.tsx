@@ -1,27 +1,46 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useUser } from '../../context/UserContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function CalendarScreen() {
   const { userData } = useUser();
+  const { t } = useLanguage();
   const [whatsapp, setWhatsapp] = useState(true);
   const [sms, setSms] = useState(true);
   const [appNotif, setAppNotif] = useState(true);
+  const [festivals, setFestivals] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
+
+  useEffect(() => {
+    fetch('http://192.168.88.20:5000/api/home')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.festivals) {
+          setFestivals(data.festivals);
+        }
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setLoading(false);
+      });
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         
         <View style={styles.header}>
-          <Text style={styles.pageTitle}>Calendar</Text>
-          <Text style={styles.pageSubtitle}>Family dates, Tithis and festivals</Text>
+          <Text style={styles.pageTitle}>{t('calendarTitle')}</Text>
+          <Text style={styles.pageSubtitle}>{t('calendarSubtitle')}</Text>
         </View>
 
         {/* Family dates section */}
-        <Text style={styles.sectionTitle}>Family dates</Text>
+        <Text style={styles.sectionTitle}>{t('familyDates')}</Text>
         <View style={styles.card}>
           {userData.familyDates.map((item, index) => (
             <React.Fragment key={item.id}>
@@ -45,56 +64,53 @@ export default function CalendarScreen() {
           ))}
           {userData.familyDates.length === 0 && (
             <View style={{ padding: 16 }}>
-              <Text style={styles.itemSubtitle}>No family dates added yet.</Text>
+              <Text style={styles.itemSubtitle}>{t('noFamilyDates')}</Text>
             </View>
           )}
         </View>
 
         <TouchableOpacity style={styles.outlineButton} onPress={() => router.push('/calendar/add-date')}>
-          <Text style={styles.outlineButtonText}>Add a family date</Text>
+          <Text style={styles.outlineButtonText}>{t('addFamilyDate')}</Text>
         </TouchableOpacity>
 
         {/* Festival alerts section */}
-        <Text style={styles.sectionTitle}>Festival alerts</Text>
+        <Text style={styles.sectionTitle}>{t('festivalAlerts')}</Text>
         <View style={styles.card}>
-          <View style={styles.listItem}>
-            <View style={styles.listTextContainer}>
-              <Text style={styles.itemTitle}>Mahalaya Amavasya</Text>
-              <Text style={styles.itemSubtitle}>Sat, 10 Oct · Pitru Tarpanam</Text>
+          {loading ? (
+            <View style={{ padding: 16 }}>
+              <ActivityIndicator size="small" color="#7C1B2C" />
             </View>
-            <TouchableOpacity onPress={() => router.push('/pooja/list')}>
-              <Text style={styles.bookLink}>Book</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.divider} />
-
-          <View style={styles.listItem}>
-            <View style={styles.listTextContainer}>
-              <Text style={styles.itemTitle}>Devi Navaratri</Text>
-              <Text style={styles.itemSubtitle}>Sun, 11 Oct to Mon, 19 Oct</Text>
+          ) : festivals.length > 0 ? festivals.map((festival: any, idx: number) => {
+            const date = new Date(festival.day);
+            const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' });
+            const significanceEn = festival.significance?.en || 'Festival';
+            
+            return (
+              <React.Fragment key={idx}>
+                <View style={styles.listItem}>
+                  <View style={styles.listTextContainer}>
+                    <Text style={styles.itemTitle}>{significanceEn}</Text>
+                    <Text style={styles.itemSubtitle}>{dateStr}</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => router.push('/pooja/list')}>
+                    <Text style={styles.bookLink}>{t('bookLink')}</Text>
+                  </TouchableOpacity>
+                </View>
+                {idx < festivals.length - 1 && <View style={styles.divider} />}
+              </React.Fragment>
+            );
+          }) : (
+            <View style={{ padding: 16 }}>
+              <Text style={styles.itemSubtitle}>{t('noFestivals')}</Text>
             </View>
-            <TouchableOpacity onPress={() => router.push('/pooja/list')}>
-              <Text style={styles.bookLink}>Book</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.divider} />
-
-          <View style={styles.listItem}>
-            <View style={styles.listTextContainer}>
-              <Text style={styles.itemTitle}>Deepavali</Text>
-              <Text style={styles.itemSubtitle}>Sun, 8 Nov · Lakshmi Pooja</Text>
-            </View>
-            <TouchableOpacity onPress={() => router.push('/pooja/list')}>
-              <Text style={styles.bookLink}>Book</Text>
-            </TouchableOpacity>
-          </View>
+          )}
         </View>
 
         {/* Remind me on section */}
-        <Text style={styles.sectionTitle}>Remind me on</Text>
+        <Text style={styles.sectionTitle}>{t('remindMeOn')}</Text>
         <View style={styles.card}>
           <View style={styles.listItem}>
-            <Text style={styles.reminderTitle}>WhatsApp</Text>
+            <Text style={styles.reminderTitle}>{t('whatsapp')}</Text>
             <TouchableOpacity onPress={() => setWhatsapp(!whatsapp)} style={styles.checkboxContainer}>
               <View style={[styles.checkbox, whatsapp && styles.checkboxChecked]}>
                 {whatsapp && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
@@ -104,7 +120,7 @@ export default function CalendarScreen() {
           <View style={styles.divider} />
           
           <View style={styles.listItem}>
-            <Text style={styles.reminderTitle}>SMS</Text>
+            <Text style={styles.reminderTitle}>{t('sms')}</Text>
             <TouchableOpacity onPress={() => setSms(!sms)} style={styles.checkboxContainer}>
               <View style={[styles.checkbox, sms && styles.checkboxChecked]}>
                 {sms && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
@@ -114,7 +130,7 @@ export default function CalendarScreen() {
           <View style={styles.divider} />
 
           <View style={styles.listItem}>
-            <Text style={styles.reminderTitle}>App notifications</Text>
+            <Text style={styles.reminderTitle}>{t('appNotifications')}</Text>
             <TouchableOpacity onPress={() => setAppNotif(!appNotif)} style={styles.checkboxContainer}>
               <View style={[styles.checkbox, appNotif && styles.checkboxChecked]}>
                 {appNotif && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}

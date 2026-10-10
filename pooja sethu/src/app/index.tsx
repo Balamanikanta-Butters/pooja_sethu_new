@@ -5,12 +5,16 @@ import { colors } from '../constants/colors';
 import { useLanguage } from '../context/LanguageContext';
 import * as Location from 'expo-location';
 import { useUser } from '../context/UserContext';
+import FieldError from '../components/FieldError';
+import { validateMobile } from '../utils/validation';
 
 export default function MobileLoginScreen() {
   const router = useRouter();
   const { language, setLanguage, t } = useLanguage();
   const { updateUserData } = useUser();
   const [mobileNumber, setMobileNumber] = useState('');
+  const [mobileError, setMobileError] = useState('');
+  const [mobileTouched, setMobileTouched] = useState(false);
   const [customCity, setCustomCity] = useState<string | null>(null);
 
   const handleUseLocation = async () => {
@@ -38,10 +42,12 @@ export default function MobileLoginScreen() {
   };
 
   const handleSendOtp = async () => {
-    if (mobileNumber.length === 10) {
-      updateUserData({ mobileNumber: mobileNumber });
-      router.push({ pathname: '/otp', params: { mobileNumber } });
-    }
+    setMobileTouched(true);
+    const result = validateMobile(mobileNumber);
+    setMobileError(result.message);
+    if (!result.valid) return;
+    updateUserData({ mobileNumber: mobileNumber });
+    router.push({ pathname: '/otp', params: { mobileNumber } });
   };
 
   return (
@@ -109,7 +115,10 @@ export default function MobileLoginScreen() {
               <Text style={styles.countryCode}>+91</Text>
             </View>
             <TextInput
-              style={styles.phoneInput}
+              style={[
+                styles.phoneInput,
+                mobileTouched && mobileError ? styles.inputError : null
+              ]}
               placeholder={t('mobilePlaceholder')}
               keyboardType="phone-pad"
               maxLength={10}
@@ -117,9 +126,17 @@ export default function MobileLoginScreen() {
               onChangeText={(text) => {
                 const numericValue = text.replace(/[^0-9]/g, '');
                 setMobileNumber(numericValue);
+                if (mobileTouched) {
+                  setMobileError(validateMobile(numericValue).message);
+                }
+              }}
+              onBlur={() => {
+                setMobileTouched(true);
+                setMobileError(validateMobile(mobileNumber).message);
               }}
             />
           </View>
+          <FieldError message={mobileTouched ? mobileError : ''} />
           <Text style={styles.helpText}>{t('helpText')}</Text>
 
           <TouchableOpacity 
@@ -163,12 +180,13 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   logoIcon: {
-    width: 60,
-    height: 60,
-    backgroundColor: colors.primary,
-    borderRadius: 16,
+    width: 80,
+    height: 80,
     justifyContent: 'center',
     alignItems: 'center',
+    borderRadius: 40,
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
   },
   title: {
     fontSize: 32,
@@ -277,6 +295,10 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: colors.white,
     fontSize: 16,
+  },
+  inputError: {
+    borderColor: '#C0392B',
+    backgroundColor: '#FFF5F5',
   },
   helpText: {
     fontSize: 12,

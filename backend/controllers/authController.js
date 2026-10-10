@@ -54,6 +54,38 @@ exports.verifyOtp = async (req, res) => {
 
             const token = jwt.sign({ userId: user.id, mobileNumber: user.phone_e164 }, JWT_SECRET, { expiresIn: '7d' });
             
+            let address = null;
+            let familyMembers = [];
+            
+            if (!isNewUser && user) {
+                const addressRes = await db.query('SELECT label, line1, line2, landmark, pincode FROM ps.address WHERE user_id = $1 ORDER BY is_default DESC LIMIT 1', [user.id]);
+                if (addressRes.rows.length > 0) address = addressRes.rows[0];
+                
+                const familyRes = await db.query('SELECT id, name, relation, gotram, janma_nakshatram, date_of_birth, is_deceased FROM ps.family_member WHERE user_id = $1', [user.id]);
+                familyMembers = familyRes.rows.map(row => ({
+                    id: row.id,
+                    name: row.name,
+                    relation: row.relation,
+                    gotram: row.gotram || '',
+                    janma_nakshatram: row.janma_nakshatram || '',
+                    date_of_birth: row.date_of_birth ? row.date_of_birth.toISOString().split('T')[0] : '',
+                    is_deceased: row.is_deceased || false
+                }));
+            }
+            
+            // Map sampradayam DB UUID to frontend code
+            const revSampradayamMap = {
+                '5872e56b-a237-489f-96be-078cb1f58f4e': 'smartha',
+                '2c7dce01-d5d5-4716-b6ad-131112bf2e37': 'madhva',
+                'cf656c6f-a2b0-4ddc-8f3d-3ac2c6f7a1aa': 'srivaishnava',
+                '9bcd1fc4-02b1-4782-abcf-713193368030': 'vaikhanasa',
+                'febf9905-b5c9-4a7c-83dc-318cb39fe2cd': 'pancharatra',
+                'f8adde3d-a7df-40d7-ace4-c9c75d16063c': 'unknown',
+                'b72d9511-ffcd-462a-b21c-ec1466fe40f1': 'samanya',
+                'c5f19dd5-5f43-4830-a96a-8d552aa87eb3': 'veerashaiva'
+            };
+            const frontendSampradayam = user.sampradayam_id ? (revSampradayamMap[user.sampradayam_id] || '') : '';
+
             return res.status(200).json({
                 success: true,
                 message: 'OTP verified successfully',
@@ -61,7 +93,16 @@ exports.verifyOtp = async (req, res) => {
                 user: {
                     id: user.id,
                     mobileNumber: user.phone_e164,
-                    name: user.name,
+                    name: user.name || '',
+                    email: user.email || '',
+                    sampradayam: frontendSampradayam,
+                    gotra: user.gotram || '',
+                    address: address ? (address.line1 || '') : '',
+                    addressLine2: address ? (address.line2 || '') : '',
+                    landmark: address ? (address.landmark || '') : '',
+                    addressLabel: address ? (address.label || 'Home') : 'Home',
+                    pincode: address ? (address.pincode || '') : '',
+                    familyMembers,
                     isNewUser
                 }
             });
@@ -82,7 +123,7 @@ exports.verifyOtp = async (req, res) => {
 };
 
 exports.updateProfile = async (req, res) => {
-    const { mobileNumber, name, familyMembers = [], sampradayam, gotra, address, pincode } = req.body;
+    const { mobileNumber, name, email, familyMembers = [], sampradayam, gotra, address, addressLine2, landmark, addressLabel, pincode } = req.body;
     
     if (!mobileNumber) {
         return res.status(400).json({ success: false, message: 'Mobile number is required' });
@@ -90,13 +131,14 @@ exports.updateProfile = async (req, res) => {
 
     // Map frontend sampradayam codes to DB UUIDs
     const sampradayamMap = {
-        'smartha': 'df48dc0e-5f78-4c8a-a63f-cbb02769997b',
-        'madhva': 'c825ea61-344e-460d-b047-f2599b9b27fd',
-        'vaishnava': '0d33deb8-0953-4ec5-94d6-947632bc0693', // Maps to srivaishnava
-        'vaikhanasa': '6155718c-2cbb-496b-b7d4-62fc730212b8',
-        'pancharatra': 'e60aaef1-5f21-4dd2-af5d-7f74ea6a650b',
-        'unknown': 'd5177f88-41c7-4ffc-9dc3-0b4cf86d56e4',
-        'other': '6f6e2a89-74c0-455f-8be5-3aa06538bfe1' // Maps to samanya
+        'smartha': '5872e56b-a237-489f-96be-078cb1f58f4e',
+        'madhva': '2c7dce01-d5d5-4716-b6ad-131112bf2e37',
+        'srivaishnava': 'cf656c6f-a2b0-4ddc-8f3d-3ac2c6f7a1aa',
+        'vaikhanasa': '9bcd1fc4-02b1-4782-abcf-713193368030',
+        'pancharatra': 'febf9905-b5c9-4a7c-83dc-318cb39fe2cd',
+        'samanya': 'b72d9511-ffcd-462a-b21c-ec1466fe40f1',
+        'unknown': 'f8adde3d-a7df-40d7-ace4-c9c75d16063c',
+        'veerashaiva': 'c5f19dd5-5f43-4830-a96a-8d552aa87eb3'
     };
 
     const sampradayamId = sampradayamMap[sampradayam] || null;
@@ -105,9 +147,9 @@ exports.updateProfile = async (req, res) => {
         // 1. Update User Table
         const updateResult = await db.query(
             `UPDATE ps.app_user 
-             SET name = $1, gotram = $2, sampradayam_id = $3, updated_at = NOW()
-             WHERE phone_e164 = $4 RETURNING *`,
-            [name, gotra, sampradayamId, mobileNumber]
+             SET name = $1, gotram = $2, sampradayam_id = $3, email = $4, updated_at = NOW()
+             WHERE phone_e164 = $5 RETURNING *`,
+            [name, gotra, sampradayamId, email, mobileNumber]
         );
 
         if (updateResult.rows.length === 0) {
@@ -122,7 +164,7 @@ exports.updateProfile = async (req, res) => {
             const addressRes = await db.query('SELECT id FROM ps.address WHERE user_id = $1', [user.id]);
             if (addressRes.rows.length > 0) {
                 // Update
-                await db.query('UPDATE ps.address SET line1 = $1 WHERE user_id = $2', [address, user.id]);
+                await db.query('UPDATE ps.address SET line1 = $1, line2 = $2, landmark = $3, label = $4 WHERE user_id = $5', [address, addressLine2, landmark, addressLabel || 'Home', user.id]);
             } else {
                 // Check if user-provided pincode exists in database
                 let finalPincode = '500089';
@@ -135,9 +177,9 @@ exports.updateProfile = async (req, res) => {
                 
                 await db.query(
                     `INSERT INTO ps.address 
-                     (id, user_id, label, line1, pincode, is_default) 
-                     VALUES (gen_random_uuid(), $1, $2, $3, $4, true)`,
-                    [user.id, 'Home', address, finalPincode]
+                     (id, user_id, label, line1, line2, landmark, pincode, is_default) 
+                     VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, true)`,
+                    [user.id, addressLabel || 'Home', address, addressLine2, landmark, finalPincode]
                 );
             }
         }
@@ -152,12 +194,22 @@ exports.updateProfile = async (req, res) => {
                 // OR we can just check if they exist by name and relation.
                 const familyRes = await db.query('SELECT id FROM ps.family_member WHERE user_id = $1 AND name = $2 AND relation = $3', [user.id, member.name, member.relation]);
                 
-                if (familyRes.rows.length === 0) {
+                let dob = member.date_of_birth ? new Date(member.date_of_birth) : null;
+                if (dob && isNaN(dob.getTime())) dob = null;
+                
+                if (familyRes.rows.length > 0) {
+                    await db.query(
+                        `UPDATE ps.family_member 
+                         SET gotram = $1, janma_nakshatram = $2, date_of_birth = $3, is_deceased = $4
+                         WHERE id = $5`,
+                        [member.gotram, member.janma_nakshatram, dob, member.is_deceased || false, familyRes.rows[0].id]
+                    );
+                } else {
                     await db.query(
                         `INSERT INTO ps.family_member 
-                         (id, user_id, name, relation) 
-                         VALUES (gen_random_uuid(), $1, $2, $3)`,
-                        [user.id, member.name, member.relation]
+                         (id, user_id, name, relation, gotram, janma_nakshatram, date_of_birth, is_deceased) 
+                         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7)`,
+                        [user.id, member.name, member.relation, member.gotram, member.janma_nakshatram, dob, member.is_deceased || false]
                     );
                 }
             }

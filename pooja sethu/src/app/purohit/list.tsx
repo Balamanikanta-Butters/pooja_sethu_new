@@ -2,18 +2,40 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Platform, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLanguage } from '../../context/LanguageContext';
+
+interface Purohit {
+  id: string;
+  name: string;
+  bio?: string;
+  desc?: string;
+  rating: string | number;
+  reviews: number;
+  sampradayam: string;
+  experience?: string | number;
+  gurukulam?: string;
+  photo_url?: string;
+  initials?: string;
+  languages?: string[];
+  dakshina?: string;
+  raw_dakshina?: number;
+  verified?: boolean;
+  distance?: string;
+}
 
 export default function PurohitListScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { t } = useLanguage();
+  const passedSampradayam = (params.sampradayam as string) || 'Samanya';
   const [selectedLang, setSelectedLang] = useState('All');
   const [selectedSort, setSelectedSort] = useState('Rating');
 
-  const [purohits, setPurohits] = useState([]);
+  const [purohits, setPurohits] = useState<Purohit[]>([]);
   const [loading, setLoading] = useState(true);
 
   React.useEffect(() => {
-    fetch(`http://localhost:5000/api/services/purohits?t=${new Date().getTime()}`)
+    fetch(`http://192.168.88.20:5000/api/services/purohits?t=${new Date().getTime()}`)
       .then(res => res.json())
       .then(data => {
         if (data.success) {
@@ -30,7 +52,7 @@ export default function PurohitListScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.topProgress}>
-        <Text style={styles.progressText}>Step 3 of 5 · Purohit</Text>
+        <Text style={styles.progressText}>{t('stepPurohit')}</Text>
       </View>
       
       <View style={styles.header}>
@@ -38,7 +60,7 @@ export default function PurohitListScreen() {
           <Ionicons name="chevron-back" size={24} color="#333333" />
         </TouchableOpacity>
         <View>
-          <Text style={styles.headerTitle}>Choose your Purohit</Text>
+          <Text style={styles.headerTitle}>{t('choosePurohit')}</Text>
           <Text style={styles.headerSubtitle}>{params.selectedMuhurtham || `${params.customDate || ''} ${params.customTime || ''}`.trim() || 'Date & Time not selected'}</Text>
         </View>
       </View>
@@ -46,22 +68,23 @@ export default function PurohitListScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         
         <Text style={styles.helperText}>
-          <Text style={{ fontWeight: 'bold' }}>{purohits.length}</Text> verified Purohits follow <Text style={{ fontWeight: 'bold' }}>{params.sampradayam || 'Samanya'}</Text> Vidhi and are free at this time.
+          <Text style={{ fontWeight: 'bold' }}>{purohits.length}</Text> {t('verifiedPurohits')} <Text style={{ fontWeight: 'bold' }}>{passedSampradayam}</Text> {t('vidhiFree')}
         </Text>
 
-        <Text style={styles.filterLabel}>LANGUAGE</Text>
+        <Text style={styles.filterLabel}>{t('languageLabel')}</Text>
         <View style={styles.filterScrollWrapper}>
           <Ionicons name="caret-back" size={16} color="#888888" style={{ marginTop: 12, marginRight: 4 }} />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
             {['All languages', 'Telugu', 'Kannada', 'Tamil'].map((lang) => {
               const isSelected = selectedLang === lang || (selectedLang === 'All' && lang === 'All languages');
+              const displayLang = lang === 'All languages' ? t('allLanguages') : lang;
               return (
                 <TouchableOpacity 
                   key={lang} 
                   style={[styles.langPill, isSelected && styles.langPillSelected]}
                   onPress={() => setSelectedLang(lang === 'All languages' ? 'All' : lang)}
                 >
-                  <Text style={[styles.langText, isSelected && styles.langTextSelected]}>{lang}</Text>
+                  <Text style={[styles.langText, isSelected && styles.langTextSelected]}>{displayLang}</Text>
                 </TouchableOpacity>
               )
             })}
@@ -69,7 +92,7 @@ export default function PurohitListScreen() {
           <Ionicons name="caret-forward" size={16} color="#888888" style={{ marginTop: 12, marginLeft: 4 }} />
         </View>
 
-        <Text style={styles.filterLabel}>SORT BY</Text>
+        <Text style={styles.filterLabel}>{t('sortByLabel')}</Text>
         <View style={styles.sortRow}>
           {['Rating', 'Experience', 'Dakshina', 'Nearest'].map((sort) => (
             <TouchableOpacity 
@@ -137,7 +160,7 @@ export default function PurohitListScreen() {
                   {purohit.verified && (
                     <View style={styles.verifiedTag}>
                       <Ionicons name="checkmark" size={12} color="#137333" style={{ marginRight: 2 }} />
-                      <Text style={styles.verifiedText}>Verified</Text>
+                      <Text style={styles.verifiedText}>{t('verified')}</Text>
                     </View>
                   )}
                   <View style={styles.sampradayamTag}>
@@ -150,7 +173,7 @@ export default function PurohitListScreen() {
                 <View style={styles.ratingRow}>
                   <Ionicons name="star" size={12} color="#FDB528" />
                   <Text style={styles.ratingText}>
-                    <Text style={{ fontWeight: 'bold' }}>{purohit.rating}</Text> ({purohit.reviews} reviews) {purohit.distance !== 'N/A' && `- ${purohit.distance} away`}
+                    <Text style={{ fontWeight: 'bold' }}>{purohit.rating}</Text> ({purohit.reviews} {t('reviewsLabel')}) {purohit.distance !== 'N/A' && `- ${purohit.distance} ${t('away')}`}
                   </Text>
                 </View>
               </View>
@@ -158,7 +181,7 @@ export default function PurohitListScreen() {
 
             <View style={styles.cardBottomRow}>
               <View>
-                <Text style={styles.dakshinaLabel}>Dakshina</Text>
+                <Text style={styles.dakshinaLabel}>{t('dakshina')}</Text>
                 <Text style={styles.dakshinaValue}>{purohit.dakshina}</Text>
               </View>
               <View style={styles.cardActions}>
@@ -180,7 +203,7 @@ export default function PurohitListScreen() {
                     raw_dakshina: purohit.raw_dakshina
                   }
                 })}>
-                  <Text style={styles.profileLink}>Profile</Text>
+                  <Text style={styles.profileLink}>{t('profileLink')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.selectButton} onPress={() => router.push({
                   pathname: '/booking/package',
@@ -195,7 +218,7 @@ export default function PurohitListScreen() {
                     rawDakshina: purohit.raw_dakshina
                   }
                 })}>
-                  <Text style={styles.selectButtonText}>Select</Text>
+                  <Text style={styles.selectButtonText}>{t('selectBtn')}</Text>
                 </TouchableOpacity>
               </View>
             </View>

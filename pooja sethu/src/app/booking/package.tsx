@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useLanguage } from '../../context/LanguageContext';
 
 /**
  * PackageSelectionScreen Component
@@ -19,6 +20,7 @@ export default function PackageSelectionScreen() {
   const { useLocalSearchParams } = require('expo-router');
   const params = useLocalSearchParams();
   const rawDakshina = Number(params.rawDakshina) || 6100;
+  const { t } = useLanguage();
   
   // State to track if the user wants the 'complete' package or just 'purohit'
   const [bookingType, setBookingType] = useState('complete');
@@ -48,7 +50,7 @@ export default function PackageSelectionScreen() {
   });
 
   useEffect(() => {
-    fetch('http://localhost:5000/api/services/package-options')
+    fetch('http://192.168.88.20:5000/api/services/package-options')
       .then(res => res.json())
       .then(data => {
         if (data.success) {
@@ -87,7 +89,7 @@ export default function PackageSelectionScreen() {
     <SafeAreaView style={styles.container}>
       {/* Top progress indicator showing the user where they are in the booking flow */}
       <View style={styles.topProgress}>
-        <Text style={styles.progressText}>Step 4 of 5 · Package</Text>
+        <Text style={styles.progressText}>{t('stepPackage')}</Text>
       </View>
       
       <View style={styles.header}>
@@ -95,7 +97,7 @@ export default function PackageSelectionScreen() {
           <Ionicons name="chevron-back" size={24} color="#333333" />
         </TouchableOpacity>
         <View>
-          <Text style={styles.headerTitle}>How should we book?</Text>
+          <Text style={styles.headerTitle}>{t('howShouldWeBook')}</Text>
           <Text style={styles.headerSubtitle}>{params.purohitName || 'Brahmasri V. Subrahmanya Sastry'}</Text>
         </View>
       </View>
@@ -113,13 +115,13 @@ export default function PackageSelectionScreen() {
             </View>
             <View style={styles.typeTextContainer}>
               <View style={styles.typeTitleRow}>
-                <Text style={styles.typeTitle}>Complete package</Text>
+                <Text style={styles.typeTitle}>{t('completePackage')}</Text>
                 <View style={styles.recommendedBadge}>
-                  <Text style={styles.recommendedText}>Recommended</Text>
+                  <Text style={styles.recommendedText}>{t('recommended')}</Text>
                 </View>
               </View>
               <Text style={styles.typeDesc}>
-                We handle the Purohit, Pooja Samagri, Bhojanam and logistics. You just attend. Paid safely, released after the ceremony.
+                {t('completePackageDesc')}
               </Text>
             </View>
           </View>
@@ -134,9 +136,9 @@ export default function PackageSelectionScreen() {
               {bookingType === 'purohit' && <View style={styles.radioInner} />}
             </View>
             <View style={styles.typeTextContainer}>
-              <Text style={styles.typeTitle}>Book Purohit only</Text>
+              <Text style={styles.typeTitle}>{t('purohitOnly')}</Text>
               <Text style={styles.typeDesc}>
-                We confirm the Purohit and share the Samagri list. You pay dakshina to the Purohit directly.
+                {t('purohitOnlyDesc')}
               </Text>
             </View>
           </View>
@@ -145,14 +147,14 @@ export default function PackageSelectionScreen() {
         {/* Add to your package section */}
         {bookingType === 'complete' && (
           <>
-            <Text style={styles.sectionTitle}>Add to your package</Text>
+            <Text style={styles.sectionTitle}>{t('addToPackage')}</Text>
             
             <View style={styles.addonsCard}>
               {/* Samagri */}
               <View style={styles.addonRow}>
                 <View style={styles.addonTextContainer}>
-                  <Text style={styles.addonTitle}>Pooja Samagri kit</Text>
-                  <Text style={styles.addonDesc}>All 12 items for Samanya Vidhi, delivered a day before · ₹3,800</Text>
+                  <Text style={styles.addonTitle}>{t('poojaSamagriKit')}</Text>
+                  <Text style={styles.addonDesc}>{t('samagriDesc')} · ₹3,800</Text>
                 </View>
                 <TouchableOpacity onPress={() => setSamagriChecked(!samagriChecked)} style={styles.checkboxContainer}>
                   <View style={[styles.checkbox, samagriChecked && styles.checkboxChecked]}>
@@ -166,8 +168,8 @@ export default function PackageSelectionScreen() {
               {/* Bhojanalu */}
               <View style={styles.addonRow}>
                 <View style={styles.addonTextContainer}>
-                  <Text style={styles.addonTitle}>Bhojanalu</Text>
-                  <Text style={styles.addonDesc}>Traditional vegetarian meal, served on banana leaf</Text>
+                  <Text style={styles.addonTitle}>{t('bhojanalu')}</Text>
+                  <Text style={styles.addonDesc}>{t('bhojanaluDesc')}</Text>
                 </View>
                 <TouchableOpacity onPress={() => setBhojanaluChecked(!bhojanaluChecked)} style={styles.checkboxContainer}>
                   <View style={[styles.checkbox, bhojanaluChecked && styles.checkboxChecked]}>
@@ -184,7 +186,7 @@ export default function PackageSelectionScreen() {
                       onPress={() => setBhojanaluType('Traditional')}
                     >
                       <Text style={[styles.bhojanaluPillText, bhojanaluType === 'Traditional' && styles.bhojanaluPillTextSelected]}>
-                        Traditional · ₹{getPrice(optionsData.caterer, (c: any) => c.name === 'Traditional', 350)}
+                        {t('traditional')} · ₹{getPrice(optionsData.caterer, (c: any) => c.name === 'Traditional', 350)}
                       </Text>
                     </TouchableOpacity>
                     <TouchableOpacity 
@@ -192,13 +194,13 @@ export default function PackageSelectionScreen() {
                       onPress={() => setBhojanaluType('Festive')}
                     >
                       <Text style={[styles.bhojanaluPillText, bhojanaluType === 'Festive' && styles.bhojanaluPillTextSelected]}>
-                        Festive · ₹{getPrice(optionsData.caterer, (c: any) => c.name === 'Festive', 500)}
+                        {t('festive')} · ₹{getPrice(optionsData.caterer, (c: any) => c.name === 'Festive', 500)}
                       </Text>
                     </TouchableOpacity>
                   </View>
                   
                   <View style={styles.stepperRow}>
-                    <Text style={styles.stepperLabel}><Text style={{fontWeight: 'bold'}}>Guests</Text> · ₹{bhojanaluPrice} per plate</Text>
+                    <Text style={styles.stepperLabel}><Text style={{fontWeight: 'bold'}}>{t('guestsText')}</Text> · ₹{bhojanaluPrice} {t('perPlate')}</Text>
                     <View style={styles.stepperControls}>
                       <TouchableOpacity 
                         style={styles.stepperButton} 
@@ -217,7 +219,7 @@ export default function PackageSelectionScreen() {
                   </View>
                   
                   <Text style={styles.bhojanaluNotice}>
-                    Minimum {minGuests} guests. Prepared without onion and garlic on request.
+                    {t('bhojanaluNotice')}
                   </Text>
                 </View>
               )}
@@ -227,8 +229,8 @@ export default function PackageSelectionScreen() {
               {/* Flowers */}
               <View style={styles.addonRow}>
                 <View style={styles.addonTextContainer}>
-                  <Text style={styles.addonTitle}>Flowers and decoration</Text>
-                  <Text style={styles.addonDesc}>Mango-leaf thoranam, garlands, rangoli · ₹{flowersPrice.toLocaleString('en-IN')}</Text>
+                  <Text style={styles.addonTitle}>{t('flowersAndDeco')}</Text>
+                  <Text style={styles.addonDesc}>{t('flowersDesc')} · ₹{flowersPrice.toLocaleString('en-IN')}</Text>
                 </View>
                 <TouchableOpacity onPress={() => setFlowersChecked(!flowersChecked)} style={styles.checkboxContainer}>
                   <View style={[styles.checkbox, flowersChecked && styles.checkboxChecked]}>
@@ -242,8 +244,8 @@ export default function PackageSelectionScreen() {
               {/* Assistant */}
               <View style={styles.addonRow}>
                 <View style={styles.addonTextContainer}>
-                  <Text style={styles.addonTitle}>Assistant Purohit</Text>
-                  <Text style={styles.addonDesc}>Required for elaborate homams · ₹{assistantPrice.toLocaleString('en-IN')}</Text>
+                  <Text style={styles.addonTitle}>{t('assistantPurohit')}</Text>
+                  <Text style={styles.addonDesc}>{t('assistantDesc')} · ₹{assistantPrice.toLocaleString('en-IN')}</Text>
                 </View>
                 <TouchableOpacity onPress={() => setAssistantChecked(!assistantChecked)} style={styles.checkboxContainer}>
                   <View style={[styles.checkbox, assistantChecked && styles.checkboxChecked]}>
@@ -261,7 +263,7 @@ export default function PackageSelectionScreen() {
 
       <View style={styles.footer}>
         <View style={styles.footerTextContainer}>
-          <Text style={styles.footerLabel}>Total for package</Text>
+          <Text style={styles.footerLabel}>{t('totalForPackage')}</Text>
           <Text style={styles.footerAmount}>₹{totalPackagePrice.toLocaleString('en-IN')}</Text>
         </View>
         <TouchableOpacity style={styles.reviewButton} onPress={() => router.push({
@@ -283,7 +285,7 @@ export default function PackageSelectionScreen() {
             bhojanaluPrice
           }
         })}>
-          <Text style={styles.reviewButtonText}>Review booking</Text>
+          <Text style={styles.reviewButtonText}>{t('reviewBooking')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
