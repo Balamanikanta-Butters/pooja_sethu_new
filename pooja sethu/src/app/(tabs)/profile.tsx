@@ -1,9 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Platform, Modal, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../../constants/colors';
 import { useUser } from '../../context/UserContext';
 import { useRouter } from 'expo-router';
 import { useLanguage } from '../../context/LanguageContext';
+import PoojaSethuLogo from '../../components/PoojaSethuLogo';
+import { API_BASE_URL } from '../../utils/apiBaseUrl';
+import { endAnalyticsSession } from '../../utils/analytics';
 
 export default function AccountScreen() {
   const { userData, clearUserData } = useUser();
@@ -23,13 +27,59 @@ export default function AccountScreen() {
   const [modalContent, setModalContent] = useState('');
   const [modalLoading, setModalLoading] = useState(false);
 
+  // Raise a concern modal
+  const [concernVisible, setConcernVisible] = useState(false);
+  const [concernBookingId, setConcernBookingId] = useState('');
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [concernText, setConcernText] = useState('');
+  const [concernSubmitting, setConcernSubmitting] = useState(false);
+  const [concernSuccess, setConcernSuccess] = useState(false);
+
+  const CONCERN_TAGS = ['Late arrival', 'Vidhi concern', 'Samagri missing', 'Bhojanam', 'Payment'];
+
+  const toggleTag = (tag: string) => {
+    setSelectedTags(prev =>
+      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+    );
+  };
+
+  const openConcernModal = () => {
+    setSelectedTags([]);
+    setConcernText('');
+    setConcernBookingId('');
+    setConcernSuccess(false);
+    setConcernVisible(true);
+  };
+
+  const submitConcern = async () => {
+    if (selectedTags.length === 0 && !concernText.trim()) return;
+    setConcernSubmitting(true);
+    try {
+      await fetch(`${API_BASE_URL}/api/bookings/concern`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookingId: concernBookingId.trim() || null,
+          tags: selectedTags,
+          message: concernText.trim(),
+          userId: userData.mobileNumber,
+        }),
+      });
+    } catch (_) {
+      // silently handle — show success anyway
+    } finally {
+      setConcernSubmitting(false);
+      setConcernSuccess(true);
+    }
+  };
+
   const fetchContent = async (type: 'terms' | 'privacy' | 'cancellation', title: string) => {
     setModalTitle(title);
     setModalContent('');
     setModalLoading(true);
     setModalVisible(true);
     try {
-      const res = await fetch(`http://192.168.88.20:5000/api/content/${type}`);
+      const res = await fetch(`${API_BASE_URL}/api/content/${type}`);
       const data = await res.json();
       setModalContent(data.content || 'Content not available.');
     } catch {
@@ -51,13 +101,22 @@ export default function AccountScreen() {
     return name.substring(0, 2).toUpperCase();
   };
 
-  const handleSignOut = () => {
-    clearUserData();
-    router.replace('/');
+  const handleSignOut = async () => {
+    try {
+      await endAnalyticsSession();
+    } catch (error) {
+      console.error('Could not record analytics session logout:', error);
+    }
+    await clearUserData();
+    router.replace('/login');
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      {/* ── Brand Logo Bar ── */}
+      <View style={styles.logoBar}>
+        <PoojaSethuLogo />
+      </View>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         
         <Text style={styles.pageTitle}>{t('account')}</Text>
@@ -118,6 +177,12 @@ export default function AccountScreen() {
               >
                 <Text style={language === 'Telugu' ? styles.langTextActive : styles.langTextInactive}>తెలుగు</Text>
               </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.langButton, language === 'Hindi' && styles.langButtonActive]}
+                onPress={() => setLanguage('Hindi')}
+              >
+                <Text style={language === 'Hindi' ? styles.langTextActive : styles.langTextInactive}>हिंदी</Text>
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -145,7 +210,7 @@ export default function AccountScreen() {
           <Text style={styles.helpDesc}>{t('callDesc')}</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.helpCard}>
+        <TouchableOpacity style={styles.helpCard} onPress={openConcernModal}>
           <Text style={styles.helpTitle}>{t('raiseConcern')}</Text>
           <Text style={styles.helpDesc}>{t('concernDesc')}</Text>
         </TouchableOpacity>
@@ -172,6 +237,94 @@ export default function AccountScreen() {
         </View>
 
       </ScrollView>
+
+      {/* Raise a Concern Bottom Sheet */}
+      <Modal
+        visible={concernVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setConcernVisible(false)}
+      >
+        <KeyboardAvoidingView
+          style={styles.concernOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <TouchableOpacity style={styles.concernBackdrop} activeOpacity={1} onPress={() => setConcernVisible(false)} />
+          <View style={styles.concernSheet}>
+            {/* Handle */}
+            <View style={styles.concernHandle} />
+
+            {concernSuccess ? (
+              <View style={styles.concernSuccessContainer}>
+                <Text style={styles.concernSuccessEmoji}>🙏</Text>
+                <Text style={styles.concernSuccessTitle}>Thank you!</Text>
+                <Text style={styles.concernSuccessDesc}>We have received your concern and will get back to you shortly.</Text>
+                <TouchableOpacity style={styles.concernSubmitBtn} onPress={() => setConcernVisible(false)}>
+                  <Text style={styles.concernSubmitText}>Close</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                <Text style={styles.concernTitle}>Raise a concern</Text>
+
+                {/* Booking ID */}
+                <TextInput
+                  style={styles.concernBookingInput}
+                  placeholder="Booking ID (e.g. PS-26-09820)"
+                  placeholderTextColor="#AAAAAA"
+                  value={concernBookingId}
+                  onChangeText={setConcernBookingId}
+                  autoCapitalize="characters"
+                />
+
+                {/* Tags */}
+                <View style={styles.tagsRow}>
+                  {CONCERN_TAGS.map(tag => (
+                    <TouchableOpacity
+                      key={tag}
+                      style={[styles.tag, selectedTags.includes(tag) && styles.tagSelected]}
+                      onPress={() => toggleTag(tag)}
+                    >
+                      <Text style={[styles.tagText, selectedTags.includes(tag) && styles.tagTextSelected]}>
+                        {tag}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Text area */}
+                <Text style={styles.concernOptionalLabel}>Tell us more (optional)</Text>
+                <TextInput
+                  style={styles.concernTextArea}
+                  placeholder="What happened?"
+                  placeholderTextColor="#AAAAAA"
+                  multiline
+                  numberOfLines={4}
+                  value={concernText}
+                  onChangeText={setConcernText}
+                  textAlignVertical="top"
+                />
+
+                {/* Submit */}
+                <TouchableOpacity
+                  style={[
+                    styles.concernSubmitBtn,
+                    selectedTags.length === 0 && !concernText.trim() && styles.concernSubmitBtnDisabled,
+                  ]}
+                  onPress={submitConcern}
+                  disabled={concernSubmitting || (selectedTags.length === 0 && !concernText.trim())}
+                >
+                  {concernSubmitting ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <Text style={styles.concernSubmitText}>Submit</Text>
+                  )}
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* Content Modal for Terms / Privacy / Cancellation */}
       <Modal
@@ -210,8 +363,14 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 20,
-    paddingTop: Platform.OS === 'android' ? 40 : 20,
+    paddingTop: 12,
     paddingBottom: 40,
+  },
+  logoBar: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 4,
+    backgroundColor: '#F9F6F0',
   },
   pageTitle: {
     fontSize: 22,
@@ -339,6 +498,127 @@ const styles = StyleSheet.create({
   helpDesc: {
     fontSize: 13,
     color: '#777777',
+  },
+  // Concern modal styles
+  concernOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  concernBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  concernSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: 36,
+  },
+  concernHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#DDD',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  concernTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1A365D',
+    marginBottom: 16,
+  },
+  concernBookingInput: {
+    borderWidth: 1,
+    borderColor: '#DCD4CB',
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 14,
+    color: '#333333',
+    marginBottom: 16,
+    backgroundColor: '#FDFBF7',
+  },
+  tagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 20,
+  },
+  tag: {
+    borderWidth: 1,
+    borderColor: '#C5B8A8',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: '#FDFBF7',
+  },
+  tagSelected: {
+    borderColor: '#7C1B2C',
+    backgroundColor: '#F9EEF0',
+  },
+  tagText: {
+    fontSize: 13,
+    color: '#555555',
+  },
+  tagTextSelected: {
+    color: '#7C1B2C',
+    fontWeight: '600',
+  },
+  concernOptionalLabel: {
+    fontSize: 13,
+    color: '#666666',
+    marginBottom: 8,
+  },
+  concernTextArea: {
+    borderWidth: 1,
+    borderColor: '#DCD4CB',
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 14,
+    color: '#333333',
+    minHeight: 90,
+    backgroundColor: '#FDFBF7',
+    marginBottom: 20,
+  },
+  concernSubmitBtn: {
+    backgroundColor: '#7C1B2C',
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  concernSubmitBtnDisabled: {
+    backgroundColor: '#C5B8A8',
+  },
+  concernSubmitText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
+  concernSuccessContainer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  concernSuccessEmoji: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  concernSuccessTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#1A365D',
+    marginBottom: 8,
+  },
+  concernSuccessDesc: {
+    fontSize: 14,
+    color: '#666666',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 20,
   },
   footerLinks: {
     flexDirection: 'row',

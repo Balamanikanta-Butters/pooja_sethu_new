@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Pla
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useLanguage } from '../../context/LanguageContext';
+import { API_BASE_URL } from '../../utils/apiBaseUrl';
 
 /**
  * PackageSelectionScreen Component
@@ -50,7 +51,7 @@ export default function PackageSelectionScreen() {
   });
 
   useEffect(() => {
-    fetch('http://192.168.88.20:5000/api/services/package-options')
+    fetch(`${API_BASE_URL}/api/services/package-options`)
       .then(res => res.json())
       .then(data => {
         if (data.success) {
@@ -106,28 +107,6 @@ export default function PackageSelectionScreen() {
         
         {/* Booking Type Options */}
         <TouchableOpacity 
-          style={[styles.typeCard, bookingType === 'complete' && styles.typeCardSelected]}
-          onPress={() => setBookingType('complete')}
-        >
-          <View style={styles.radioTopRow}>
-            <View style={styles.radioOuter}>
-              {bookingType === 'complete' && <View style={styles.radioInner} />}
-            </View>
-            <View style={styles.typeTextContainer}>
-              <View style={styles.typeTitleRow}>
-                <Text style={styles.typeTitle}>{t('completePackage')}</Text>
-                <View style={styles.recommendedBadge}>
-                  <Text style={styles.recommendedText}>{t('recommended')}</Text>
-                </View>
-              </View>
-              <Text style={styles.typeDesc}>
-                {t('completePackageDesc')}
-              </Text>
-            </View>
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
           style={[styles.typeCard, bookingType === 'purohit' && styles.typeCardSelected]}
           onPress={() => setBookingType('purohit')}
         >
@@ -136,9 +115,31 @@ export default function PackageSelectionScreen() {
               {bookingType === 'purohit' && <View style={styles.radioInner} />}
             </View>
             <View style={styles.typeTextContainer}>
-              <Text style={styles.typeTitle}>{t('purohitOnly')}</Text>
+              <View style={styles.typeTitleRow}>
+                <Text style={styles.typeTitle}>{t('purohitOnly')}</Text>
+                <View style={styles.recommendedBadge}>
+                  <Text style={styles.recommendedText}>{t('recommended')}</Text>
+                </View>
+              </View>
               <Text style={styles.typeDesc}>
                 {t('purohitOnlyDesc')}
+              </Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.typeCard, bookingType === 'complete' && styles.typeCardSelected]}
+          onPress={() => setBookingType('complete')}
+        >
+          <View style={styles.radioTopRow}>
+            <View style={styles.radioOuter}>
+              {bookingType === 'complete' && <View style={styles.radioInner} />}
+            </View>
+            <View style={styles.typeTextContainer}>
+              <Text style={styles.typeTitle}>{t('completePackage')}</Text>
+              <Text style={styles.typeDesc}>
+                {t('completePackageDesc')}
               </Text>
             </View>
           </View>
@@ -553,6 +554,5 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 });
-
 
 

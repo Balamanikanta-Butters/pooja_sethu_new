@@ -1,8 +1,17 @@
 const express = require('express');
 const router = express.Router();
 const bookingController = require('../controllers/bookingController');
+const authMiddleware = require('../middlewares/authMiddleware');
 
-router.post('/', bookingController.createBooking);
-router.get('/my-bookings', bookingController.getMyBookings);
+router.use(async (req, res, next) => {
+    const schemaReady = await req.app.locals.optionalBookingAddressSchemaReady;
+    if (!schemaReady) {
+        return res.status(503).json({ success: false, message: 'Booking service is temporarily unavailable' });
+    }
+    next();
+});
+
+router.post('/', authMiddleware, bookingController.createBooking);
+router.get('/my-bookings', authMiddleware, bookingController.getMyBookings);
 
 module.exports = router;

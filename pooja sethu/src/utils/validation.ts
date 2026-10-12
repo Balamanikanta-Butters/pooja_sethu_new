@@ -1,3 +1,44 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
+
+export const saveToken = async (token: string) => {
+  try {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      localStorage.setItem('jwt_token', token);
+    } else if (Platform.OS !== 'web') {
+      await AsyncStorage.setItem('jwt_token', token);
+    }
+  } catch (e) {
+    console.error('Error saving token', e);
+  }
+};
+
+export const getToken = async () => {
+  try {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      return localStorage.getItem('jwt_token');
+    } else if (Platform.OS !== 'web') {
+      return await AsyncStorage.getItem('jwt_token');
+    }
+    return null;
+  } catch (e) {
+    console.error('Error getting token', e);
+    return null;
+  }
+};
+
+export const clearToken = async () => {
+  try {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      localStorage.removeItem('jwt_token');
+    } else if (Platform.OS !== 'web') {
+      await AsyncStorage.removeItem('jwt_token');
+    }
+  } catch (e) {
+    console.error('Error clearing token', e);
+  }
+};
+
 /**
  * Centralized Validation Utility
  * --------------------------------
@@ -134,10 +175,17 @@ const apiErrors: Record<number | string, string[]> = {
   ],
 };
 
-export function getApiErrorMessage(statusCode?: number): string {
-  const key = statusCode && apiErrors[statusCode] ? statusCode : 'default';
+export function getApiErrorMessage(statusCode?: number | 'network'): string {
+  const key = statusCode !== undefined && apiErrors[statusCode] ? statusCode : 'default';
   const messages = apiErrors[key];
   return messages[Math.floor(Math.random() * messages.length)];
+}
+
+export class ApiError extends Error {
+  constructor(message: string, public readonly statusCode: number) {
+    super(message);
+    this.name = 'ApiError';
+  }
 }
 
 /**
@@ -145,8 +193,17 @@ export function getApiErrorMessage(statusCode?: number): string {
  * - On success (2xx): returns parsed JSON data.
  * - On error: throws a user-friendly string instead of raw status codes.
  */
-export async function apiFetch(url: string, options?: RequestInit): Promise<any> {
+export async function apiFetch(url: string, options: RequestInit = {}): Promise<any> {
   try {
+    const token = await getToken();
+    const headers: Record<string, string> = {
+      ...(options.headers as Record<string, string> || {})
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    options.headers = headers;
+
     const response = await fetch(url, options);
     const data = await response.json().catch(() => ({}));
 
@@ -154,12 +211,13 @@ export async function apiFetch(url: string, options?: RequestInit): Promise<any>
       return data;
     }
 
-    // Server returned an error status — show friendly message
-    throw new Error(getApiErrorMessage(response.status));
+    // Keep actionable messages from our API; use a friendly fallback for unstructured errors.
+    const serverMessage = typeof data.message === 'string' ? data.message : null;
+    throw new ApiError(serverMessage || getApiErrorMessage(response.status), response.status);
   } catch (err: any) {
     // Network error (no internet, server unreachable)
     if (err.message === 'Network request failed' || err.message?.includes('fetch')) {
-      throw new Error(getApiErrorMessage('network' as any));
+      throw new Error(getApiErrorMessage('network'));
     }
     // Re-throw already-friendly errors from above
     throw err;

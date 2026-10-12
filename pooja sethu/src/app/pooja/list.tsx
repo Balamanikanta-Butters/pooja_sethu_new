@@ -1,11 +1,24 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, TextInput, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { colors } from '../../constants/colors';
 import { useLanguage } from '../../context/LanguageContext';
+import PoojaSethuLogo from '../../components/PoojaSethuLogo';
+import { API_BASE_URL } from '../../utils/apiBaseUrl';
+import { POOJA_CATEGORIES } from '../../constants/poojaCategories';
 
-const filters = ['All', 'Gruha', 'Samskaras', 'Vratams', 'Homams', 'Festivals'];
+type PoojaItem = {
+  id: string | number;
+  title: string;
+  subtitle: string;
+  desc: string;
+  duration: string;
+  price: number | string;
+  category: string;
+  sampradayam: string;
+};
 
 export default function PoojaListScreen() {
   const router = useRouter();
@@ -13,12 +26,17 @@ export default function PoojaListScreen() {
   const { t } = useLanguage();
   const passedSampradayam = params.sampradayam as string;
   const [search, setSearch] = useState('');
-  const [activeFilter, setActiveFilter] = useState('All');
-  const [poojas, setPoojas] = useState([]);
+  const requestedCategory =
+    typeof params.category === 'string' &&
+    POOJA_CATEGORIES.includes(params.category as (typeof POOJA_CATEGORIES)[number])
+      ? params.category
+      : 'All';
+  const [activeFilter, setActiveFilter] = useState(requestedCategory);
+  const [poojas, setPoojas] = useState<PoojaItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   React.useEffect(() => {
-    fetch('http://192.168.88.20:5000/api/services/poojas')
+    fetch(`${API_BASE_URL}/api/services/poojas`)
       .then(res => res.json())
       .then(data => {
         if (data.success) {
@@ -32,6 +50,10 @@ export default function PoojaListScreen() {
       });
   }, []);
 
+  React.useEffect(() => {
+    setActiveFilter(requestedCategory);
+  }, [requestedCategory]);
+
   const filteredPoojas = poojas.filter(p => {
     const matchesSearch = p.title.toLowerCase().includes(search.toLowerCase());
     const matchesFilter = activeFilter === 'All' || p.category === activeFilter;
@@ -39,15 +61,20 @@ export default function PoojaListScreen() {
   });
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
+        <View style={styles.logoBar}>
+          <PoojaSethuLogo />
+        </View>
+        <View style={styles.headerNav}>
         <TouchableOpacity onPress={() => { if(router.canGoBack()) { router.back(); } else { router.push('/(tabs)/catalogue'); } }} style={styles.backButton}>
           <Ionicons name="chevron-back" size={24} color="#333333" />
         </TouchableOpacity>
         <View style={styles.headerTextContainer}>
           <Text style={styles.headerTitle}>{t('chooseAPooja')}</Text>
           <Text style={styles.headerSubtitle}>{t('allPoojas')}</Text>
+        </View>
         </View>
       </View>
 
@@ -66,7 +93,7 @@ export default function PoojaListScreen() {
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
-          {filters.map(filter => (
+          {POOJA_CATEGORIES.map(filter => (
             <TouchableOpacity 
               key={filter}
               style={[styles.filterPill, activeFilter === filter && styles.filterPillActive]}
@@ -82,7 +109,14 @@ export default function PoojaListScreen() {
 
       {/* List */}
       <ScrollView style={styles.listContainer} showsVerticalScrollIndicator={false}>
-        <Text style={styles.resultsCount}>{t('poojasInAll', { count: filteredPoojas.length.toString() })}</Text>
+        <Text style={styles.resultsCount}>
+          {activeFilter === 'All'
+            ? t('poojasInAll', { count: filteredPoojas.length.toString() })
+            : t('poojasInCategory', {
+                count: filteredPoojas.length.toString(),
+                category: activeFilter,
+              })}
+        </Text>
         
         {filteredPoojas.map(pooja => (
           <TouchableOpacity 
@@ -131,12 +165,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9F6F0',
   },
   header: {
+    backgroundColor: '#FFFFFF',
+  },
+  logoBar: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 6,
+  },
+  headerNav: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? 40 : 12,
     paddingBottom: 12,
-    backgroundColor: '#FFFFFF',
   },
   backButton: {
     padding: 8,
@@ -274,6 +314,3 @@ const styles = StyleSheet.create({
     color: '#333333',
   },
 });
-
-
-

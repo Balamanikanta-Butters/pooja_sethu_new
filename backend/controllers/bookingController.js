@@ -1,10 +1,27 @@
 const pool = require('../config/db');
 
+const bookingError = (statusCode, message) => {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+};
+
+const venueTypes = new Map([
+  ['home', 'home'],
+  ['temple', 'temple'],
+  ['function hall', 'function_hall'],
+  ['function_hall', 'function_hall'],
+  ['office', 'office'],
+  ['other', 'other']
+]);
+
 exports.createBooking = async (req, res) => {
-  const client = await pool.connect();
+  let client;
   try {
-    await client.query('BEGIN');
-    await client.query('SET search_path TO ps, public');
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw bookingError(401, 'Please sign in again before booking.');
+    }
 
     const {
       pooja_id,
@@ -13,8 +30,11 @@ exports.createBooking = async (req, res) => {
       starts_at,
       ends_at,
       venue_type,
+      addressFlat,
+      addressArea,
+      pincode: requestedPincode,
       guests,
-      mode, // 'purohit_only' or 'package'
+      mode,
       dakshina_amount,
       samagri_amount,
       food_amount,
@@ -28,75 +48,153 @@ exports.createBooking = async (req, res) => {
       booked_for_phone
     } = req.body;
 
-    // Hardcode user and address for now since auth is mocked
-    // In a real scenario, req.user.id would be used
-    const userResult = await client.query(`SELECT id FROM "user" LIMIT 1`);
-    if (userResult.rows.length === 0) throw new Error("No users found");
-    const userId = userResult.rows[0].id;
+    const startDate = new Date(starts_at);
+    const endDate = new Date(ends_at);
+    if (!starts_at || !ends_at || !Number.isFinite(startDate.getTime()) ||
+        !Number.isFinite(endDate.getTime()) || endDate <= startDate) {
+      throw bookingError(400, 'Select a valid future booking date and time before paying.');
+    }
+    if (!pooja_id || !sampradayam) {
+      throw bookingError(400, 'Pooja and sampradayam are required to create a booking.');
+    }
 
-    const addressResult = await client.query(`SELECT id, pincode FROM "address" WHERE user_id = $1 LIMIT 1`, [userId]);
-    if (addressResult.rows.length === 0) throw new Error("User has no address");
-    const addressId = addressResult.rows[0].id;
-    const pincode = addressResult.rows[0].pincode;
+    const normalizedVenue = venueTypes.get(String(venue_type || 'home').toLowerCase());
+    if (!normalizedVenue) {
+      throw bookingError(400, 'Select a valid booking venue.');
+    }
+    const bookingMode = mode === 'purohit' || mode === 'purohit_only'
+      ? 'purohit_only'
+      : mode === 'complete' || mode === 'package'
+        ? 'package'
+        : null;
+    if (!bookingMode) {
+      throw bookingError(400, 'Select a valid booking package.');
+    }
 
-    const zoneResult = await client.query(`SELECT zone_id FROM pincode_zone WHERE pincode = $1 LIMIT 1`, [pincode]);
-    if (zoneResult.rows.length === 0) throw new Error("No zone found for pincode");
-    const zoneId = zoneResult.rows[0].zone_id;
+    client = await pool.connect();
+    await client.query('BEGIN');
+    await client.query('SET search_path TO ps, public');
 
-    // Resolve pooja_vidhi_id, vidhi_version_id, sampradayam_id
-    const vidhiResult = await client.query(`
-      SELECT pv.id as pooja_vidhi_id, pv.current_version_id, s.id as sampradayam_id
-      FROM pooja_vidhi pv
-      JOIN sampradayam s ON pv.sampradayam_id = s.id
-      WHERE pv.pooja_id = $1 AND s.name->>'en' = $2
-    `, [pooja_id, sampradayam]);
-    
-    if (vidhiResult.rows.length === 0) throw new Error("Pooja vidhi not found");
+    const userResult = await client.query(
+      `SELECT id FROM app_user WHERE id = $1 AND deleted_at IS NULL`,
+      [userId]
+    );
+    if (userResult.rows.length === 0) {
+      throw bookingError(401, 'Your account could not be found. Please sign in again.');
+    }
+
+    const addressResult = await client.query(
+      `SELECT id, pincode
+       FROM address
+       WHERE user_id = $1
+       ORDER BY is_default DESC
+       LIMIT 1`,
+      [userId]
+    );
+    const savedAddress = addressResult.rows[0];
+    const pincode = requestedPincode || savedAddress?.pincode;
+    if (!pincode) {
+      throw bookingError(400, 'Add a service address and pincode to your profile before booking.');
+    }
+
+    const zoneResult = await client.query(
+      `SELECT zone_id
+       FROM pincode
+       WHERE code = $1 AND serviceable = true AND zone_id IS NOT NULL`,
+      [pincode]
+    );
+    if (zoneResult.rows.length === 0) {
+      throw bookingError(400, 'The selected pincode is not currently serviceable.');
+    }
+
+    let addressId = savedAddress?.id;
+    if (!addressId || addressFlat || addressArea || (savedAddress && pincode !== savedAddress.pincode)) {
+      const streetAddress = [addressFlat, addressArea].filter(Boolean).join(', ') || null;
+      const bookingAddress = await client.query(
+        `INSERT INTO address (id, user_id, label, line1, pincode, is_default)
+         VALUES (gen_random_uuid(), $1, 'Booking', $2, $3, false)
+         RETURNING id`,
+        [userId, streetAddress, pincode]
+      );
+      addressId = bookingAddress.rows[0].id;
+    }
+
+    let vidhiResult = await client.query(
+      `SELECT pv.id AS pooja_vidhi_id, pv.current_version_id, s.id AS sampradayam_id
+       FROM pooja_vidhi pv
+       JOIN sampradayam s ON pv.sampradayam_id = s.id
+       WHERE pv.pooja_id = $1 AND s.name->>'en' = $2`,
+      [pooja_id, sampradayam || 'Smartha']
+    );
+    if (vidhiResult.rows.length === 0) {
+      vidhiResult = await client.query(
+        `SELECT pv.id AS pooja_vidhi_id, pv.current_version_id, s.id AS sampradayam_id
+         FROM pooja_vidhi pv
+         JOIN sampradayam s ON pv.sampradayam_id = s.id
+         WHERE pv.pooja_id = $1
+         LIMIT 1`,
+        [pooja_id]
+      );
+    }
+    if (vidhiResult.rows.length === 0) {
+      throw bookingError(400, 'This pooja is not available for the selected sampradayam.');
+    }
     const { pooja_vidhi_id, current_version_id, sampradayam_id } = vidhiResult.rows[0];
+    if (!current_version_id) {
+      throw bookingError(400, 'The selected pooja is not currently available for booking.');
+    }
 
-    // Create the booking
-    const insertBooking = `
-      INSERT INTO booking (
-        booking_no, user_id, pooja_vidhi_id, vidhi_version_id, sampradayam_id,
-        starts_at, ends_at, venue_type, address_id, zone_id, guests, mode, status,
+    const bookingResult = await client.query(
+      `INSERT INTO booking (
+         booking_no, user_id, pooja_vidhi_id, vidhi_version_id, sampradayam_id,
+         starts_at, ends_at, venue_type, address_id, zone_id, guests, mode, status,
+         dakshina_amount, samagri_amount, food_amount, addon_amount, platform_fee,
+         tax_amount, discount_amount, total_payable, diet_preference,
+         booked_for_name, booked_for_phone
+       ) VALUES (
+         'BK-' || extract(epoch from now())::int, $1, $2, $3, $4,
+         $5, $6, $7, $8, $9, $10, $11, 'draft',
+         $12, $13, $14, $15, $16, $17, $18, $19, $20,
+         $21, $22
+       ) RETURNING id, booking_no`,
+      [
+        userId, pooja_vidhi_id, current_version_id, sampradayam_id,
+        startDate.toISOString(), endDate.toISOString(), normalizedVenue, addressId,
+        zoneResult.rows[0].zone_id, guests, bookingMode,
         dakshina_amount, samagri_amount, food_amount, addon_amount, platform_fee,
-        tax_amount, discount_amount, total_payable, diet_preference,
-        booked_for_name, booked_for_phone
-      ) VALUES (
-        'BK-' || extract(epoch from now())::int, $1, $2, $3, $4,
-        $5, $6, $7, $8, $9, $10, $11, 'draft',
-        $12, $13, $14, $15, $16, $17, $18, $19, $20,
-        $21, $22
-      ) RETURNING id, booking_no
-    `;
-
-    const bookingResult = await client.query(insertBooking, [
-      userId, pooja_vidhi_id, current_version_id, sampradayam_id,
-      starts_at, ends_at, venue_type, addressId, zoneId, guests, mode,
-      dakshina_amount, samagri_amount, food_amount, addon_amount, platform_fee,
-      tax_amount, discount_amount, total_payable, diet_preference || 'none',
-      booked_for_name || null, booked_for_phone || null
-    ]);
+        tax_amount, discount_amount, total_payable, diet_preference || 'satvik',
+        booked_for_name || null, booked_for_phone || null
+      ]
+    );
 
     const bookingId = bookingResult.rows[0].id;
-
-    // Optionally assign purohit if purohit_id was provided
     if (purohit_id) {
-        await client.query(`
-            INSERT INTO booking_assignment (booking_id, purohit_id, status)
-            VALUES ($1, $2, 'requested')
-        `, [bookingId, purohit_id]);
+      await client.query(
+        `INSERT INTO booking_assignment (booking_id, purohit_id, status)
+         VALUES ($1, $2, 'offered')`,
+        [bookingId, purohit_id]
+      );
     }
 
     await client.query('COMMIT');
-    res.json({ success: true, message: 'Booking created successfully', data: bookingResult.rows[0] });
-
+    return res.json({
+      success: true,
+      message: 'Booking created successfully',
+      data: bookingResult.rows[0]
+    });
   } catch (error) {
-    await client.query('ROLLBACK');
+    if (client) {
+      await client.query('ROLLBACK');
+    }
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ success: false, message: error.message });
+    }
     console.error('Error creating booking:', error);
-    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+    return res.status(500).json({ success: false, message: 'Booking could not be saved. Please try again.' });
   } finally {
-    client.release();
+    if (client) {
+      client.release();
+    }
   }
 };
 

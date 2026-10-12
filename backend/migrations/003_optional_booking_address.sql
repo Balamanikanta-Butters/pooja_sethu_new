@@ -1,0 +1,2 @@
+ALTER TABLE ps.address
+    ALTER COLUMN line1 DROP NOT NULL;

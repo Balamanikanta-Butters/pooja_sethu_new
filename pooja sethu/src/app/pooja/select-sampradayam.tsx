@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useUser } from '../../context/UserContext';
 import { useLanguage } from '../../context/LanguageContext';
+import PoojaSethuLogo from '../../components/PoojaSethuLogo';
 
 const sampradayams = [
   { id: 'Smartha', title: 'Smartha · స్మార్త', desc: 'Advaita tradition of Adi Shankaracharya' },
@@ -34,14 +36,19 @@ export default function SelectSampradayamScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color="#333333" />
-        </TouchableOpacity>
-        <View style={styles.headerTextContainer}>
-          <Text style={styles.headerTitle}>{t('yourSampradayam')}</Text>
-          <Text style={styles.headerSubtitle}>{t('yourSampradayamTel')}</Text>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={styles.headerWrapper}>
+        <View style={styles.logoBar}>
+          <PoojaSethuLogo />
+        </View>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="chevron-back" size={24} color="#333333" />
+          </TouchableOpacity>
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.headerTitle}>{t('yourSampradayam')}</Text>
+            <Text style={styles.headerSubtitle}>{t('yourSampradayamTel')}</Text>
+          </View>
         </View>
       </View>
 
@@ -97,14 +104,21 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F9F6F0',
   },
+  headerWrapper: {
+    backgroundColor: '#F9F6F0',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2D9C8',
+  },
+  logoBar: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? 40 : 12,
     paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2D9C8',
     backgroundColor: '#F9F6F0',
   },
   backButton: {

@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { colors } from '../../constants/colors';
 import { useUser } from '../../context/UserContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { API_BASE_URL } from '../../utils/apiBaseUrl';
 
 type FilterType = 'all' | 'bookings' | 'payments';
 
@@ -21,7 +22,7 @@ interface NotificationItem {
 
 export default function NotificationsScreen() {
   const router = useRouter();
-  const { user } = useUser();
+  const { userData } = useUser();
   const { t } = useLanguage();
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [notificationsData, setNotificationsData] = useState<{ title: string; data: NotificationItem[] }[]>([]);
@@ -34,8 +35,8 @@ export default function NotificationsScreen() {
   const fetchNotifications = async () => {
     try {
       setIsLoading(true);
-      const userId = user?.id || 'd3790ec3-2c1b-410a-86c5-a6e54ef864c2'; // fallback mock userId if not logged in
-      const res = await fetch(`http://192.168.88.20:5000/api/notifications?userId=${userId}`);
+      const userId = userData.mobileNumber || 'd3790ec3-2c1b-410a-86c5-a6e54ef864c2';
+      const res = await fetch(`${API_BASE_URL}/api/notifications?userId=${userId}`);
       const data = await res.json();
       if (data.success) {
         setNotificationsData(data.data);

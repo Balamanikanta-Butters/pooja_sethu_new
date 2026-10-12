@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { colors } from '../../constants/colors';
 import { useUser } from '../../context/UserContext';
 import { useRouter } from 'expo-router';
 import { useLanguage } from '../../context/LanguageContext';
+import PoojaSethuLogo from '../../components/PoojaSethuLogo';
+import { API_BASE_URL } from '../../utils/apiBaseUrl';
+import { POOJA_CATEGORIES } from '../../constants/poojaCategories';
 
 export default function HomeScreen() {
   const { userData } = useUser();
@@ -21,11 +25,12 @@ export default function HomeScreen() {
 
   const [panchangam, setPanchangam] = useState<any>(null);
   const [homeData, setHomeData] = useState<any>({ popularPoojas: [], upcomingMuhurthams: [], festivals: [] });
+  const [panchangamExpanded, setPanchangamExpanded] = useState(false);
 
   useEffect(() => {
     const fetchPanchangam = async () => {
       try {
-        const res = await fetch('http://192.168.88.20:5000/api/panchangam');
+        const res = await fetch(`${API_BASE_URL}/api/panchangam`);
         const data = await res.json();
         if (data.success && data.panchangam && data.panchangam.length > 0) {
           setPanchangam(data.panchangam[0]);
@@ -37,7 +42,7 @@ export default function HomeScreen() {
     fetchPanchangam();
     const fetchHomeData = async () => {
       try {
-        const res = await fetch('http://192.168.88.20:5000/api/home');
+        const res = await fetch(`${API_BASE_URL}/api/home`);
         const data = await res.json();
         if (data.success) {
           setHomeData(data);
@@ -50,7 +55,11 @@ export default function HomeScreen() {
   }, []);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      {/* ── Brand Logo Bar ── */}
+      <View style={styles.logoBar}>
+        <PoojaSethuLogo />
+      </View>
       <View style={styles.header}>
         <View style={{ flex: 1, marginRight: 16 }}>
           <Text style={styles.greeting} numberOfLines={1}>{displayGreeting}</Text>
@@ -107,54 +116,83 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          <View style={styles.timingsCard}>
-            <View style={styles.timingsRow}>
-              <View style={styles.timingItem}>
-                <View style={styles.timingBadgeGood}>
-                  <Text style={styles.timingBadgeTextGood}>Good</Text>
+          {panchangamExpanded && (
+            <>
+              <View style={styles.timingsCard}>
+                <View style={styles.timingsRow}>
+                  <View style={styles.timingItem}>
+                    <View style={styles.timingBadgeGood}>
+                      <Text style={styles.timingBadgeTextGood}>Good</Text>
+                    </View>
+                    <Text style={styles.timingName}>Amrita Kalam</Text>
+                    <Text style={styles.timingTime}>10:42 – 12:18 PM</Text>
+                  </View>
+                  <View style={styles.timingItem}>
+                    <View style={styles.timingBadgeGood}>
+                      <Text style={styles.timingBadgeTextGood}>Good</Text>
+                    </View>
+                    <Text style={styles.timingName}>Abhijit</Text>
+                    <Text style={styles.timingTime}>11:38 AM – 12:25 PM</Text>
+                  </View>
                 </View>
-                <Text style={styles.timingName}>Amrita Kalam</Text>
-                <Text style={styles.timingTime}>10:42 – 12:18 PM</Text>
-              </View>
-              <View style={styles.timingItem}>
-                <View style={styles.timingBadgeGood}>
-                  <Text style={styles.timingBadgeTextGood}>Good</Text>
-                </View>
-                <Text style={styles.timingName}>Abhijit</Text>
-                <Text style={styles.timingTime}>11:38 AM – 12:25 PM</Text>
-              </View>
-            </View>
 
-            <View style={[styles.timingsRow, { marginTop: 16 }]}>
-              <View style={styles.timingItem}>
-                <View style={styles.timingBadgeAvoid}>
-                  <Text style={styles.timingBadgeTextAvoid}>Avoid</Text>
+                <View style={[styles.timingsRow, { marginTop: 16 }]}>
+                  <View style={styles.timingItem}>
+                    <View style={styles.timingBadgeAvoid}>
+                      <Text style={styles.timingBadgeTextAvoid}>Avoid</Text>
+                    </View>
+                    <Text style={styles.timingName}>Rahu Kalam</Text>
+                    <Text style={styles.timingTime}>9:00 – 10:30 AM</Text>
+                  </View>
+                  <View style={styles.timingItem}>
+                    <View style={styles.timingBadgeAvoid}>
+                      <Text style={styles.timingBadgeTextAvoid}>Avoid</Text>
+                    </View>
+                    <Text style={styles.timingName}>Yamagandam</Text>
+                    <Text style={styles.timingTime}>1:30 – 3:00 PM</Text>
+                  </View>
                 </View>
-                <Text style={styles.timingName}>Rahu Kalam</Text>
-                <Text style={styles.timingTime}>9:00 – 10:30 AM</Text>
               </View>
-              <View style={styles.timingItem}>
-                <View style={styles.timingBadgeAvoid}>
-                  <Text style={styles.timingBadgeTextAvoid}>Avoid</Text>
-                </View>
-                <Text style={styles.timingName}>Yamagandam</Text>
-                <Text style={styles.timingTime}>1:30 – 3:00 PM</Text>
-              </View>
-            </View>
-          </View>
 
-          <TouchableOpacity 
-            style={styles.fullPanchangamButton}
-            onPress={() => router.push('/calendar')}
+              <TouchableOpacity
+                style={styles.fullPanchangamButton}
+                onPress={() => router.push('/panchangam')}
+              >
+                <Text style={styles.fullPanchangamText}>{t('fullPanchangam')}</Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          <TouchableOpacity
+            style={styles.panchangamToggle}
+            onPress={() => setPanchangamExpanded(expanded => !expanded)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: panchangamExpanded }}
           >
-            <Text style={styles.fullPanchangamText}>{t('fullPanchangam')}</Text>
+            <Text style={styles.panchangamToggleText}>
+              {panchangamExpanded ? t('seeLess') : t('seeMore')}
+            </Text>
           </TouchableOpacity>
         </View>
 
         {/* Booking Section */}
-        <Text style={styles.sectionTitle}>{t('howToBook')}</Text>
-        
-        <TouchableOpacity 
+        <Text style={styles.sectionTitle}>{t('bookAPooja')}</Text>
+        <View style={styles.categoryGrid}>
+          {POOJA_CATEGORIES.map((category, index) => (
+            <TouchableOpacity
+              key={category}
+              style={[styles.categoryButton, index === 0 && styles.categoryButtonActive]}
+              onPress={() => router.push({ pathname: '/pooja/list', params: { category } })}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.categoryButtonText, index === 0 && styles.categoryButtonTextActive]}>
+                {category}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <TouchableOpacity
           style={styles.bookingOptionCard}
           onPress={() => router.push('/pooja/select-sampradayam')}
         >
@@ -163,23 +201,7 @@ export default function HomeScreen() {
             <MaterialIcons name="chevron-right" size={24} color={colors.primary} />
           </View>
           <Text style={styles.bookingOptionSub}>సంప్రదాయానుసారం</Text>
-          <Text style={styles.bookingOptionDesc}>
-            {t('sampradayaDesc')}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.bookingOptionCard}
-          onPress={() => router.push('/pooja/list')}
-        >
-          <View style={styles.bookingOptionHeader}>
-            <Text style={styles.bookingOptionTitle}>{t('samanyanusaram')}</Text>
-            <MaterialIcons name="chevron-right" size={24} color={colors.primary} />
-          </View>
-          <Text style={styles.bookingOptionSub}>సామాన్యానుసారం</Text>
-          <Text style={styles.bookingOptionDesc}>
-            {t('samanyaDesc')}
-          </Text>
+          <Text style={styles.bookingOptionDesc}>{t('sampradayaDesc')}</Text>
         </TouchableOpacity>
 
         {/* Upcoming good muhurthams */}
@@ -267,12 +289,18 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F9F6F0',
   },
+  logoBar: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 4,
+    backgroundColor: '#F9F6F0',
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'android' ? 40 : 20,
+    paddingTop: 8,
     paddingBottom: 16,
     backgroundColor: '#F9F6F0',
   },
@@ -431,12 +459,54 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 14,
   },
+  panchangamToggle: {
+    alignSelf: 'flex-end',
+    paddingTop: 8,
+    paddingBottom: 2,
+  },
+  panchangamToggleText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+    textDecorationLine: 'underline',
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333333',
     marginTop: 24,
     marginBottom: 16,
+  },
+  categoryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  categoryButton: {
+    width: '31%',
+    minHeight: 42,
+    paddingHorizontal: 6,
+    paddingVertical: 9,
+    marginBottom: 10,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#DCD4CB',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryButtonActive: {
+    backgroundColor: '#7C1B2C',
+    borderColor: '#7C1B2C',
+  },
+  categoryButtonText: {
+    fontSize: 14,
+    color: '#333333',
+  },
+  categoryButtonTextActive: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
   },
   bookingOptionCard: {
     backgroundColor: '#FFFFFF',
@@ -527,6 +597,3 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
 });
-
-
-

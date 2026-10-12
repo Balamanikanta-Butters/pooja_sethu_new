@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Platform, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Modal } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useLanguage } from '../../context/LanguageContext';
+import { useUser } from '../../context/UserContext';
+import PoojaSethuLogo from '../../components/PoojaSethuLogo';
+import { API_BASE_URL } from '../../utils/apiBaseUrl';
 
 interface Purohit {
   id: string;
@@ -27,15 +31,48 @@ export default function PurohitListScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { t } = useLanguage();
-  const passedSampradayam = (params.sampradayam as string) || 'Samanya';
+  const { userData } = useUser();
+  const passedSampradayam = (params.sampradayam as string) || '';
   const [selectedLang, setSelectedLang] = useState('All');
   const [selectedSort, setSelectedSort] = useState('Rating');
 
   const [purohits, setPurohits] = useState<Purohit[]>([]);
   const [loading, setLoading] = useState(true);
+  const [profilePromptVisible, setProfilePromptVisible] = useState(false);
+  const [pendingPurohit, setPendingPurohit] = useState<Purohit | null>(null);
+
+  const navigateToPackage = (purohit: Purohit) => {
+    router.push({
+      pathname: '/booking/package',
+      params: {
+        ...params,
+        sampradayam: passedSampradayam,
+        purohitId: purohit.id,
+        purohitName: purohit.name,
+        purohitRating: purohit.rating,
+        purohitPhoto: purohit.photo_url,
+        purohitLanguages: purohit.languages ? purohit.languages.join(',') : '',
+        dakshina: purohit.dakshina,
+        rawDakshina: purohit.raw_dakshina
+      }
+    });
+  };
+
+  const [profilePromptDismissed, setProfilePromptDismissed] = useState(
+    params.profilePromptDismissed === 'true'
+  );
+
+  const handleSelectPurohit = (purohit: Purohit) => {
+    if (!profilePromptDismissed && params.profilePromptDismissed !== 'true') {
+      setPendingPurohit(purohit);
+      setProfilePromptVisible(true);
+      return;
+    }
+    navigateToPackage(purohit);
+  };
 
   React.useEffect(() => {
-    fetch(`http://192.168.88.20:5000/api/services/purohits?t=${new Date().getTime()}`)
+    fetch(`${API_BASE_URL}/api/services/purohits?t=${new Date().getTime()}`)
       .then(res => res.json())
       .then(data => {
         if (data.success) {
@@ -50,8 +87,9 @@ export default function PurohitListScreen() {
   }, []);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.topProgress}>
+        <PoojaSethuLogo />
         <Text style={styles.progressText}>{t('stepPurohit')}</Text>
       </View>
       
@@ -75,7 +113,7 @@ export default function PurohitListScreen() {
         <View style={styles.filterScrollWrapper}>
           <Ionicons name="caret-back" size={16} color="#888888" style={{ marginTop: 12, marginRight: 4 }} />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
-            {['All languages', 'Telugu', 'Kannada', 'Tamil'].map((lang) => {
+            {['All languages', 'Telugu', 'Kannada', 'Tamil', 'Hindi'].map((lang) => {
               const isSelected = selectedLang === lang || (selectedLang === 'All' && lang === 'All languages');
               const displayLang = lang === 'All languages' ? t('allLanguages') : lang;
               return (
@@ -205,19 +243,7 @@ export default function PurohitListScreen() {
                 })}>
                   <Text style={styles.profileLink}>{t('profileLink')}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.selectButton} onPress={() => router.push({
-                  pathname: '/booking/package',
-                  params: {
-                    ...params,
-                    purohitId: purohit.id,
-                    purohitName: purohit.name,
-                    purohitRating: purohit.rating,
-                    purohitPhoto: purohit.photo_url,
-                    purohitLanguages: purohit.languages ? purohit.languages.join(',') : '',
-                    dakshina: purohit.dakshina,
-                    rawDakshina: purohit.raw_dakshina
-                  }
-                })}>
+                <TouchableOpacity style={styles.selectButton} onPress={() => handleSelectPurohit(purohit)}>
                   <Text style={styles.selectButtonText}>{t('selectBtn')}</Text>
                 </TouchableOpacity>
               </View>
@@ -227,6 +253,57 @@ export default function PurohitListScreen() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+      <Modal
+        visible={profilePromptVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setProfilePromptVisible(false)}
+      >
+        <View style={styles.dialogBackdrop}>
+          <View style={styles.dialogCard}>
+            <Text style={styles.dialogTitle}>Please complete your profile.</Text>
+            <View style={styles.dialogActions}>
+              <TouchableOpacity
+                style={styles.dialogCancelButton}
+                onPress={() => {
+                  setProfilePromptVisible(false);
+                  setProfilePromptDismissed(true);
+                  if (pendingPurohit) {
+                    navigateToPackage(pendingPurohit);
+                  }
+                }}
+              >
+                <Text style={styles.dialogCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.dialogConfirmButton}
+                onPress={() => {
+                  setProfilePromptVisible(false);
+                  router.push({
+                    pathname: '/edit-profile',
+                    params: {
+                      fromBooking: 'true',
+                      ...params,
+                      sampradayam: passedSampradayam,
+                      ...(pendingPurohit ? {
+                        purohitId: pendingPurohit.id,
+                        purohitName: pendingPurohit.name,
+                        purohitRating: pendingPurohit.rating,
+                        purohitPhoto: pendingPurohit.photo_url,
+                        purohitLanguages: pendingPurohit.languages ? pendingPurohit.languages.join(',') : '',
+                        dakshina: pendingPurohit.dakshina,
+                        rawDakshina: pendingPurohit.raw_dakshina
+                      } : {})
+                    }
+                  });
+                }}
+              >
+                <Text style={styles.dialogConfirmText}>OK</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -238,8 +315,11 @@ const styles = StyleSheet.create({
   },
   topProgress: {
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? 40 : 12,
-    paddingBottom: 4,
+    paddingTop: 8,
+    paddingBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   progressText: {
     fontSize: 12,
@@ -456,7 +536,55 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: 'bold',
   },
+  dialogBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  dialogCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  dialogTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333333',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  dialogActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    width: '100%',
+    gap: 12,
+  },
+  dialogCancelButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  dialogCancelText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#7C1B2C',
+  },
+  dialogConfirmButton: {
+    backgroundColor: '#7C1B2C',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  dialogConfirmText: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
 });
-
-
-

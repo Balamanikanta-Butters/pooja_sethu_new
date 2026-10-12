@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useUser } from '../../context/UserContext';
 import { useLanguage } from '../../context/LanguageContext';
+import PoojaSethuLogo from '../../components/PoojaSethuLogo';
+import { API_BASE_URL } from '../../utils/apiBaseUrl';
 
 export default function CalendarScreen() {
   const { userData } = useUser();
@@ -16,7 +19,7 @@ export default function CalendarScreen() {
   const router = useRouter();
 
   useEffect(() => {
-    fetch('http://192.168.88.20:5000/api/home')
+    fetch(`${API_BASE_URL}/api/home`)
       .then(res => res.json())
       .then(data => {
         if (data.success && data.festivals) {
@@ -31,7 +34,11 @@ export default function CalendarScreen() {
   }, []);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      {/* ── Brand Logo Bar ── */}
+      <View style={styles.logoBar}>
+        <PoojaSethuLogo />
+      </View>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         
         <View style={styles.header}>
@@ -152,7 +159,13 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
-    paddingTop: Platform.OS === 'android' ? 40 : 20,
+    paddingTop: 12,
+  },
+  logoBar: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 4,
+    backgroundColor: '#FDFBF7',
   },
   header: {
     marginBottom: 24,

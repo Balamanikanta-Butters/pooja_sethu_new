@@ -1,10 +1,68 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Platform, Image, ActivityIndicator, Alert, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Platform, Image, ActivityIndicator, Alert, TextInput, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useLanguage } from '../../context/LanguageContext';
+import { useUser } from '../../context/UserContext';
 import FieldError from '../../components/FieldError';
-import { validateName, validateBookingPhone, apiFetch } from '../../utils/validation';
+import { validateName, validateBookingPhone, apiFetch, getToken, clearToken, ApiError } from '../../utils/validation';
+import { openRazorpayCheckout } from '../../utils/razorpay';
+import { API_BASE_URL } from '../../utils/apiBaseUrl';
+import { SAMPRADAYAMS, getSampradayamName } from '../../constants/sampradayams';
+
+const getBookingTimes = (params: Record<string, string | string[] | undefined>) => {
+  const selectedMuhurtham = typeof params.selectedMuhurtham === 'string'
+    ? params.selectedMuhurtham
+    : '';
+  const suggestedTimes: Record<string, { day: number; start: string; end: string }> = {
+    '11': { day: 11, start: '07:12', end: '09:04' },
+    '22': { day: 22, start: '07:10', end: '08:52' },
+    '25': { day: 25, start: '06:40', end: '08:15' }
+  };
+
+  let startsAt: Date;
+  let endsAt: Date;
+  if (selectedMuhurtham === 'custom') {
+    const customDate = typeof params.customDate === 'string' ? params.customDate : '';
+    const customTime = typeof params.customTime === 'string' ? params.customTime.trim() : '';
+    const timeMatch = customTime.match(/^(\d{1,2}):(\d{2})(?:\s*(AM|PM))?$/i);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(customDate) || !timeMatch) {
+      throw new Error('Choose both a custom booking date and time.');
+    }
+
+    let hours = Number(timeMatch[1]);
+    const minutes = Number(timeMatch[2]);
+    const meridiem = timeMatch[3]?.toUpperCase();
+    if (minutes > 59 || (meridiem && (hours < 1 || hours > 12)) || (!meridiem && hours > 23)) {
+      throw new Error('The custom booking time is invalid.');
+    }
+    if (meridiem) {
+      hours = (hours % 12) + (meridiem === 'PM' ? 12 : 0);
+    }
+    const [year, month, day] = customDate.split('-').map(Number);
+    startsAt = new Date(year, month - 1, day, hours, minutes);
+    if (startsAt.getFullYear() !== year || startsAt.getMonth() !== month - 1 || startsAt.getDate() !== day) {
+      throw new Error('The custom booking date is invalid.');
+    }
+    endsAt = new Date(startsAt.getTime() + 2 * 60 * 60 * 1000);
+  } else {
+    const suggestedTime = suggestedTimes[selectedMuhurtham];
+    if (!suggestedTime) {
+      throw new Error('Choose a booking date and time before paying.');
+    }
+    const year = new Date().getFullYear();
+    const [startHour, startMinute] = suggestedTime.start.split(':').map(Number);
+    const [endHour, endMinute] = suggestedTime.end.split(':').map(Number);
+    startsAt = new Date(year, 9, suggestedTime.day, startHour, startMinute);
+    endsAt = new Date(year, 9, suggestedTime.day, endHour, endMinute);
+  }
+
+  if (startsAt <= new Date()) {
+    throw new Error('The selected booking time has passed. Choose a future date and time.');
+  }
+
+  return { starts_at: startsAt.toISOString(), ends_at: endsAt.toISOString() };
+};
 
 /**
  * BookingSummaryScreen Component
@@ -19,6 +77,7 @@ export default function BookingSummaryScreen() {
   const { useLocalSearchParams } = require('expo-router');
   const params = useLocalSearchParams();
   const { t } = useLanguage();
+  const { userData } = useUser();
   
   // State to track if the booking is being made on behalf of someone else
   const [someoneElse, setSomeoneElse] = useState(false);
@@ -27,7 +86,7 @@ export default function BookingSummaryScreen() {
   const [bookedForNameError, setBookedForNameError] = useState('');
   const [bookedForPhoneError, setBookedForPhoneError] = useState('');
   // State to track if the user has agreed to the terms and conditions
-  const [termsAgreed, setTermsAgreed] = useState(false);
+  const [termsAgreed, setTermsAgreed] = useState(params.paymentTermsAgreed === 'true');
   
   // State to track if cancellation policy is expanded
   const [policyExpanded, setPolicyExpanded] = useState(false);
@@ -66,10 +125,42 @@ export default function BookingSummaryScreen() {
   const grandTotal = packagePrice + coordinationFee + gst;
 
   const [isLoading, setIsLoading] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
+  const initialSampradayam = typeof params.sampradayam === 'string' && params.sampradayam.trim()
+    ? getSampradayamName(params.sampradayam)
+    : '';
+  const [selectedSampradayam, setSelectedSampradayam] = useState(initialSampradayam);
+  const [sampradayamPromptVisible, setSampradayamPromptVisible] = useState(false);
+  const [sampradayamDropdownVisible, setSampradayamDropdownVisible] = useState(false);
+
+  const redirectToLoginForPayment = () => {
+    router.push({
+      pathname: '/login',
+      params: {
+        resumePayment: 'true',
+        paymentParams: JSON.stringify({ ...params, paymentTermsAgreed: 'true' })
+      }
+    });
+  };
 
   const handlePayment = async () => {
+    const sampradayamParam = selectedSampradayam.trim();
+    if (!sampradayamParam) {
+      setSampradayamPromptVisible(true);
+      return;
+    }
+
+    await proceedWithPayment(sampradayamParam);
+  };
+
+  const proceedWithPayment = async (sampradayam: string) => {
     if (!termsAgreed) {
-      Alert.alert('Terms & Conditions', 'Please agree to the booking terms and cancellation policy to proceed.');
+      setPaymentError('Please agree to the booking terms and cancellation policy to proceed.');
+      return;
+    }
+    const token = await getToken();
+    if (!token) {
+      redirectToLoginForPayment();
       return;
     }
     // Validate "booked for someone else" fields if toggled on
@@ -81,16 +172,21 @@ export default function BookingSummaryScreen() {
       if (!nameResult.valid || !phoneResult.valid) return;
     }
     setIsLoading(true);
+    setPaymentError('');
+    let paymentStep = 'Creating booking';
     try {
+      const bookingTimes = getBookingTimes(params);
       const payload = {
-        pooja_id: params.poojaId || 1,
-        sampradayam: params.sampradayam || 'Smartha',
+        pooja_id: params.poojaId,
+        sampradayam,
         purohit_id: params.purohitId,
-        starts_at: params.selectedMuhurtham ? new Date().toISOString() : null,
-        ends_at: null,
+        ...bookingTimes,
         venue_type: params.selectedVenue || 'Home',
+        addressFlat: params.addressFlat || userData.address,
+        addressArea: params.addressArea || userData.addressLine2 || userData.landmark,
+        pincode: params.pincode || userData.pincode,
         guests: guests,
-        mode: bookingType,
+        mode: bookingType === 'purohit' ? 'purohit_only' : 'package',
         dakshina_amount: rawDakshina,
         samagri_amount: samagriChecked ? samagriPrice : 0,
         food_amount: bhojanaluChecked ? bhojanaluPrice * guests : 0,
@@ -99,27 +195,74 @@ export default function BookingSummaryScreen() {
         tax_amount: gst,
         discount_amount: 0,
         total_payable: grandTotal,
-        diet_preference: 'none',
+        diet_preference: 'satvik',
         booked_for_name: someoneElse ? bookedForName : null,
         booked_for_phone: someoneElse ? bookedForPhone : null
       };
 
-      const data = await apiFetch('http://192.168.88.20:5000/api/bookings', {
+      const data = await apiFetch(`${API_BASE_URL}/api/bookings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
 
-      if (data.success) {
+      if (!data.success) {
+        throw new Error(data.message || 'Something went wrong. Please try again.');
+      }
+
+      const bookingId = data.data.id;
+      const bookingNo = data.data.booking_no;
+
+      paymentStep = 'Creating payment order';
+      const orderData = await apiFetch(`${API_BASE_URL}/api/payments/create-order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId })
+      });
+
+      if (!orderData.success) {
+        throw new Error(orderData.message || 'Failed to initialize payment gateway.');
+      }
+
+      paymentStep = 'Opening Razorpay checkout';
+      const paymentResult = await openRazorpayCheckout({
+        key: orderData.key_id,
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: "Pooja Sethu",
+        description: `${params.title} Booking`,
+        order_id: orderData.order_id,
+        theme: { color: "#7C1B2C" }
+      });
+
+      paymentStep = 'Verifying payment';
+      const verifyData = await apiFetch(`${API_BASE_URL}/api/payments/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          razorpay_order_id: paymentResult.razorpay_order_id,
+          razorpay_payment_id: paymentResult.razorpay_payment_id,
+          razorpay_signature: paymentResult.razorpay_signature,
+          bookingId: bookingId
+        })
+      });
+
+      if (verifyData.success) {
+        // Only go to success page if payment was successfully verified
         router.push({
           pathname: '/booking/success',
-          params: { ...params, booking_no: data.data.booking_no }
+          params: { ...params, booking_no: bookingNo }
         });
       } else {
-        Alert.alert('Booking Failed', data.message || 'Something went wrong. Please try again.');
+        throw new Error(verifyData.message || 'Payment verification failed.');
       }
     } catch (error: any) {
-      Alert.alert('Connection Issue', error.message || 'Could not reach the server. Please try again.');
+      if (error instanceof ApiError && error.statusCode === 401) {
+        await clearToken();
+        redirectToLoginForPayment();
+        return;
+      }
+      setPaymentError(`${paymentStep} failed: ${error.message || 'Could not complete payment.'}`);
     } finally {
       setIsLoading(false);
     }
@@ -147,9 +290,9 @@ export default function BookingSummaryScreen() {
           <View style={styles.summaryRow}>
             <View style={{ flex: 1, paddingRight: 16 }}>
               <Text style={styles.summaryTitle}>{params.title || 'Pooja Title'}</Text>
-              <Text style={styles.summaryDesc}>{params.sampradayam || 'Samanya'} Vidhi</Text>
+              <Text style={styles.summaryDesc}>{selectedSampradayam ? `${selectedSampradayam} Vidhi` : 'Sampradayam not selected'}</Text>
             </View>
-            <TouchableOpacity onPress={() => router.push({ pathname: '/pooja/list', params: { ...params } })}><Text style={styles.editLink}>{t('edit')}</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => setSampradayamDropdownVisible(true)}><Text style={styles.editLink}>{selectedSampradayam ? t('edit') : 'Select'}</Text></TouchableOpacity>
           </View>
           
           <View style={styles.divider} />
@@ -303,17 +446,25 @@ export default function BookingSummaryScreen() {
           )}
         </View>
 
-        <View style={styles.termsRow}>
-          <TouchableOpacity onPress={() => setTermsAgreed(!termsAgreed)} style={styles.checkboxBox}>
-             {termsAgreed && <Ionicons name="checkmark" size={16} color="#333333" />}
-          </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.termsRow}
+          onPress={() => setTermsAgreed((agreed) => !agreed)}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: termsAgreed }}
+        >
+          <View style={styles.checkboxBox}>
+            {termsAgreed && <Ionicons name="checkmark" size={16} color="#333333" />}
+          </View>
           <Text style={styles.termsText}>{t('agreeTerms')}</Text>
-        </View>
+        </TouchableOpacity>
 
         <View style={{ height: 40 }} />
       </ScrollView>
 
       <View style={styles.footer}>
+        {paymentError ? (
+          <Text accessibilityRole="alert" style={styles.paymentError}>{paymentError}</Text>
+        ) : null}
         <TouchableOpacity style={styles.payButton} onPress={handlePayment} disabled={isLoading}>
           {isLoading ? (
             <ActivityIndicator color="#FFFFFF" />
@@ -323,6 +474,73 @@ export default function BookingSummaryScreen() {
         </TouchableOpacity>
         <Text style={styles.securedText}>{t('securedPayment')}</Text>
       </View>
+      <Modal
+        visible={sampradayamPromptVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSampradayamPromptVisible(false)}
+      >
+        <View style={styles.paymentDialogBackdrop}>
+          <View style={styles.paymentDialogCard}>
+            <Text style={styles.paymentDialogMessage}>Please select the Sampradayam</Text>
+            <View style={styles.paymentDialogActions}>
+              <TouchableOpacity
+                style={styles.paymentDialogCancel}
+                onPress={() => {
+                  setSampradayamPromptVisible(false);
+                  void proceedWithPayment('Smartha');
+                }}
+              >
+                <Text style={styles.paymentDialogCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.paymentDialogConfirm}
+                onPress={() => {
+                  setSampradayamPromptVisible(false);
+                  setSampradayamDropdownVisible(true);
+                }}
+              >
+                <Text style={styles.paymentDialogConfirmText}>OK</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      <Modal
+        visible={sampradayamDropdownVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSampradayamDropdownVisible(false)}
+      >
+        <View style={styles.paymentDialogBackdrop}>
+          <View style={styles.sampradayamPicker}>
+            <View style={styles.sampradayamPickerHeader}>
+              <Text style={styles.paymentDialogMessage}>Select Sampradayam</Text>
+              <TouchableOpacity onPress={() => setSampradayamDropdownVisible(false)} accessibilityLabel="Close Sampradayam list">
+                <Ionicons name="close" size={24} color="#333333" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView>
+              {SAMPRADAYAMS.map((item) => (
+                <TouchableOpacity
+                  key={item}
+                  style={styles.sampradayamPickerOption}
+                  onPress={() => {
+                    setSelectedSampradayam(item);
+                    setSampradayamDropdownVisible(false);
+                    void proceedWithPayment(item);
+                  }}
+                >
+                  <Text style={styles.sampradayamPickerText}>{item}</Text>
+                  {selectedSampradayam === item
+                    ? <Ionicons name="checkmark-circle" size={22} color="#7C1B2C" />
+                    : null}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -598,6 +816,81 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#5C4A31',
   },
+  paymentError: {
+    color: '#B42318',
+    fontSize: 13,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  paymentDialogBackdrop: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 24,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+  },
+  paymentDialogCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+  },
+  paymentDialogMessage: {
+    color: '#333333',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  paymentDialogActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 20,
+  },
+  paymentDialogCancel: {
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    marginRight: 8,
+  },
+  paymentDialogCancelText: {
+    color: '#7C1B2C',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  paymentDialogConfirm: {
+    backgroundColor: '#7C1B2C',
+    borderRadius: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  paymentDialogConfirmText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  sampradayamPicker: {
+    maxHeight: '75%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  sampradayamPickerHeader: {
+    minHeight: 60,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0EBE1',
+  },
+  sampradayamPickerOption: {
+    minHeight: 50,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F0EA',
+  },
+  sampradayamPickerText: {
+    color: '#333333',
+    fontSize: 15,
+  },
   inputField: {
     borderWidth: 1,
     borderColor: '#EAEAEA',
@@ -613,5 +906,3 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF5F5',
   },
 });
-
-

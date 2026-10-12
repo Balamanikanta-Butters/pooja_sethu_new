@@ -6,6 +6,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { useUser } from '../context/UserContext';
 import FieldError from '../components/FieldError';
 import { validateOtp, apiFetch } from '../utils/validation';
+import { API_BASE_URL } from '../utils/apiBaseUrl';
 
 export default function OtpVerificationScreen() {
   const router = useRouter();
@@ -23,10 +24,10 @@ export default function OtpVerificationScreen() {
     setOtpError(result.message);
     if (!result.valid) return;
     try {
-      const data = await apiFetch('http://192.168.88.20:5000/api/auth/verify-otp', {
+      const data = await apiFetch(`${API_BASE_URL}/api/auth/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mobileNumber, otp })
+        body: JSON.stringify({ mobileNumber, otp, name: params.name || '' })
       });
       
       if (data.success) {
@@ -49,10 +50,8 @@ export default function OtpVerificationScreen() {
         }
         if (mobileNumber === '6305199044') {
           router.replace('/admin');
-        } else if (data.user && !data.user.isNewUser && data.user.name) {
-          router.replace('/(tabs)');
         } else {
-          router.push('/edit-profile');
+          router.replace('/(tabs)');
         }
       } else {
         setOtpError(data.message || 'Incorrect OTP. Please try again.');
@@ -65,7 +64,7 @@ export default function OtpVerificationScreen() {
       if (mobileNumber === '6305199044') {
         router.replace('/admin');
       } else {
-        router.push('/edit-profile');
+        router.replace('/(tabs)');
       }
     }
   };
@@ -77,7 +76,7 @@ export default function OtpVerificationScreen() {
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.scrollContainer}>
-          <TouchableOpacity onPress={() => { if (router.canGoBack()) { router.back(); } else { router.replace('/'); } }} style={styles.backButton}>
+          <TouchableOpacity onPress={() => { if (router.canGoBack()) { router.back(); } else { router.replace('/login'); } }} style={styles.backButton}>
             <Text style={styles.backButtonText}>{t('back')}</Text>
           </TouchableOpacity>
 
@@ -206,6 +205,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 });
-
 
 

@@ -1,17 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Modal } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useUser } from '../../context/UserContext';
 import { useLanguage } from '../../context/LanguageContext';
+import PoojaSethuLogo from '../../components/PoojaSethuLogo';
+import { API_BASE_URL } from '../../utils/apiBaseUrl';
+import { SAMPRADAYAMS, getSampradayamName } from '../../constants/sampradayams';
 
 export default function PoojaDetailsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { userData } = useUser();
   const { t } = useLanguage();
-  const initialSampradayam = (params.sampradayam as string) || userData.sampradayam || 'Smartha';
+  const initialSampradayam = params.sampradayam ? getSampradayamName(params.sampradayam as string) : '';
   const [sampradayam, setSampradayam] = useState(initialSampradayam);
+  const [sampradayamDropdownVisible, setSampradayamDropdownVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [vidhiData, setVidhiData] = useState({
     vidhiSteps: [],
@@ -19,11 +24,19 @@ export default function PoojaDetailsScreen() {
     familyArranges: []
   });
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
+  const [samagriExpanded, setSamagriExpanded] = useState(false);
+  const SAMAGRI_PREVIEW_COUNT = 4;
+
+  useEffect(() => {
+    if (params.openSampradayamPicker === 'true') {
+      setSampradayamDropdownVisible(true);
+    }
+  }, [params.openSampradayamPicker]);
 
   useEffect(() => {
     if (!params.id) return;
     setLoading(true);
-    fetch(`http://192.168.88.20:5000/api/services/poojas/${params.id}/details?sampradayam=${sampradayam}`)
+    fetch(`${API_BASE_URL}/api/services/poojas/${params.id}/details?sampradayam=${sampradayam || 'Smartha'}`)
       .then(res => res.json())
       .then(data => {
         if (data.success) {
@@ -42,16 +55,27 @@ export default function PoojaDetailsScreen() {
   const desc = params.desc || 'House-warming with Ganapathi Pooja, Vastu Pooja and milk boiling before the family moves in.';
   const price = params.price || 'Dakshina ₹4,300 – ₹6,400';
   const duration = params.duration || '3 hrs';
+  const continueToBooking = () => {
+    router.push({
+      pathname: '/booking/muhurtham',
+      params: { id: params.id, title, sampradayam }
+    });
+  };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => { if(router.canGoBack()) { router.back(); } else { router.push('/pooja/list'); } }} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color="#333333" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t('poojaDetails')}</Text>
-        <View style={{ width: 24 }} />
+      <View style={styles.headerWrapper}>
+        <View style={styles.logoBar}>
+          <PoojaSethuLogo />
+        </View>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => { if(router.canGoBack()) { router.back(); } else { router.push('/pooja/list'); } }} style={styles.backButton}>
+            <Ionicons name="chevron-back" size={24} color="#333333" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>{t('poojaDetails')}</Text>
+          <View style={{ width: 24 }} />
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -79,17 +103,17 @@ export default function PoojaDetailsScreen() {
           <Text style={styles.sectionDesc}>
             {t('vidhiDiffers')}
           </Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillsScroll}>
-            {['Smartha', 'Madhva', 'Sri Vaishnava', 'Vaikhanasa', 'Pancharatra', 'Samanya (General)', 'Not sure', 'Veerashaiva'].map((s) => (
-              <TouchableOpacity
-                key={s}
-                style={[styles.pill, sampradayam === s && styles.pillActive]}
-                onPress={() => setSampradayam(s)}
-              >
-                <Text style={[styles.pillText, sampradayam === s && styles.pillTextActive]}>{s}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+          <TouchableOpacity
+            style={styles.sampradayamDropdown}
+            onPress={() => setSampradayamDropdownVisible(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Select Sampradayam"
+          >
+            <Text style={sampradayam ? styles.sampradayamDropdownValue : styles.sampradayamDropdownPlaceholder}>
+              {sampradayam || 'Select Sampradayam'}
+            </Text>
+            <Ionicons name="chevron-down" size={20} color="#666666" />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.divider} />
@@ -128,11 +152,46 @@ export default function PoojaDetailsScreen() {
             <ActivityIndicator size="small" color="#7C1B2C" style={{ marginTop: 20 }} />
           ) : (
             <View style={styles.samagriList}>
-              {vidhiData.samagriItems.length > 0 ? vidhiData.samagriItems.map((item, index) => (
-                <View key={index} style={styles.samagriItem}>
-                  <Text style={styles.samagriName}>{item}</Text>
-                </View>
-              )) : (
+              {vidhiData.samagriItems.length > 0 ? (
+                <>
+                  {(samagriExpanded
+                    ? vidhiData.samagriItems
+                    : vidhiData.samagriItems.slice(0, SAMAGRI_PREVIEW_COUNT)
+                  ).map((item, index) => (
+                    <View
+                      key={index}
+                      style={[
+                        styles.samagriItem,
+                        index === (samagriExpanded ? vidhiData.samagriItems.length : Math.min(SAMAGRI_PREVIEW_COUNT, vidhiData.samagriItems.length)) - 1
+                          && styles.samagriItemLast
+                      ]}
+                    >
+                      <View style={styles.samagriDot} />
+                      <Text style={styles.samagriName}>{item}</Text>
+                    </View>
+                  ))}
+
+                  {vidhiData.samagriItems.length > SAMAGRI_PREVIEW_COUNT && (
+                    <TouchableOpacity
+                      style={styles.showMoreBtn}
+                      onPress={() => setSamagriExpanded(!samagriExpanded)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.showMoreText}>
+                        {samagriExpanded
+                          ? 'Show less'
+                          : `Show ${vidhiData.samagriItems.length - SAMAGRI_PREVIEW_COUNT} more items`}
+                      </Text>
+                      <Ionicons
+                        name={samagriExpanded ? 'chevron-up' : 'chevron-down'}
+                        size={16}
+                        color="#7C1B2C"
+                        style={{ marginLeft: 4 }}
+                      />
+                    </TouchableOpacity>
+                  )}
+                </>
+              ) : (
                 <Text style={styles.desc}>{t('samagriNotAvailable')}</Text>
               )}
             </View>
@@ -196,17 +255,44 @@ export default function PoojaDetailsScreen() {
         <TouchableOpacity style={styles.bookButton} onPress={() => {
           if (!userData.mobileNumber) {
             alert(t('loginToBook'));
-            router.replace('/');
+            router.replace('/login');
             return;
           }
-          router.push({
-            pathname: '/booking/muhurtham',
-            params: { id: params.id, title, sampradayam }
-          });
+          continueToBooking();
         }}>
           <Text style={styles.bookButtonText}>{t('continueBooking')}</Text>
         </TouchableOpacity>
       </View>
+      <Modal
+        visible={sampradayamDropdownVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setSampradayamDropdownVisible(false)}
+      >
+        <View style={styles.dialogBackdrop}>
+          <View style={styles.dialogCard}>
+            <Text style={styles.dialogTitle}>Select Sampradayam</Text>
+            <ScrollView>
+              {SAMPRADAYAMS.map((item) => (
+                <TouchableOpacity
+                  key={item}
+                  style={styles.dialogOption}
+                  onPress={() => {
+                    setSampradayam(item);
+                    setSampradayamDropdownVisible(false);
+                  }}
+                >
+                  <Text style={styles.dialogOptionText}>{item}</Text>
+                  {sampradayam === item ? <Ionicons name="checkmark" size={20} color="#7C1B2C" /> : null}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity style={styles.dialogDismiss} onPress={() => setSampradayamDropdownVisible(false)}>
+              <Text style={styles.dialogDismissText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -216,15 +302,22 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
+  headerWrapper: {
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2D9C8',
+  },
+  logoBar: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? 40 : 12,
     paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2D9C8',
     backgroundColor: '#FFFFFF',
   },
   backButton: {
@@ -330,6 +423,90 @@ const styles = StyleSheet.create({
     marginHorizontal: -24,
     paddingHorizontal: 24,
   },
+  sampradayamDropdown: {
+    minHeight: 52,
+    borderWidth: 1,
+    borderColor: '#DCD4CB',
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+  },
+  sampradayamDropdownValue: {
+    color: '#333333',
+    fontSize: 15,
+  },
+  sampradayamDropdownPlaceholder: {
+    color: '#888888',
+    fontSize: 15,
+  },
+  dialogBackdrop: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 24,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+  },
+  dialogCard: {
+    maxHeight: '80%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+  },
+  dialogTitle: {
+    color: '#333333',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 12,
+  },
+  dialogOption: {
+    minHeight: 48,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0EBE1',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dialogOptionText: {
+    color: '#333333',
+    fontSize: 15,
+  },
+  dialogActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 20,
+  },
+  dialogCancelButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    marginRight: 8,
+  },
+  dialogCancelText: {
+    color: '#7C1B2C',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  dialogConfirmButton: {
+    backgroundColor: '#7C1B2C',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  dialogConfirmText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  dialogDismiss: {
+    alignItems: 'flex-end',
+    paddingTop: 16,
+  },
+  dialogDismissText: {
+    color: '#7C1B2C',
+    fontSize: 15,
+    fontWeight: '600',
+  },
   pill: {
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -375,26 +552,49 @@ const styles = StyleSheet.create({
   samagriList: {
     backgroundColor: '#FDF7F8',
     borderRadius: 12,
-    padding: 16,
     borderWidth: 1,
     borderColor: '#F4EAD3',
+    overflow: 'hidden',
   },
   samagriItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
+    alignItems: 'center',
+    paddingVertical: 11,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2D9C8',
+    borderBottomColor: '#EFE8DC',
+  },
+  samagriItemLast: {
+    borderBottomWidth: 0,
+  },
+  samagriDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#7C1B2C',
+    marginRight: 12,
+    flexShrink: 0,
   },
   samagriName: {
     fontSize: 14,
     color: '#333333',
     flex: 1,
+    lineHeight: 20,
   },
-  samagriQty: {
+  showMoreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#EFE8DC',
+    backgroundColor: '#FFF9F4',
+  },
+  showMoreText: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#666666',
+    fontWeight: '600',
+    color: '#7C1B2C',
   },
   faqWrapper: {
     borderBottomWidth: 1,
@@ -440,6 +640,3 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 });
-
-
-

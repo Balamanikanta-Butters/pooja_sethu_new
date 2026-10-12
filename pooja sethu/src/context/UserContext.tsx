@@ -1,4 +1,6 @@
-import React, { createContext, useState, useContext } from 'react';
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import { apiFetch, getToken, clearToken } from '../utils/validation';
+import { API_BASE_URL } from '../utils/apiBaseUrl';
 
 export type FamilyDateItem = {
   id: string;
@@ -48,7 +50,7 @@ type UserData = {
 type UserContextType = {
   userData: UserData;
   updateUserData: (data: Partial<UserData>) => void;
-  clearUserData: () => void;
+  clearUserData: () => Promise<void>;
   addReview: (review: Omit<ReviewItem, 'id'>) => void;
 };
 
@@ -71,12 +73,32 @@ const defaultUserData: UserData = {
 const UserContext = createContext<UserContextType>({
   userData: defaultUserData,
   updateUserData: () => {},
-  clearUserData: () => {},
+  clearUserData: async () => {},
   addReview: () => {},
 });
 
 export const UserProvider = ({ children }: { children: React.ReactNode }) => {
   const [userData, setUserData] = useState<UserData>(defaultUserData);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const token = await getToken();
+        if (token) {
+          const data = await apiFetch(`${API_BASE_URL}/api/auth/me`);
+          if (data && data.success && data.user) {
+            setUserData(prev => ({ ...prev, ...data.user }));
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load user profile", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadProfile();
+  }, []);
 
   const updateUserData = (data: Partial<UserData>) => {
     setUserData(prev => ({ ...prev, ...data }));
@@ -89,8 +111,9 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
     }));
   };
 
-  const clearUserData = () => {
+  const clearUserData = async () => {
     setUserData(defaultUserData);
+    await clearToken();
   };
 
   return (

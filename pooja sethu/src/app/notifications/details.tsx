@@ -4,6 +4,12 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../constants/colors';
 
+type NotificationDetail = {
+  label: string;
+  value: string;
+  icon?: string;
+};
+
 export default function NotificationDetailsScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
@@ -22,7 +28,7 @@ export default function NotificationDetailsScreen() {
       { label: 'Time', value: '08:15 AM - 09:30 AM', icon: 'time-outline' },
       { label: 'Venue', value: 'Home', icon: 'home-outline' },
       { label: 'Location', value: 'Hitech City, Hyderabad', icon: 'location-outline' },
-    ],
+    ] as NotificationDetail[],
     infoBox: 'Please keep the samagri ready and ensure the venue is prepared.',
     buttonText: 'View Instructions'
   } : {
@@ -38,7 +44,7 @@ export default function NotificationDetailsScreen() {
       { label: 'Date & Time', value: '12 Oct 2026, 08:15 AM' },
       { label: 'Venue', value: 'Home' },
       { label: 'Location', value: 'Hitech City, Hyderabad' },
-    ],
+    ] as NotificationDetail[],
     buttonText: 'View Booking Details'
   };
 

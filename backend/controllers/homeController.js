@@ -18,7 +18,8 @@ exports.getHomeData = async (req, res) => {
         FROM panchangam_day 
         WHERE significance IS NOT NULL 
           AND significance->>'en' IS NOT NULL 
-          AND day >= NOW()
+          AND (day AT TIME ZONE 'Asia/Kolkata')::date >=
+              (NOW() AT TIME ZONE 'Asia/Kolkata')::date
         ORDER BY day ASC 
         LIMIT 5
     `);

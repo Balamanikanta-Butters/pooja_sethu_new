@@ -1,44 +1,123 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Platform, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Platform, TextInput, KeyboardAvoidingView, Modal, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLanguage } from '../../context/LanguageContext';
+import { useUser } from '../../context/UserContext';
+import { API_BASE_URL } from '../../utils/apiBaseUrl';
+
+type ServiceablePincode = {
+  code: string;
+  area: string | null;
+};
 
 export default function DateAndVenueScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { t } = useLanguage();
+  const { userData, updateUserData } = useUser();
   const title = (params.title as string) || 'Gruhapravesam';
-  const passedSampradayam = (params.sampradayam as string) || 'Smartha';
+  const passedSampradayam = (params.sampradayam as string) || '';
   const [selectedMuhurtham, setSelectedMuhurtham] = useState('11');
   const [selectedVenue, setSelectedVenue] = useState('Home');
   const [customDate, setCustomDate] = useState('');
   const [customTime, setCustomTime] = useState('');
-  const [addressFlat, setAddressFlat] = useState('');
-  const [addressArea, setAddressArea] = useState('');
+  const [addressFlat, setAddressFlat] = useState(userData.address || '');
+  const [addressArea, setAddressArea] = useState(userData.addressLine2 || userData.landmark || '');
+  const [pincode, setPincode] = useState(userData.pincode || '');
+  const [serviceablePincodes, setServiceablePincodes] = useState<ServiceablePincode[]>([]);
+  const [pincodesLoading, setPincodesLoading] = useState(true);
+  const [pincodeDropdownVisible, setPincodeDropdownVisible] = useState(false);
   const [guests, setGuests] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
 
-  // Validation error states
-  const [flatError, setFlatError] = useState('');
-  const [areaError, setAreaError] = useState('');
+  const [pincodeError, setPincodeError] = useState('');
+  const [addressFlatError, setAddressFlatError] = useState('');
+  const [addressAreaError, setAddressAreaError] = useState('');
   const [guestsError, setGuestsError] = useState('');
+  const [profilePromptVisible, setProfilePromptVisible] = useState(false);
+  const [profilePromptDismissed, setProfilePromptDismissed] = useState(
+    params.profilePromptDismissed === 'true'
+  );
+
+  const proceedToPurohitList = (dismissed = false) => {
+    router.push({
+      pathname: '/purohit/list',
+      params: {
+        poojaId: params.id,
+        title,
+        sampradayam: passedSampradayam,
+        selectedMuhurtham,
+        customDate,
+        customTime,
+        selectedVenue,
+        addressFlat: addressFlat.trim(),
+        addressArea: addressArea.trim(),
+        pincode: pincode.trim(),
+        guests,
+        profilePromptDismissed: dismissed || profilePromptDismissed ? 'true' : 'false'
+      }
+    });
+  };
+
+  React.useEffect(() => {
+    let isMounted = true;
+    fetch(`${API_BASE_URL}/api/services/pincodes`)
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok || !data.success || !Array.isArray(data.data)) {
+          throw new Error(data.message || 'Could not load serviceable pincodes.');
+        }
+        if (isMounted) setServiceablePincodes(data.data);
+      })
+      .catch((error) => {
+        console.error('Failed to load serviceable pincodes:', error);
+        if (isMounted) setPincodeError('Could not load serviceable pincodes. Please try again.');
+      })
+      .finally(() => {
+        if (isMounted) setPincodesLoading(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  React.useEffect(() => {
+    if (!pincode && userData.pincode) {
+      setPincode(userData.pincode);
+    }
+  }, [pincode, userData.pincode]);
+
+  React.useEffect(() => {
+    if (!addressFlat && userData.address) {
+      setAddressFlat(userData.address);
+    }
+    if (!addressArea && (userData.addressLine2 || userData.landmark)) {
+      setAddressArea(userData.addressLine2 || userData.landmark || '');
+    }
+  }, [userData.address, userData.addressLine2, userData.landmark]);
 
   const handleContinue = () => {
     let valid = true;
-    if (!addressFlat.trim()) {
-      setFlatError('Flat / House / Building is required.');
+    if (!/^\d{6}$/.test(pincode.trim())) {
+      setPincodeError('Enter a valid 6-digit service pincode.');
       valid = false;
     } else {
-      setFlatError('');
+      setPincodeError('');
+    }
+    if (!addressFlat.trim()) {
+      setAddressFlatError('Flat, house or building is required.');
+      valid = false;
+    } else {
+      setAddressFlatError('');
     }
     if (!addressArea.trim()) {
-      setAreaError('Area and Landmark is required.');
+      setAddressAreaError('Area and landmark is required.');
       valid = false;
     } else {
-      setAreaError('');
+      setAddressAreaError('');
     }
     if (!guests.trim()) {
       setGuestsError('Expected Guests is required.');
@@ -51,25 +130,21 @@ export default function DateAndVenueScreen() {
     }
     if (!valid) return;
 
-    router.push({
-      pathname: '/purohit/list',
-      params: {
-        poojaId: params.id,
-        title,
-        sampradayam: passedSampradayam,
-        selectedMuhurtham,
-        customDate,
-        customTime,
-        selectedVenue,
-        addressFlat,
-        addressArea,
-        guests
-      }
-    });
+    if (!profilePromptDismissed && params.profilePromptDismissed !== 'true') {
+      setProfilePromptVisible(true);
+      return;
+    }
+
+    proceedToPurohitList();
   };
 
   return (
     <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
       <View style={styles.topProgress}>
         <Text style={styles.progressText}>{t('stepDateVenue')}</Text>
       </View>
@@ -84,7 +159,12 @@ export default function DateAndVenueScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
         
         {/* Suggested Muhurthams */}
         <View style={styles.sectionHeaderRow}>
@@ -232,29 +312,59 @@ export default function DateAndVenueScreen() {
           ))}
         </View>
 
+        <Text style={styles.inputLabel}>Service pincode<Text style={styles.requiredStar}> *</Text></Text>
+        <Text style={styles.helperText}>We use this to check service availability in your area.</Text>
+        <TouchableOpacity
+          style={[styles.input, styles.pincodeDropdown, pincodeError ? styles.inputError : null]}
+          onPress={() => setPincodeDropdownVisible(true)}
+          disabled={pincodesLoading || serviceablePincodes.length === 0}
+          accessibilityRole="button"
+          accessibilityLabel="Select service pincode"
+        >
+          <Text style={pincode ? styles.pincodeSelected : styles.pincodePlaceholder}>
+            {pincodesLoading
+              ? 'Loading pincodes...'
+              : serviceablePincodes.find((item) => item.code === pincode)
+                ? `${pincode} - ${serviceablePincodes.find((item) => item.code === pincode)?.area || 'Service area'}`
+                : 'Select a serviceable pincode'}
+          </Text>
+          {pincodesLoading
+            ? <ActivityIndicator size="small" color="#7C1B2C" />
+            : <Ionicons name="chevron-down" size={20} color="#666666" />}
+        </TouchableOpacity>
+        {pincodeError ? <Text style={styles.errorText}>{pincodeError}</Text> : <View style={styles.spacer} />}
+
         <Text style={styles.inputLabel}>
           {t('flatHouseBuilding')}<Text style={styles.requiredStar}> *</Text>
         </Text>
         <TextInput 
-          style={[styles.input, flatError ? styles.inputError : null]}
+          style={[styles.input, addressFlatError ? styles.inputError : null]}
           placeholder={t('eGFlat')}
           placeholderTextColor="#888888"
           value={addressFlat}
-          onChangeText={(v) => { setAddressFlat(v); if (v.trim()) setFlatError(''); }}
+          onChangeText={(v) => {
+            setAddressFlat(v);
+            if (v.trim()) setAddressFlatError('');
+            updateUserData({ address: v });
+          }}
         />
-        {flatError ? <Text style={styles.errorText}>{flatError}</Text> : <View style={styles.spacer} />}
+        {addressFlatError ? <Text style={styles.errorText}>{addressFlatError}</Text> : <View style={styles.spacer} />}
 
         <Text style={styles.inputLabel}>
           {t('areaLandmark')}<Text style={styles.requiredStar}> *</Text>
         </Text>
         <TextInput 
-          style={[styles.input, areaError ? styles.inputError : null]}
+          style={[styles.input, addressAreaError ? styles.inputError : null]}
           placeholder={t('eGArea')}
           placeholderTextColor="#888888"
           value={addressArea}
-          onChangeText={(v) => { setAddressArea(v); if (v.trim()) setAreaError(''); }}
+          onChangeText={(v) => {
+            setAddressArea(v);
+            if (v.trim()) setAddressAreaError('');
+            updateUserData({ addressLine2: v });
+          }}
         />
-        {areaError ? <Text style={styles.errorText}>{areaError}</Text> : <View style={styles.spacer} />}
+        {addressAreaError ? <Text style={styles.errorText}>{addressAreaError}</Text> : <View style={styles.spacer} />}
 
         <Text style={styles.inputLabel}>
           {t('expectedGuests')}<Text style={styles.requiredStar}> *</Text>
@@ -265,7 +375,7 @@ export default function DateAndVenueScreen() {
           keyboardType="numeric"
           placeholderTextColor="#888888"
           value={guests}
-          onChangeText={(v) => { setGuests(v); if (v.trim()) setGuestsError(''); }}
+          onChangeText={(v) => { const nums = v.replace(/[^0-9]/g, ''); setGuests(nums); if (nums.trim()) setGuestsError(''); }}
         />
         {guestsError ? <Text style={styles.errorText}>{guestsError}</Text> : null}
         <Text style={[styles.helperText, { marginTop: guestsError ? 0 : 4 }]}>{t('helpsPurohitPlan')}</Text>
@@ -279,6 +389,91 @@ export default function DateAndVenueScreen() {
           <Text style={styles.continueButtonText}>{t('seeAvailablePurohits')}</Text>
         </TouchableOpacity>
       </View>
+      </KeyboardAvoidingView>
+      <Modal
+        visible={pincodeDropdownVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setPincodeDropdownVisible(false)}
+      >
+        <View style={styles.dropdownBackdrop}>
+          <View style={styles.pincodeModal}>
+            <View style={styles.pincodeModalHeader}>
+              <Text style={styles.pincodeModalTitle}>Select service pincode</Text>
+              <TouchableOpacity onPress={() => setPincodeDropdownVisible(false)} accessibilityLabel="Close pincode list">
+                <Ionicons name="close" size={24} color="#333333" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView keyboardShouldPersistTaps="handled">
+              {serviceablePincodes.map((item) => (
+                <TouchableOpacity
+                  key={item.code}
+                  style={styles.pincodeOption}
+                  onPress={() => {
+                    setPincode(item.code);
+                    setPincodeError('');
+                    setPincodeDropdownVisible(false);
+                  }}
+                >
+                  <View>
+                    <Text style={styles.pincodeOptionCode}>{item.code}</Text>
+                    {item.area ? <Text style={styles.pincodeOptionArea}>{item.area}</Text> : null}
+                  </View>
+                  {pincode === item.code ? <Ionicons name="checkmark-circle" size={22} color="#7C1B2C" /> : null}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+      <Modal
+        visible={profilePromptVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setProfilePromptVisible(false)}
+      >
+        <View style={styles.dialogBackdrop}>
+          <View style={styles.dialogCard}>
+            <Text style={styles.dialogTitle}>Please complete your profile.</Text>
+            <View style={styles.dialogActions}>
+              <TouchableOpacity
+                style={styles.dialogCancelButton}
+                onPress={() => {
+                  setProfilePromptVisible(false);
+                  setProfilePromptDismissed(true);
+                  proceedToPurohitList(true);
+                }}
+              >
+                <Text style={styles.dialogCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.dialogConfirmButton}
+                onPress={() => {
+                  setProfilePromptVisible(false);
+                  router.push({
+                    pathname: '/edit-profile',
+                    params: {
+                      fromBooking: 'true',
+                      ...params,
+                      sampradayam: passedSampradayam,
+                      selectedMuhurtham,
+                      customDate,
+                      customTime,
+                      selectedVenue,
+                      addressFlat: addressFlat.trim(),
+                      addressArea: addressArea.trim(),
+                      pincode: pincode.trim(),
+                      guests
+                    }
+                  });
+                }}
+              >
+                <Text style={styles.dialogConfirmText}>OK</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -464,6 +659,64 @@ const styles = StyleSheet.create({
     color: '#333333',
     marginBottom: 4,
   },
+  pincodeDropdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  pincodeSelected: {
+    color: '#333333',
+    fontSize: 15,
+  },
+  pincodePlaceholder: {
+    color: '#888888',
+    fontSize: 15,
+  },
+  dropdownBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+  },
+  pincodeModal: {
+    maxHeight: '75%',
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 24,
+  },
+  pincodeModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0EBE1',
+  },
+  pincodeModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333333',
+  },
+  pincodeOption: {
+    minHeight: 58,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F0EA',
+  },
+  pincodeOptionCode: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333333',
+  },
+  pincodeOptionArea: {
+    fontSize: 13,
+    color: '#777777',
+    marginTop: 2,
+  },
   inputError: {
     borderColor: '#C0392B',
     backgroundColor: '#FFF5F5',
@@ -531,5 +784,56 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  dialogBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  dialogCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  dialogTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333333',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  dialogActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    width: '100%',
+    gap: 12,
+  },
+  dialogCancelButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  dialogCancelText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#7C1B2C',
+  },
+  dialogConfirmButton: {
+    backgroundColor: '#7C1B2C',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  dialogConfirmText: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
   },
 });

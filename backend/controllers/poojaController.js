@@ -1,5 +1,21 @@
 const db = require('../config/db');
 
+exports.getServiceablePincodes = async (req, res) => {
+    try {
+        const result = await db.query(`
+            SELECT p.code, z.name AS area
+            FROM ps.pincode p
+            LEFT JOIN ps.zone z ON z.id = p.zone_id
+            WHERE p.serviceable = true
+            ORDER BY p.code
+        `);
+        return res.status(200).json({ success: true, data: result.rows });
+    } catch (err) {
+        console.error('Error fetching serviceable pincodes:', err);
+        return res.status(500).json({ success: false, message: 'Failed to load serviceable pincodes' });
+    }
+};
+
 exports.getAllPoojas = async (req, res) => {
     try {
         const result = await db.query(`
@@ -123,69 +139,90 @@ exports.getAddons = async (req, res) => {
 exports.getPoojaDetails = async (req, res) => {
     try {
         const { id } = req.params;
-        const { sampradayam } = req.query; // 'Smartha', etc.
+        const { sampradayam } = req.query; // 'smartha', 'madhva', etc.
         
-        let sampradayamFilter = 'Smartha';
-        if (sampradayam && sampradayam !== 'Not sure') {
-            sampradayamFilter = sampradayam;
+        // Map frontend codes to DB string names
+        const sampradayamMap = {
+            'smartha': 'Smartha',
+            'madhva': 'Madhva',
+            'srivaishnava': 'Sri Vaishnava',
+            'vaikhanasa': 'Vaikhanasa',
+            'pancharatra': 'Pancharatra',
+            'samanya': 'Samanya (General)',
+            'unknown': 'Not sure',
+            'veerashaiva': 'Veerashaiva'
+        };
+
+        let mappedSampradayam = sampradayamMap[sampradayam?.toLowerCase()] || 'Smartha';
+        if (mappedSampradayam === 'Not sure') mappedSampradayam = 'Smartha'; // Fallback to Smartha
+
+        // Function to fetch details for a specific sampradayam
+        const fetchDetailsForSampradayam = async (filter) => {
+            const stepsRes = await db.query(`
+                SELECT vs.name->>'en' as step_name
+                FROM ps.pooja_vidhi pv
+                JOIN ps.sampradayam s ON pv.sampradayam_id = s.id
+                JOIN ps.vidhi_version vv ON pv.current_version_id = vv.id
+                JOIN ps.vidhi_step vs ON vv.id = vs.vidhi_version_id
+                WHERE pv.pooja_id = $1 AND s.name->>'en' = $2
+                ORDER BY vs.step_no ASC
+            `, [id, filter]);
+
+            const samagriRes = await db.query(`
+                SELECT si.name->>'en' as item_name
+                FROM ps.pooja_vidhi pv
+                JOIN ps.sampradayam s ON pv.sampradayam_id = s.id
+                JOIN ps.vidhi_version vv ON pv.current_version_id = vv.id
+                JOIN ps.vidhi_samagri vsa ON vv.id = vsa.vidhi_version_id
+                JOIN ps.samagri_item si ON vsa.samagri_item_id = si.id
+                WHERE pv.pooja_id = $1 AND s.name->>'en' = $2 AND vsa.supplied_by != 'family'
+            `, [id, filter]);
+
+            const tasksRes = await db.query(`
+                SELECT vft.task->>'en' as task_name
+                FROM ps.pooja_vidhi pv
+                JOIN ps.sampradayam s ON pv.sampradayam_id = s.id
+                JOIN ps.vidhi_version vv ON pv.current_version_id = vv.id
+                JOIN ps.vidhi_family_task vft ON vv.id = vft.vidhi_version_id
+                WHERE pv.pooja_id = $1 AND s.name->>'en' = $2
+                ORDER BY vft.sort_order ASC
+            `, [id, filter]);
+
+            const familySamagriRes = await db.query(`
+                SELECT si.name->>'en' as item_name
+                FROM ps.pooja_vidhi pv
+                JOIN ps.sampradayam s ON pv.sampradayam_id = s.id
+                JOIN ps.vidhi_version vv ON pv.current_version_id = vv.id
+                JOIN ps.vidhi_samagri vsa ON vv.id = vsa.vidhi_version_id
+                JOIN ps.samagri_item si ON vsa.samagri_item_id = si.id
+                WHERE pv.pooja_id = $1 AND s.name->>'en' = $2 AND vsa.supplied_by = 'family'
+            `, [id, filter]);
+
+            return {
+                vidhiSteps: stepsRes.rows.map(r => r.step_name),
+                samagriItems: samagriRes.rows.map(r => r.item_name),
+                familyArranges: [
+                    ...tasksRes.rows.map(r => r.task_name),
+                    ...familySamagriRes.rows.map(r => r.item_name)
+                ]
+            };
+        };
+
+        let details = await fetchDetailsForSampradayam(mappedSampradayam);
+
+        // Fallback logic if the specific sampradayam is empty
+        if (details.vidhiSteps.length === 0 && details.samagriItems.length === 0) {
+            if (mappedSampradayam !== 'Samanya (General)') {
+                details = await fetchDetailsForSampradayam('Samanya (General)');
+            }
+            if (details.vidhiSteps.length === 0 && details.samagriItems.length === 0) {
+                details = await fetchDetailsForSampradayam('Smartha');
+            }
         }
-
-        // Fetch vidhi steps
-        const stepsRes = await db.query(`
-            SELECT vs.name->>'en' as step_name
-            FROM ps.pooja_vidhi pv
-            JOIN ps.sampradayam s ON pv.sampradayam_id = s.id
-            JOIN ps.vidhi_version vv ON pv.current_version_id = vv.id
-            JOIN ps.vidhi_step vs ON vv.id = vs.vidhi_version_id
-            WHERE pv.pooja_id = $1 AND s.name->>'en' = $2
-            ORDER BY vs.step_no ASC
-        `, [id, sampradayamFilter]);
-
-        // Fetch samagri items (platform provided)
-        const samagriRes = await db.query(`
-            SELECT si.name->>'en' as item_name
-            FROM ps.pooja_vidhi pv
-            JOIN ps.sampradayam s ON pv.sampradayam_id = s.id
-            JOIN ps.vidhi_version vv ON pv.current_version_id = vv.id
-            JOIN ps.vidhi_samagri vsa ON vv.id = vsa.vidhi_version_id
-            JOIN ps.samagri_item si ON vsa.samagri_item_id = si.id
-            WHERE pv.pooja_id = $1 AND s.name->>'en' = $2 AND vsa.supplied_by != 'family'
-        `, [id, sampradayamFilter]);
-
-        // Fetch family tasks & family supplied samagri
-        const tasksRes = await db.query(`
-            SELECT vft.task->>'en' as task_name
-            FROM ps.pooja_vidhi pv
-            JOIN ps.sampradayam s ON pv.sampradayam_id = s.id
-            JOIN ps.vidhi_version vv ON pv.current_version_id = vv.id
-            JOIN ps.vidhi_family_task vft ON vv.id = vft.vidhi_version_id
-            WHERE pv.pooja_id = $1 AND s.name->>'en' = $2
-            ORDER BY vft.sort_order ASC
-        `, [id, sampradayamFilter]);
-
-        const familySamagriRes = await db.query(`
-            SELECT si.name->>'en' as item_name
-            FROM ps.pooja_vidhi pv
-            JOIN ps.sampradayam s ON pv.sampradayam_id = s.id
-            JOIN ps.vidhi_version vv ON pv.current_version_id = vv.id
-            JOIN ps.vidhi_samagri vsa ON vv.id = vsa.vidhi_version_id
-            JOIN ps.samagri_item si ON vsa.samagri_item_id = si.id
-            WHERE pv.pooja_id = $1 AND s.name->>'en' = $2 AND vsa.supplied_by = 'family'
-        `, [id, sampradayamFilter]);
-
-        // Combine family tasks and family samagri
-        const familyArranges = [
-            ...tasksRes.rows.map(r => r.task_name),
-            ...familySamagriRes.rows.map(r => r.item_name)
-        ];
 
         res.status(200).json({
             success: true,
-            data: {
-                vidhiSteps: stepsRes.rows.map(r => r.step_name),
-                samagriItems: samagriRes.rows.map(r => r.item_name),
-                familyArranges: familyArranges
-            }
+            data: details
         });
     } catch (err) {
         console.error(err);

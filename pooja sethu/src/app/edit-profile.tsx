@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Modal, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { colors } from '../constants/colors';
@@ -7,6 +7,7 @@ import { useUser } from '../context/UserContext';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import FieldError from '../components/FieldError';
 import { validateName, validateEmail, validateGotra, validateAddress, apiFetch } from '../utils/validation';
+import { API_BASE_URL } from '../utils/apiBaseUrl';
 
 const sampradayamsList = [
   { id: 'smartha', title: 'Smartha · స్మార్త', desc: 'Advaita tradition of Adi Shankaracharya' },
@@ -19,12 +20,15 @@ const sampradayamsList = [
   { id: 'veerashaiva', title: 'Veerashaiva · వీరశైవ', desc: 'Draft: Vidhis not yet prepared' },
 ];
 
-const pincodesList = ['500003', '500007', '500016', '500017', '500026', '500032', '500038', '500039', '500049', '500072', '500081', '500082', '500084', '500085', '500089'];
+type ServiceablePincode = {
+  code: string;
+  area: string | null;
+};
 
 export default function ProfileScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const isEdit = params.fromAccount === 'true';
+  const isEdit = params.fromAccount === 'true' || params.fromBooking === 'true';
   const { t } = useLanguage();
   const { userData, updateUserData } = useUser();
   const { name, email, familyMembers = [], sampradayam, gotra, address, addressLine2, landmark, addressLabel, pincode } = userData;
@@ -59,23 +63,12 @@ export default function ProfileScreen() {
   const setAddressLine2 = (val: string) => updateUserData({ addressLine2: val });
   const setLandmark = (val: string) => updateUserData({ landmark: val });
   const setAddressLabel = (val: string) => updateUserData({ addressLabel: val });
-  const setPincode = (val: string) => {
-    const areaMap: Record<string, string> = {
-      '500003': 'Secunderabad', '500007': 'Tarnaka', '500016': 'Begumpet', '500017': 'Lallaguda',
-      '500026': 'Mettuguda', '500032': 'Gachibowli', '500038': 'Ameerpet', '500039': 'Uppal',
-      '500049': 'Miyapur', '500072': 'KPHB', '500081': 'Madhapur', '500082': 'Somajiguda',
-      '500084': 'Kondapur', '500085': 'Kukatpally', '500089': 'Manikonda'
-    };
-    if (areaMap[val] && !addressLine2) {
-      updateUserData({ pincode: val, addressLine2: areaMap[val] });
-    } else {
-      updateUserData({ pincode: val });
-    }
-  };
 
   // Modal State
   const [modalVisible, setModalVisible] = useState(false);
   const [pincodeModalVisible, setPincodeModalVisible] = useState(false);
+  const [serviceablePincodes, setServiceablePincodes] = useState<ServiceablePincode[]>([]);
+  const [pincodesError, setPincodesError] = useState('');
   const [tempSampradayam, setTempSampradayam] = useState('');
   const [remember, setRemember] = useState(true);
   const [editingMemberDateId, setEditingMemberDateId] = useState<string | null>(null);
@@ -84,6 +77,25 @@ export default function ProfileScreen() {
   const [emailError, setEmailError] = useState('');
   const [gotraError, setGotraError] = useState('');
   const [address1Error, setAddress1Error] = useState('');
+
+  useEffect(() => {
+    let isMounted = true;
+    fetch(`${API_BASE_URL}/api/services/pincodes`)
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok || !data.success || !Array.isArray(data.data)) {
+          throw new Error(data.message || 'Could not load serviceable pincodes.');
+        }
+        if (isMounted) setServiceablePincodes(data.data);
+      })
+      .catch((error) => {
+        console.error('Failed to load profile pincodes:', error);
+        if (isMounted) setPincodesError('Could not load serviceable pincodes. Please try again.');
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
 
   const handleSave = async () => {
@@ -107,7 +119,7 @@ export default function ProfileScreen() {
     }
 
     try {
-      const data = await apiFetch('http://192.168.88.20:5000/api/auth/profile', {
+      const data = await apiFetch(`${API_BASE_URL}/api/auth/profile`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -159,6 +171,8 @@ export default function ProfileScreen() {
             style={[styles.input, nameError ? styles.inputError : null]}
             placeholder={t('namePlaceholder')}
             value={name}
+            keyboardType="default"
+            autoCapitalize="words"
             onChangeText={(val) => {
               const clean = val.replace(/[^A-Za-z\s]/g, '');
               setName(clean);
@@ -203,6 +217,8 @@ export default function ProfileScreen() {
                 style={styles.input}
                 placeholder={t('namePlaceholder')}
                 value={member.name}
+                keyboardType="default"
+                autoCapitalize="words"
                 onChangeText={(val) => updateFamilyMember(member.id, 'name', val.replace(/[^A-Za-z\s]/g, ''))}
               />
               <TextInput
@@ -254,7 +270,8 @@ export default function ProfileScreen() {
               {editingMemberDateId === member.id && Platform.OS !== 'web' && (
                 <DateTimePicker
                   value={(() => {
-                    const d = new Date(member.date_of_birth);
+                    const dob = member.date_of_birth;
+                    const d = dob ? new Date(dob) : new Date();
                     return isNaN(d.getTime()) ? new Date() : d;
                   })()}
                   mode="date"
@@ -438,20 +455,18 @@ export default function ProfileScreen() {
           <ScrollView contentContainerStyle={styles.modalScroll}>
             <Text style={styles.modalDesc}>{t('selectPincodeDesc')}</Text>
 
-            {pincodesList.map((code) => {
-              const isSelected = pincode === code;
-              const areaMap: Record<string, string> = {
-                '500003': 'Secunderabad', '500007': 'Tarnaka', '500016': 'Begumpet', '500017': 'Lallaguda',
-                '500026': 'Mettuguda', '500032': 'Gachibowli', '500038': 'Ameerpet', '500039': 'Uppal',
-                '500049': 'Miyapur', '500072': 'KPHB', '500081': 'Madhapur', '500082': 'Somajiguda',
-                '500084': 'Kondapur', '500085': 'Kukatpally', '500089': 'Manikonda'
-              };
+            {pincodesError ? <FieldError message={pincodesError} /> : null}
+            {serviceablePincodes.map((item) => {
+              const isSelected = pincode === item.code;
               return (
                 <TouchableOpacity 
-                  key={code} 
+                  key={item.code}
                   style={[styles.radioItem, isSelected && styles.radioItemSelected]}
                   onPress={() => {
-                    setPincode(code);
+                    updateUserData({
+                      pincode: item.code,
+                      ...(!addressLine2 && item.area ? { addressLine2: item.area } : {})
+                    });
                     setPincodeModalVisible(false);
                   }}
                 >
@@ -459,7 +474,7 @@ export default function ProfileScreen() {
                     {isSelected && <View style={styles.radioInnerCircle} />}
                   </View>
                   <View style={styles.radioTextContainer}>
-                    <Text style={styles.radioTitle}>{code} - {areaMap[code]}</Text>
+                    <Text style={styles.radioTitle}>{item.code}{item.area ? ` - ${item.area}` : ''}</Text>
                   </View>
                 </TouchableOpacity>
               )
@@ -558,6 +573,18 @@ const styles = StyleSheet.create({
     padding: 20,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.05)',
+  },
+  closeButton: {
+    marginLeft: 'auto',
+    padding: 8,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeButtonText: {
+    fontSize: 24,
+    color: colors.textDark,
+    lineHeight: 24,
   },
   modalBackButton: {
     marginRight: 16,
@@ -716,6 +743,3 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF5F5',
   },
 });
-
-
-

@@ -13,7 +13,7 @@ export default function BookingSuccessScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.replace('/')} style={styles.closeButton}>
+        <TouchableOpacity onPress={() => router.replace('/login')} style={styles.closeButton}>
           <Ionicons name="close" size={24} color="#333333" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t('bookingTitle')} {params.booking_no || 'PS-26-10482'}</Text>

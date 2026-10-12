@@ -1,15 +1,32 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Platform, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Modal } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useLanguage } from '../../context/LanguageContext';
+import { useUser } from '../../context/UserContext';
+import PoojaSethuLogo from '../../components/PoojaSethuLogo';
+import { API_BASE_URL } from '../../utils/apiBaseUrl';
+
+type ReviewItem = {
+  id: string | number;
+  reviewer_name?: string;
+  created_at: string;
+  rating: number | string;
+  body: string;
+};
 
 export default function PurohitDetailsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { t } = useLanguage();
-  const [dbReviews, setDbReviews] = useState([]);
+  const { userData } = useUser();
+  const [dbReviews, setDbReviews] = useState<ReviewItem[]>([]);
   const [loadingReviews, setLoadingReviews] = useState(true);
+  const [profilePromptVisible, setProfilePromptVisible] = useState(false);
+  const [profilePromptDismissed, setProfilePromptDismissed] = useState(
+    params.profilePromptDismissed === 'true'
+  );
   
   const id = params.id;
   const name = params.name;
@@ -20,18 +37,34 @@ export default function PurohitDetailsScreen() {
   const [calculatedRating, setCalculatedRating] = useState(params.rating || 'New');
   
   const experience = params.experience ? `${params.experience} yrs` : 'N/A';
-  const sampradayam = params.sampradayam || 'Samanya';
-  const gurukulam = params.gurukulam || 'N/A';
-  const photo_url = params.photo_url || 'https://images.unsplash.com/photo-1544168190-79c15427015f?w=400&q=80';
+  const sampradayam = Array.isArray(params.sampradayam) ? params.sampradayam[0] : params.sampradayam || 'Samanya';
+  const gurukulam = Array.isArray(params.gurukulam) ? params.gurukulam[0] : params.gurukulam || 'N/A';
+  const photo_url = Array.isArray(params.photo_url) ? params.photo_url[0] : params.photo_url || 'https://images.unsplash.com/photo-1544168190-79c15427015f?w=400&q=80';
   const rawLanguages = params.languages ? String(params.languages).split(',') : ['Telugu'];
   
   const displayLangValue = rawLanguages[0] || 'N/A';
   const displayLangLabel = rawLanguages.length > 1 ? `+ ${rawLanguages.length - 1} more` : '';
 
+  const navigateToPackage = () => {
+    router.push({
+      pathname: '/booking/package',
+      params: {
+        ...params,
+        purohitId: id,
+        purohitName: name,
+        purohitRating: calculatedRating,
+        purohitPhoto: photo_url,
+        purohitLanguages: params.languages || 'Telugu',
+        dakshina: params.dakshina,
+        rawDakshina: params.raw_dakshina
+      }
+    });
+  };
+
   useEffect(() => {
     if (id) {
       // ALWAYS fetch reviews to ensure we have the most up-to-date data regardless of URL params
-      fetch(`http://192.168.88.20:5000/api/services/purohits/${id}/reviews?t=${new Date().getTime()}`)
+      fetch(`${API_BASE_URL}/api/services/purohits/${id}/reviews?t=${new Date().getTime()}`)
         .then(res => res.json())
         .then(data => {
           if (data.success && data.data) {
@@ -39,7 +72,7 @@ export default function PurohitDetailsScreen() {
             setReviewsCount(data.data.length.toString());
             
             if (data.data.length > 0) {
-              const avg = data.data.reduce((sum, r) => sum + Number(r.rating), 0) / data.data.length;
+              const avg = data.data.reduce((sum: number, r: { rating: number | string }) => sum + Number(r.rating), 0) / data.data.length;
               setCalculatedRating(avg.toFixed(1));
             } else {
               setCalculatedRating('New');
@@ -60,13 +93,18 @@ export default function PurohitDetailsScreen() {
   }, [id]);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => { if(router.canGoBack()) { router.back(); } else { router.push('/purohit/list'); } }} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color="#333333" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t('profileLink')}</Text>
-        <View style={{ width: 24 }} />
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={styles.headerWrapper}>
+        <View style={styles.logoBar}>
+          <PoojaSethuLogo />
+        </View>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => { if(router.canGoBack()) { router.back(); } else { router.push('/purohit/list'); } }} style={styles.backButton}>
+            <Ionicons name="chevron-back" size={24} color="#333333" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>{t('profileLink')}</Text>
+          <View style={{ width: 24 }} />
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -154,9 +192,12 @@ export default function PurohitDetailsScreen() {
                     <Text style={styles.reviewDate}>{new Date(review.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</Text>
                   </View>
                   <View style={styles.reviewStars}>
-                    {[...Array(5)].map((_, i) => (
-                      <Ionicons key={i} name="star" size={12} color={i < review.rating ? "#FDB528" : "#E2D9C8"} />
-                    ))}
+                    {(() => {
+                      const starRating = Number(review.rating) || 0;
+                      return [...Array(5)].map((_, i) => (
+                        <Ionicons key={i} name="star" size={12} color={i < starRating ? "#FDB528" : "#E2D9C8"} />
+                      ));
+                    })()}
                   </View>
                 </View>
                 <Text style={styles.reviewText}>
@@ -172,22 +213,63 @@ export default function PurohitDetailsScreen() {
 
       {/* Footer */}
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.selectButton} onPress={() => router.push({
-          pathname: '/booking/package',
-          params: {
-            ...params,
-            purohitId: id,
-            purohitName: name,
-            purohitRating: calculatedRating,
-            purohitPhoto: photo_url,
-            purohitLanguages: params.languages || 'Telugu',
-            dakshina: params.dakshina,
-            rawDakshina: params.raw_dakshina
+        <TouchableOpacity style={styles.selectButton} onPress={() => {
+          if (params.profilePromptDismissed !== 'true' && !profilePromptDismissed) {
+            setProfilePromptVisible(true);
+            return;
           }
-        })}>
+          navigateToPackage();
+        }}>
           <Text style={styles.selectButtonText}>{t('selectPurohit')}</Text>
         </TouchableOpacity>
       </View>
+
+      <Modal
+        visible={profilePromptVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setProfilePromptVisible(false)}
+      >
+        <View style={styles.dialogBackdrop}>
+          <View style={styles.dialogCard}>
+            <Text style={styles.dialogTitle}>Please complete your profile.</Text>
+            <View style={styles.dialogActions}>
+              <TouchableOpacity
+                style={styles.dialogCancelButton}
+                onPress={() => {
+                  setProfilePromptVisible(false);
+                  setProfilePromptDismissed(true);
+                  navigateToPackage();
+                }}
+              >
+                <Text style={styles.dialogCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.dialogConfirmButton}
+                onPress={() => {
+                  setProfilePromptVisible(false);
+                  router.push({
+                    pathname: '/edit-profile',
+                    params: {
+                      fromBooking: 'true',
+                      ...params,
+                      purohitId: id,
+                      purohitName: name,
+                      purohitRating: calculatedRating,
+                      purohitPhoto: photo_url,
+                      purohitLanguages: params.languages || 'Telugu',
+                      dakshina: params.dakshina,
+                      rawDakshina: params.raw_dakshina
+                    }
+                  });
+                }}
+              >
+                <Text style={styles.dialogConfirmText}>OK</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -197,15 +279,22 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
+  headerWrapper: {
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2D9C8',
+  },
+  logoBar: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? 40 : 12,
     paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2D9C8',
     backgroundColor: '#FFFFFF',
   },
   backButton: {
@@ -394,7 +483,55 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+  dialogBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  dialogCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  dialogTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333333',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  dialogActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    width: '100%',
+    gap: 12,
+  },
+  dialogCancelButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  dialogCancelText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#7C1B2C',
+  },
+  dialogConfirmButton: {
+    backgroundColor: '#7C1B2C',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  dialogConfirmText: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
 });
-
-
-

@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useUser } from '../../context/UserContext';
 import { useLanguage } from '../../context/LanguageContext';
+import PoojaSethuLogo from '../../components/PoojaSethuLogo';
+import { API_BASE_URL } from '../../utils/apiBaseUrl';
 
 export default function BookingsTabScreen() {
   const router = useRouter();
@@ -22,7 +25,7 @@ export default function BookingsTabScreen() {
           setLoading(false);
           return;
         }
-        const response = await fetch(`http://192.168.88.20:5000/api/bookings/my-bookings?mobileNumber=${userData.mobileNumber}`);
+        const response = await fetch(`${API_BASE_URL}/api/bookings/my-bookings?mobileNumber=${userData.mobileNumber}`);
         const data = await response.json();
         if (data.success) {
           setBookings(data.bookings || []);
@@ -46,7 +49,11 @@ export default function BookingsTabScreen() {
   });
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      {/* ── Brand Logo Bar ── */}
+      <View style={styles.logoBar}>
+        <PoojaSethuLogo />
+      </View>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{t('myBookings')}</Text>
       </View>
@@ -124,7 +131,8 @@ export default function BookingsTabScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F9F6F0' },
-  header: { paddingHorizontal: 16, paddingTop: Platform.OS === 'android' ? 40 : 12, paddingBottom: 16, backgroundColor: '#FFFFFF' },
+  logoBar: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4, backgroundColor: '#FFFFFF' },
+  header: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 16, backgroundColor: '#FFFFFF' },
   headerTitle: { fontSize: 24, fontWeight: 'bold', color: '#333333' },
   tabsRow: { flexDirection: 'row', backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E2D9C8', paddingHorizontal: 16 },
   tab: { paddingVertical: 16, marginRight: 24 },
@@ -151,6 +159,3 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 18, fontWeight: 'bold', color: '#333333', marginTop: 16, marginBottom: 8 },
   emptyDesc: { fontSize: 14, color: '#888888', textAlign: 'center' },
 });
-
-
-

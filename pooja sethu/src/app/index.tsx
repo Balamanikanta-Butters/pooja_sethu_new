@@ -1,167 +1,244 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Image, Alert } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Dimensions, FlatList, Image, TouchableWithoutFeedback, Animated } from 'react-native';
 import { useRouter } from 'expo-router';
-import { colors } from '../constants/colors';
-import { useLanguage } from '../context/LanguageContext';
-import * as Location from 'expo-location';
-import { useUser } from '../context/UserContext';
-import FieldError from '../components/FieldError';
-import { validateMobile } from '../utils/validation';
+import { Ionicons, Feather, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 
-export default function MobileLoginScreen() {
+const { width, height } = Dimensions.get('window');
+
+const slides = [
+  {
+    id: '1',
+    label: 'SAMPRADAYA-MATCHED',
+    title: 'Purohits who follow\nyour tradition',
+    text: 'Smartha, Madhva, Sri Vaishnava, Vaikhanasa and more. Every Purohit is verified for Sampradayam, Veda Shakha and experience.',
+    circleColor: '#F6EAEB',
+    iconColor: '#7C1B2C',
+    bullets: [
+      { text: 'Credentials and references checked', icon: 'check', color: '#E3F2E9', textColor: '#27733F' },
+      { text: 'Ratings from real families', icon: 'check', color: '#E3F2E9', textColor: '#27733F' }
+    ]
+  },
+  {
+    id: '2',
+    label: 'DAILY PANCHANGAM',
+    title: 'The right muhurtham,\nevery day',
+    text: 'See Tithi, Nakshatram, Rahu Kalam and the best times for your Pooja, calculated for your city.',
+    circleColor: '#FDF2D8',
+    iconColor: '#C48C2B',
+    bullets: [
+      { text: 'Suggested muhurthams for each Pooja', icon: 'star', color: '#FDF2D8', textColor: '#C48C2B' },
+      { text: 'Tithi reminders for Abdikam and birthdays', icon: 'star', color: '#FDF2D8', textColor: '#C48C2B' }
+    ]
+  },
+  {
+    id: '3',
+    label: 'COMPLETE PACKAGE',
+    title: 'One booking,\neverything arranged',
+    text: 'Purohit, Pooja Samagri kit, Bhojanalu and decoration, coordinated by us. You simply attend.',
+    circleColor: '#E3F2E9',
+    iconColor: '#27733F',
+    bullets: [
+      { text: 'Samagri delivered the day before', icon: 'check', color: '#E3F2E9', textColor: '#27733F' },
+      { text: 'Live status on the ceremony day', icon: 'check', color: '#E3F2E9', textColor: '#27733F' }
+    ]
+  },
+  {
+    id: '4',
+    label: 'TRANSPARENT AND SAFE',
+    title: 'Know the dakshina\nbefore you book',
+    text: 'Clear prices, secure UPI and card payments, and money released only after your ceremony is complete.',
+    circleColor: '#E4F0F9',
+    iconColor: '#1A5F8E',
+    bullets: [
+      { text: 'No haggling, no hidden charges', icon: 'currency-inr', color: '#E4F0F9', textColor: '#1A5F8E' },
+      { text: 'Book for parents in another city', icon: 'currency-inr', color: '#E4F0F9', textColor: '#1A5F8E' }
+    ]
+  }
+];
+
+export default function OnboardingScreen() {
   const router = useRouter();
-  const { language, setLanguage, t } = useLanguage();
-  const { updateUserData } = useUser();
-  const [mobileNumber, setMobileNumber] = useState('');
-  const [mobileError, setMobileError] = useState('');
-  const [mobileTouched, setMobileTouched] = useState(false);
-  const [customCity, setCustomCity] = useState<string | null>(null);
+  const [showSplash, setShowSplash] = useState(true);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const flatListRef = useRef<FlatList>(null);
 
-  const handleUseLocation = async () => {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Permission to access location was denied');
-        return;
-      }
+  // Fade animation for splash
+  const splashOpacity = useRef(new Animated.Value(1)).current;
 
-      const location = await Location.getCurrentPositionAsync({});
-      const geocode = await Location.reverseGeocodeAsync({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude
-      });
+  const dismissSplash = () => {
+    Animated.timing(splashOpacity, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowSplash(false);
+    });
+  };
 
-      if (geocode.length > 0) {
-        const place = geocode[0];
-        const cityName = place.city || place.subregion || place.region || 'Unknown Location';
-        setCustomCity(cityName);
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Error getting location. Please try again later.');
+  const skipToLogin = () => {
+    router.replace('/login');
+  };
+
+  const goToNextSlide = () => {
+    if (currentIndex < slides.length - 1) {
+      const nextIndex = currentIndex + 1;
+      setCurrentIndex(nextIndex);
+      flatListRef.current?.scrollToOffset({ offset: nextIndex * width, animated: true });
+    } else {
+      skipToLogin();
     }
   };
 
-  const handleSendOtp = async () => {
-    setMobileTouched(true);
-    const result = validateMobile(mobileNumber);
-    setMobileError(result.message);
-    if (!result.valid) return;
-    updateUserData({ mobileNumber: mobileNumber });
-    router.push({ pathname: '/otp', params: { mobileNumber } });
+  const goToPrevSlide = () => {
+    if (currentIndex > 0) {
+      const prevIndex = currentIndex - 1;
+      setCurrentIndex(prevIndex);
+      flatListRef.current?.scrollToOffset({ offset: prevIndex * width, animated: true });
+    }
+  };
+
+  const renderIcon = (id: string, color: string) => {
+    switch (id) {
+      case '1':
+        return (
+          <View style={styles.iconWrapper}>
+            <Ionicons name="person-outline" size={70} color={color} />
+            <View style={styles.badgeOverlay}>
+              <MaterialCommunityIcons name="check-circle" size={32} color="#27733F" style={{ backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden' }} />
+            </View>
+          </View>
+        );
+      case '2':
+        return <Feather name="sunrise" size={70} color={color} />;
+      case '3':
+        return <MaterialCommunityIcons name="spa-outline" size={70} color={color} />;
+      case '4':
+        return (
+          <View style={styles.iconWrapper}>
+            <Ionicons name="shield-outline" size={70} color={color} />
+            <Text style={{ position: 'absolute', fontSize: 28, color: color, fontWeight: 'bold' }}>₹</Text>
+          </View>
+        );
+      default:
+        return null;
+    }
+  };
+
+  const renderSlide = ({ item }: { item: typeof slides[0] }) => {
+    return (
+      <View style={styles.slide}>
+        <View style={[styles.largeCircle, { backgroundColor: item.circleColor }]}>
+          {renderIcon(item.id, item.iconColor)}
+        </View>
+
+        <Text style={styles.label}>{item.label}</Text>
+        <Text style={styles.title}>{item.title}</Text>
+        <Text style={styles.description}>{item.text}</Text>
+
+        <View style={styles.bulletsContainer}>
+          {item.bullets.map((b, i) => (
+            <View key={i} style={styles.bulletRow}>
+              <View style={[styles.bulletIconBg, { backgroundColor: b.color }]}>
+                {b.icon === 'currency-inr' ? (
+                  <Text style={{ color: b.textColor, fontSize: 12, fontWeight: 'bold' }}>₹</Text>
+                ) : (
+                  <MaterialCommunityIcons name={b.icon as any} size={14} color={b.textColor} />
+                )}
+              </View>
+              <Text style={styles.bulletText}>{b.text}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+    );
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
-      >
-        <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-          {/* Logo */}
-          <View style={styles.logoContainer}>
-            <Image 
-              source={require('../../assets/logo.png')} 
-              style={styles.logoIcon}
+      {/* HEADER */}
+      {!showSplash && (
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Pooja Sethu</Text>
+          <TouchableOpacity onPress={skipToLogin}>
+            <Text style={styles.skipButton}>Skip</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* SLIDER */}
+      <FlatList
+        ref={flatListRef}
+        data={slides}
+        renderItem={renderSlide}
+        keyExtractor={(item) => item.id}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        bounces={false}
+        getItemLayout={(data, index) => ({
+          length: width,
+          offset: width * index,
+          index,
+        })}
+        onMomentumScrollEnd={(e) => {
+          const newIndex = Math.round(e.nativeEvent.contentOffset.x / width);
+          setCurrentIndex(newIndex);
+        }}
+        onScroll={(e) => {
+          // Fallback for Web if momentum doesn't fire
+          const newIndex = Math.round(e.nativeEvent.contentOffset.x / width);
+          if (newIndex !== currentIndex) {
+            setCurrentIndex(newIndex);
+          }
+        }}
+        scrollEventThrottle={16}
+      />
+
+      {/* FOOTER */}
+      {!showSplash && (
+        <View style={styles.footer}>
+          <View style={styles.dotsContainer}>
+            {slides.map((_, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.dot,
+                  currentIndex === index ? styles.activeDot : null
+                ]}
+              />
+            ))}
+          </View>
+
+          <View style={styles.actionRow}>
+            {currentIndex > 0 && (
+              <TouchableOpacity style={styles.backBtn} onPress={goToPrevSlide}>
+                <Text style={styles.backBtnText}>←</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={styles.nextBtn}
+              onPress={goToNextSlide}
+            >
+              <Text style={styles.nextBtnText}>
+                {currentIndex === slides.length - 1 ? 'Get started' : 'Next'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* SPLASH OVERLAY */}
+      {showSplash && (
+        <TouchableWithoutFeedback onPress={dismissSplash}>
+          <Animated.View style={[styles.splashContainer, { opacity: splashOpacity }]}>
+            <Image
+              source={require('../../assets/splash.png')}
+              style={styles.splashImage}
               resizeMode="contain"
             />
-          </View>
-
-          <Text style={styles.title}>{t('appTitle')}</Text>
-          <Text style={styles.subtitleTelugu}>{t('appSubtitle')}</Text>
-          
-          <Text style={styles.description}>
-            {t('appDesc')}
-          </Text>
-
-          <Text style={styles.sectionLabel}>{t('chooseLang')}</Text>
-          <View style={styles.languageContainer}>
-            {['English', 'Telugu', 'ಕನ್ನಡ • soon'].map((lang) => {
-              const displayLang = lang === 'Telugu' ? 'తెలుగు' : lang;
-              return (
-                <TouchableOpacity 
-                  key={lang}
-                  style={[
-                    styles.languageBadge, 
-                    language === lang && styles.languageBadgeActive,
-                    lang.includes('soon') && styles.languageBadgeDisabled
-                  ]}
-                  onPress={() => !lang.includes('soon') && setLanguage(lang as any)}
-                >
-                  <Text style={[
-                    styles.languageText,
-                    language === lang && styles.languageTextActive,
-                    lang.includes('soon') && styles.languageTextDisabled
-                  ]}>
-                    {displayLang}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          <Text style={styles.sectionLabel}>{t('cityLabel')}</Text>
-          <View style={styles.dropdownContainer}>
-            <Text style={styles.dropdownText}>{customCity || t('cityValue')}</Text>
-            <Text>▼</Text>
-          </View>
-
-          <TouchableOpacity style={styles.locationButton} onPress={handleUseLocation}>
-            <Text style={styles.locationButtonText}>{t('useLocation')}</Text>
-          </TouchableOpacity>
-
-          <Text style={styles.sectionLabel}>{t('mobileLabel')}</Text>
-          <View style={styles.phoneInputContainer}>
-            <View style={styles.countryCodeContainer}>
-              <Text style={styles.countryCode}>+91</Text>
-            </View>
-            <TextInput
-              style={[
-                styles.phoneInput,
-                mobileTouched && mobileError ? styles.inputError : null
-              ]}
-              placeholder={t('mobilePlaceholder')}
-              keyboardType="phone-pad"
-              maxLength={10}
-              value={mobileNumber}
-              onChangeText={(text) => {
-                const numericValue = text.replace(/[^0-9]/g, '');
-                setMobileNumber(numericValue);
-                if (mobileTouched) {
-                  setMobileError(validateMobile(numericValue).message);
-                }
-              }}
-              onBlur={() => {
-                setMobileTouched(true);
-                setMobileError(validateMobile(mobileNumber).message);
-              }}
-            />
-          </View>
-          <FieldError message={mobileTouched ? mobileError : ''} />
-          <Text style={styles.helpText}>{t('helpText')}</Text>
-
-          <TouchableOpacity 
-            style={[
-              styles.sendOtpButton,
-              mobileNumber.length !== 10 && styles.sendOtpButtonDisabled
-            ]}
-            onPress={handleSendOtp}
-            disabled={mobileNumber.length !== 10}
-          >
-            <Text style={[
-              styles.sendOtpButtonText,
-              mobileNumber.length !== 10 && styles.sendOtpButtonTextDisabled
-            ]}>{t('sendOtp')}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.exploreButton} onPress={() => router.replace('/(tabs)')}>
-            <Text style={styles.exploreButtonText}>{t('exploreFirst')}</Text>
-          </TouchableOpacity>
-
-          <Text style={styles.footerText}>
-            {t('terms')}
-          </Text>
-        </ScrollView>
-      </KeyboardAvoidingView>
+          </Animated.View>
+        </TouchableWithoutFeedback>
+      )}
     </SafeAreaView>
   );
 }
@@ -169,172 +246,163 @@ export default function MobileLoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#FBF8F1', // Slide background color
   },
-  scrollContainer: {
-    padding: 24,
-    flexGrow: 1,
-  },
-  logoContainer: {
-    marginTop: 20,
-    marginBottom: 20,
-  },
-  logoIcon: {
-    width: 80,
-    height: 80,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 40,
-    overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: colors.primary,
-    fontFamily: 'serif',
-  },
-  subtitleTelugu: {
-    fontSize: 16,
-    color: colors.textLight,
-    marginBottom: 16,
-  },
-  description: {
-    fontSize: 16,
-    color: colors.textDark,
-    lineHeight: 24,
-    marginBottom: 32,
-  },
-  sectionLabel: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: colors.textDark,
-    textTransform: 'uppercase',
-    marginBottom: 12,
-    marginTop: 8,
-  },
-  languageContainer: {
-    flexDirection: 'row',
-    marginBottom: 24,
-    flexWrap: 'wrap',
-  },
-  languageBadge: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginRight: 12,
-    backgroundColor: colors.white,
-  },
-  languageBadgeActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  languageBadgeDisabled: {
-    backgroundColor: colors.white,
-    borderColor: colors.border,
-    opacity: 0.6,
-  },
-  languageText: {
-    color: colors.textDark,
-    fontWeight: '500',
-  },
-  languageTextActive: {
-    color: colors.white,
-  },
-  languageTextDisabled: {
-    color: colors.textLight,
-  },
-  dropdownContainer: {
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingTop: 20,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    padding: 16,
-    backgroundColor: colors.white,
-    marginBottom: 16,
   },
-  dropdownText: {
-    color: colors.textDark,
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#7C1B2C', // Deep red
+    fontFamily: 'serif',
+  },
+  skipButton: {
     fontSize: 16,
-  },
-  locationButton: {
-    marginBottom: 24,
-  },
-  locationButtonText: {
-    color: colors.primary,
+    color: '#7C1B2C',
     fontWeight: '600',
-    fontSize: 14,
   },
-  phoneInputContainer: {
-    flexDirection: 'row',
-    marginBottom: 8,
+  slide: {
+    width,
+    paddingHorizontal: 32,
+    alignItems: 'center',
+    paddingTop: 40,
   },
-  countryCodeContainer: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    padding: 16,
-    backgroundColor: colors.white,
-    marginRight: 12,
+  largeCircle: {
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  iconWrapper: {
     justifyContent: 'center',
     alignItems: 'center',
   },
-  countryCode: {
-    fontSize: 16,
-    color: colors.textDark,
+  badgeOverlay: {
+    position: 'absolute',
+    bottom: -5,
+    right: -10,
+    backgroundColor: '#fff',
+    borderRadius: 20,
   },
-  phoneInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    padding: 16,
-    backgroundColor: colors.white,
-    fontSize: 16,
+  label: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#7C1B2C',
+    letterSpacing: 1.5,
+    marginBottom: 16,
   },
-  inputError: {
-    borderColor: '#C0392B',
-    backgroundColor: '#FFF5F5',
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#222222',
+    textAlign: 'center',
+    marginBottom: 16,
+    fontFamily: 'serif',
+    lineHeight: 36,
   },
-  helpText: {
-    fontSize: 12,
-    color: colors.textLight,
-    marginBottom: 32,
+  description: {
+    fontSize: 15,
+    color: '#444444',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 24,
   },
-  sendOtpButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    padding: 18,
+  bulletsContainer: {
+    alignSelf: 'center',
+    paddingHorizontal: 10,
+  },
+  bulletRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 12,
   },
-  sendOtpButtonDisabled: {
-    backgroundColor: colors.buttonDisabled,
+  bulletIconBg: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
-  sendOtpButtonText: {
-    color: colors.white,
+  bulletText: {
+    fontSize: 14,
+    color: '#222222',
+  },
+  footer: {
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+    paddingTop: 20,
+  },
+  dotsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#D7CCC8',
+    marginHorizontal: 4,
+  },
+  activeDot: {
+    width: 20,
+    backgroundColor: '#7C1B2C',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  backBtn: {
+    width: 56,
+    height: 56,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#7C1B2C',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+  },
+  backBtnText: {
+    fontSize: 24,
+    color: '#7C1B2C',
+  },
+  nextBtn: {
+    flex: 1,
+    height: 56,
+    borderRadius: 12,
+    backgroundColor: '#7C1B2C',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  nextBtnText: {
+    color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
   },
-  sendOtpButtonTextDisabled: {
-    color: colors.buttonTextDisabled,
-  },
-  exploreButton: {
+  // SPLASH SCREEN
+  splashContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 40,
+    zIndex: 10,
   },
-  exploreButtonText: {
-    color: colors.primary,
-    fontWeight: '600',
-    fontSize: 16,
-  },
-  footerText: {
-    fontSize: 12,
-    color: colors.textLight,
-    textAlign: 'center',
+  splashImage: {
+    width: '100%',
+    height: '100%',
+    alignSelf: 'center',
   },
 });
