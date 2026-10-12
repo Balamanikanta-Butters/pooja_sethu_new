@@ -6,6 +6,7 @@ import { colors } from '../../constants/colors';
 import { useUser } from '../../context/UserContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { API_BASE_URL } from '../../utils/apiBaseUrl';
+import { apiFetch } from '../../utils/validation';
 
 type FilterType = 'all' | 'bookings' | 'payments';
 
@@ -30,16 +31,17 @@ export default function NotificationsScreen() {
 
   useEffect(() => {
     fetchNotifications();
-  }, []);
+  }, [userData?.mobileNumber]);
 
   const fetchNotifications = async () => {
     try {
       setIsLoading(true);
-      const userId = userData.mobileNumber || 'd3790ec3-2c1b-410a-86c5-a6e54ef864c2';
-      const res = await fetch(`${API_BASE_URL}/api/notifications?userId=${userId}`);
-      const data = await res.json();
-      if (data.success) {
-        setNotificationsData(data.data);
+      const queryParam = userData?.mobileNumber ? `?mobileNumber=${encodeURIComponent(userData.mobileNumber)}` : '';
+      const data = await apiFetch(`${API_BASE_URL}/api/notifications${queryParam}`);
+      if (data && data.success) {
+        setNotificationsData(data.data || []);
+      } else {
+        setNotificationsData([]);
       }
     } catch (err) {
       console.error('Error fetching notifications:', err);

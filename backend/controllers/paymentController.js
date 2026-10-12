@@ -98,7 +98,7 @@ exports.verifyPayment = async (req, res) => {
         }
 
         const bookingResult = await db.query(
-            `SELECT id, status, payment_status, razorpay_order_id, razorpay_payment_id
+            `SELECT id, user_id, status, payment_status, razorpay_order_id, razorpay_payment_id
              FROM ps.booking
              WHERE id = $1`,
             [bookingId]
