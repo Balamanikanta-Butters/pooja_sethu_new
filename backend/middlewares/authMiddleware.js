@@ -18,4 +18,19 @@ const authMiddleware = (req, res, next) => {
     }
 };
 
+const optionalAuthMiddleware = (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.split(' ')[1];
+        try {
+            const decoded = jwt.verify(token, JWT_SECRET);
+            req.user = decoded;
+        } catch (err) {
+            // Ignore invalid token in optional auth
+        }
+    }
+    next();
+};
+
+authMiddleware.optional = optionalAuthMiddleware;
 module.exports = authMiddleware;

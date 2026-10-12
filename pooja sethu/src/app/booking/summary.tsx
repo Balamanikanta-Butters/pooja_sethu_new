@@ -98,7 +98,7 @@ export default function BookingSummaryScreen() {
   const purohitLanguages = params.purohitLanguages || 'Telugu, Hindi';
   const rawDakshina = Number(params.rawDakshina) || 6100;
   
-  const bookingType = params.bookingType || 'complete';
+  const bookingType = params.bookingType || 'purohit';
   const samagriChecked = params.samagriChecked === 'true';
   const bhojanaluChecked = params.bhojanaluChecked === 'true';
   const bhojanaluType = params.bhojanaluType || 'Traditional';
@@ -119,10 +119,11 @@ export default function BookingSummaryScreen() {
     if (assistantChecked) packagePrice += assistantPrice;
   }
   
-  const coordinationFee = Number(params.coordinationFee) || 499;
+  const isPurohitOnly = bookingType === 'purohit' || bookingType === 'purohit_only';
+  const coordinationFee = isPurohitOnly ? 0 : (Number(params.coordinationFee) || 499);
   const gstPct = Number(params.gstPct) || 18;
-  const gst = Math.round(coordinationFee * (gstPct / 100));
-  const grandTotal = packagePrice + coordinationFee + gst;
+  const gst = isPurohitOnly ? 0 : Math.round(coordinationFee * (gstPct / 100));
+  const grandTotal = isPurohitOnly ? rawDakshina : (packagePrice + coordinationFee + gst);
 
   const [isLoading, setIsLoading] = useState(false);
   const [paymentError, setPaymentError] = useState('');
@@ -188,9 +189,9 @@ export default function BookingSummaryScreen() {
         guests: guests,
         mode: bookingType === 'purohit' ? 'purohit_only' : 'package',
         dakshina_amount: rawDakshina,
-        samagri_amount: samagriChecked ? samagriPrice : 0,
-        food_amount: bhojanaluChecked ? bhojanaluPrice * guests : 0,
-        addon_amount: (flowersChecked ? flowersPrice : 0) + (assistantChecked ? assistantPrice : 0),
+        samagri_amount: isPurohitOnly ? 0 : (samagriChecked ? samagriPrice : 0),
+        food_amount: isPurohitOnly ? 0 : (bhojanaluChecked ? bhojanaluPrice * guests : 0),
+        addon_amount: isPurohitOnly ? 0 : ((flowersChecked ? flowersPrice : 0) + (assistantChecked ? assistantPrice : 0)),
         platform_fee: coordinationFee,
         tax_amount: gst,
         discount_amount: 0,
@@ -491,7 +492,7 @@ export default function BookingSummaryScreen() {
                   void proceedWithPayment('Smartha');
                 }}
               >
-                <Text style={styles.paymentDialogCancelText}>Cancel</Text>
+                <Text style={styles.paymentDialogCancelText}>Skip</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.paymentDialogConfirm}

@@ -19,7 +19,7 @@ exports.getServiceablePincodes = async (req, res) => {
 exports.getAllPoojas = async (req, res) => {
     try {
         const result = await db.query(`
-            SELECT 
+            SELECT
                 p.id,
                 p.name->>'en' AS title,
                 p.name->>'te' AS subtitle,
@@ -71,10 +71,44 @@ exports.getAllPoojas = async (req, res) => {
     }
 };
 
-exports.getPurohits = async (req, res) => {
+exports.getCategories = async (req, res) => {
     try {
         const result = await db.query(`
             SELECT 
+                id,
+                code,
+                name->>'en' as name,
+                name->>'te' as name_te,
+                icon,
+                svg_content,
+                sort_order
+            FROM ps.pooja_category
+            WHERE status = 'active'
+            ORDER BY sort_order ASC
+        `);
+        return res.status(200).json({ success: true, data: result.rows });
+    } catch (err) {
+        console.error('Error fetching categories:', err);
+        return res.status(500).json({ success: false, message: 'Failed to load categories' });
+    }
+};
+
+exports.getPurohits = async (req, res) => {
+    try {
+        const { date, muhurtham } = req.query;
+        let targetDate = null;
+        if (date && date.trim() && date !== 'undefined' && date !== 'null') {
+            targetDate = date.trim();
+        } else if (muhurtham === '11') {
+            targetDate = '2026-10-11';
+        } else if (muhurtham === '22') {
+            targetDate = '2026-10-22';
+        } else if (muhurtham === '25') {
+            targetDate = '2026-10-25';
+        }
+
+        const queryText = `
+            SELECT
                 p.id,
                 p.name,
                 p.title,
@@ -88,13 +122,40 @@ exports.getPurohits = async (req, res) => {
                 v.name->>'en' as veda,
                 (SELECT MIN(dakshina) FROM ps.purohit_vidhi WHERE purohit_id = p.id) as min_dakshina,
                 (SELECT string_agg(s.name->>'en', ', ') FROM ps.purohit_sampradayam psamp JOIN ps.sampradayam s ON psamp.sampradayam_id = s.id WHERE psamp.purohit_id = p.id) as sampradayam_list,
-                (SELECT string_agg(l.name, ', ') FROM ps.purohit_language pl JOIN ps.language l ON pl.language_code = l.code WHERE pl.purohit_id = p.id) as language_list
+                (SELECT string_agg(l.name, ', ') FROM ps.purohit_language pl JOIN ps.language l ON pl.language_code = l.code WHERE pl.purohit_id = p.id) as language_list,
+                ${targetDate ? `
+                (SELECT COUNT(*) FROM ps.purohit_availability WHERE purohit_id = p.id AND state = 'booked' AND DATE(starts_at AT TIME ZONE 'Asia/Kolkata') = $1::date) as booked_count,
+                (SELECT COUNT(*) FROM ps.purohit_availability WHERE purohit_id = p.id AND state = 'free' AND DATE(starts_at AT TIME ZONE 'Asia/Kolkata') = $1::date) as free_count,
+                ` : `
+                (SELECT COUNT(*) FROM ps.purohit_availability WHERE purohit_id = p.id AND state = 'booked') as booked_count,
+                (SELECT COUNT(*) FROM ps.purohit_availability WHERE purohit_id = p.id AND state = 'free') as free_count,
+                `}
+                (SELECT COUNT(*) FROM ps.purohit_availability WHERE purohit_id = p.id) as total_slots
             FROM ps.purohit p
             LEFT JOIN ps.veda_shakha v ON p.veda_shakha_id = v.id
-        `);
+        `;
+
+        const queryParams = targetDate ? [targetDate] : [];
+        const result = await db.query(queryText, queryParams);
 
         const formattedData = result.rows.map(row => {
             const initials = row.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+
+            // Availability calculation
+            let isAvailable = true;
+            let availabilityStatus = 'available';
+
+            if (Number(row.booked_count) > 0) {
+                isAvailable = false;
+                availabilityStatus = 'booked';
+            } else if (Number(row.total_slots) === 0) {
+                isAvailable = false;
+                availabilityStatus = 'unavailable';
+            } else if (targetDate && Number(row.free_count) === 0) {
+                isAvailable = false;
+                availabilityStatus = 'unavailable';
+            }
+
             return {
                 id: row.id,
                 initials: initials,
@@ -104,6 +165,8 @@ exports.getPurohits = async (req, res) => {
                 gurukulam: row.gurukulam,
                 experience: row.experience_years,
                 verified: row.verification === 'verified',
+                is_available: isAvailable,
+                availability_status: availabilityStatus,
                 sampradayam: row.sampradayam_list || 'Samanya',
                 languages: row.language_list ? row.language_list.split(', ') : [],
                 desc: `${row.veda || 'Veda'} · ${row.experience_years} yrs`,

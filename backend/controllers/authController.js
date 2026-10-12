@@ -57,9 +57,11 @@ exports.verifyOtp = async (req, res) => {
             let address = null;
             let familyMembers = [];
             
+            let addressesList = [];
             if (!isNewUser && user) {
-                const addressRes = await db.query('SELECT label, line1, line2, landmark, pincode FROM ps.address WHERE user_id = $1 ORDER BY is_default DESC LIMIT 1', [user.id]);
-                if (addressRes.rows.length > 0) address = addressRes.rows[0];
+                const addressRes = await db.query('SELECT id, label, line1, line2, landmark, pincode, is_default FROM ps.address WHERE user_id = $1 ORDER BY is_default DESC, id ASC', [user.id]);
+                addressesList = addressRes.rows;
+                if (addressesList.length > 0) address = addressesList[0];
                 
                 const familyRes = await db.query('SELECT id, name, relation, gotram, janma_nakshatram, date_of_birth, is_deceased FROM ps.family_member WHERE user_id = $1', [user.id]);
                 familyMembers = familyRes.rows.map(row => ({
@@ -102,6 +104,15 @@ exports.verifyOtp = async (req, res) => {
                     landmark: address ? (address.landmark || '') : '',
                     addressLabel: address ? (address.label || 'Home') : 'Home',
                     pincode: address ? (address.pincode || '') : '',
+                    addresses: addressesList.map(a => ({
+                        id: a.id,
+                        label: a.label || 'Home',
+                        line1: a.line1 || '',
+                        line2: a.line2 || '',
+                        landmark: a.landmark || '',
+                        pincode: a.pincode || '',
+                        is_default: !!a.is_default
+                    })),
                     familyMembers,
                     isNewUser
                 }
@@ -242,8 +253,9 @@ exports.getMe = async (req, res) => {
         let address = null;
         let familyMembers = [];
         
-        const addressRes = await db.query('SELECT label, line1, line2, landmark, pincode FROM ps.address WHERE user_id = $1 ORDER BY is_default DESC LIMIT 1', [user.id]);
-        if (addressRes.rows.length > 0) address = addressRes.rows[0];
+        const addressRes = await db.query('SELECT id, label, line1, line2, landmark, pincode, is_default FROM ps.address WHERE user_id = $1 ORDER BY is_default DESC, id ASC', [user.id]);
+        const addressesList = addressRes.rows;
+        if (addressesList.length > 0) address = addressesList[0];
         
         const familyRes = await db.query('SELECT id, name, relation, gotram, janma_nakshatram, date_of_birth, is_deceased FROM ps.family_member WHERE user_id = $1', [user.id]);
         familyMembers = familyRes.rows.map(row => ({
@@ -282,11 +294,100 @@ exports.getMe = async (req, res) => {
                 landmark: address ? (address.landmark || '') : '',
                 addressLabel: address ? (address.label || 'Home') : 'Home',
                 pincode: address ? (address.pincode || '') : '',
+                addresses: addressesList.map(a => ({
+                    id: a.id,
+                    label: a.label || 'Home',
+                    line1: a.line1 || '',
+                    line2: a.line2 || '',
+                    landmark: a.landmark || '',
+                    pincode: a.pincode || '',
+                    is_default: !!a.is_default
+                })),
                 familyMembers
             }
         });
     } catch (err) {
         console.error("Error in getMe:", err);
         return res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+exports.getAddresses = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const result = await db.query('SELECT id, label, line1, line2, landmark, pincode, is_default FROM ps.address WHERE user_id = $1 ORDER BY is_default DESC, id ASC', [userId]);
+        return res.status(200).json({ success: true, addresses: result.rows });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+exports.saveAddress = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const { id, label, line1, line2, landmark, pincode, is_default } = req.body;
+
+        let finalPincode = '500089';
+        if (pincode && pincode.length === 6) {
+            const pinRes = await db.query('SELECT code FROM ps.pincode WHERE code = $1', [pincode]);
+            if (pinRes.rows.length > 0) finalPincode = pincode;
+        }
+
+        if (is_default) {
+            await db.query('UPDATE ps.address SET is_default = false WHERE user_id = $1', [userId]);
+        }
+
+        let addressRecord = null;
+        if (id && !String(id).startsWith('addr-')) {
+            const upd = await db.query(
+                `UPDATE ps.address
+                 SET label = $1, line1 = $2, line2 = $3, landmark = $4, pincode = $5, is_default = COALESCE($6, is_default)
+                 WHERE id = $7 AND user_id = $8 RETURNING *`,
+                [label || 'Home', line1, line2 || '', landmark || '', finalPincode, is_default, id, userId]
+            );
+            if (upd.rows.length > 0) {
+                addressRecord = upd.rows[0];
+            }
+        }
+
+        if (!addressRecord) {
+            const ins = await db.query(
+                `INSERT INTO ps.address (id, user_id, label, line1, line2, landmark, pincode, is_default)
+                 VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+                [userId, label || 'Home', line1, line2 || '', landmark || '', finalPincode, !!is_default]
+            );
+            addressRecord = ins.rows[0];
+        }
+
+        return res.status(200).json({ success: true, address: addressRecord });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+exports.setDefaultAddress = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const { id } = req.params;
+        await db.query('UPDATE ps.address SET is_default = false WHERE user_id = $1', [userId]);
+        if (id && !String(id).startsWith('addr-')) {
+            await db.query('UPDATE ps.address SET is_default = true WHERE id = $1 AND user_id = $2', [id, userId]);
+        }
+        return res.status(200).json({ success: true });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+exports.deleteAddress = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const { id } = req.params;
+        if (id && !String(id).startsWith('addr-')) {
+            await db.query('DELETE FROM ps.address WHERE id = $1 AND user_id = $2', [id, userId]);
+        }
+        return res.status(200).json({ success: true });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: err.message });
     }
 };

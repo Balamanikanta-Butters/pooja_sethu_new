@@ -8,7 +8,10 @@ if (!connStr.includes('options=')) {
 }
 
 const pool = new Pool({
-  connectionString: connStr
+  connectionString: connStr,
+  max: 20,
+  idleTimeoutMillis: 10000,
+  connectionTimeoutMillis: 15000,
 });
 
 // Removed pool.on connect to prevent client.query concurrency issues

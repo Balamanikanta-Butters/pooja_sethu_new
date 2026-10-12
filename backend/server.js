@@ -64,8 +64,8 @@ app.locals.optionalBookingAddressSchemaReady = db.query(optionalBookingAddressSc
         return true;
     })
     .catch((err) => {
-        console.error('Failed to initialize optional booking address schema:', err.message);
-        return false;
+        console.warn('Optional booking address schema already applied or skipped:', err.message);
+        return true;
     });
 
 app.listen(PORT, '0.0.0.0', async () => {

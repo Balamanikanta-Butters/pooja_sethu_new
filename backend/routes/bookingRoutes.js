@@ -12,6 +12,6 @@ router.use(async (req, res, next) => {
 });
 
 router.post('/', authMiddleware, bookingController.createBooking);
-router.get('/my-bookings', authMiddleware, bookingController.getMyBookings);
+router.get('/my-bookings', authMiddleware.optional, bookingController.getMyBookings);
 
 module.exports = router;

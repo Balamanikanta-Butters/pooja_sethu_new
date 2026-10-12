@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const poojaController = require('../controllers/poojaController');
 
+router.get('/categories', poojaController.getCategories);
 router.get('/pincodes', poojaController.getServiceablePincodes);
 router.get('/poojas', poojaController.getAllPoojas);
 router.get('/poojas/:id/details', poojaController.getPoojaDetails);

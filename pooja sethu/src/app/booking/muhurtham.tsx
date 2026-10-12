@@ -119,10 +119,7 @@ export default function DateAndVenueScreen() {
     } else {
       setAddressAreaError('');
     }
-    if (!guests.trim()) {
-      setGuestsError('Expected Guests is required.');
-      valid = false;
-    } else if (!/^\d+$/.test(guests.trim()) || parseInt(guests.trim()) < 1) {
+    if (guests.trim() && (!/^\d+$/.test(guests.trim()) || parseInt(guests.trim()) < 1)) {
       setGuestsError('Please enter a valid guest count.');
       valid = false;
     } else {
@@ -367,7 +364,7 @@ export default function DateAndVenueScreen() {
         {addressAreaError ? <Text style={styles.errorText}>{addressAreaError}</Text> : <View style={styles.spacer} />}
 
         <Text style={styles.inputLabel}>
-          {t('expectedGuests')}<Text style={styles.requiredStar}> *</Text>
+          {t('expectedGuests')}
         </Text>
         <TextInput 
           style={[styles.input, guestsError ? styles.inputError : null]}
@@ -444,7 +441,7 @@ export default function DateAndVenueScreen() {
                   proceedToPurohitList(true);
                 }}
               >
-                <Text style={styles.dialogCancelText}>Cancel</Text>
+                <Text style={styles.dialogCancelText}>Skip</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.dialogConfirmButton}

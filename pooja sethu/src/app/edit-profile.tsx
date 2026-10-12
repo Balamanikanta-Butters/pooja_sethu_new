@@ -99,24 +99,21 @@ export default function ProfileScreen() {
 
 
   const handleSave = async () => {
-    // Run all validations at once
+    // Only name field is mandatory
     const nameResult = validateName(name || '', 'Full Name');
-    const emailResult = validateEmail(email || '');
-    const address1Result = validateAddress(address || '', 'Address Line 1');
     setNameError(nameResult.message);
-    setEmailError(emailResult.message);
-    setAddress1Error(address1Result.message);
+    if (!nameResult.valid) return;
 
-    if (!nameResult.valid || !emailResult.valid || !address1Result.valid) return;
+    // Optional email validation: only validate format if provided
+    if (email && email.trim()) {
+      const emailResult = validateEmail(email.trim());
+      setEmailError(emailResult.message);
+      if (!emailResult.valid) return;
+    } else {
+      setEmailError('');
+    }
 
-    if (!sampradayam || !sampradayam.trim()) {
-      Alert.alert('Required', 'Please select your Sampradayam.');
-      return;
-    }
-    if (!pincode || !pincode.trim()) {
-      Alert.alert('Required', 'Please select a pincode for your saved address.');
-      return;
-    }
+    setAddress1Error('');
 
     try {
       const data = await apiFetch(`${API_BASE_URL}/api/auth/profile`, {
@@ -182,7 +179,7 @@ export default function ProfileScreen() {
           />
           <FieldError message={nameError} />
 
-          <Text style={styles.sectionLabel}>{t('emailAddress')}<Text style={{color: '#C0392B'}}> *</Text></Text>
+          <Text style={styles.sectionLabel}>{t('emailAddress')}</Text>
           <TextInput
             style={[styles.input, emailError ? styles.inputError : null]}
             placeholder={t('enterEmail')}

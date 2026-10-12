@@ -152,6 +152,21 @@ exports.verifyPayment = async (req, res) => {
             return res.status(409).json({ success: false, message: 'Booking payment state changed; please retry' });
         }
 
+        // Insert notification and status history
+        try {
+            await db.query(`
+                INSERT INTO ps.notification_log (template_id, recipient_type, recipient_id, booking_id, channel, status)
+                VALUES ($1, 'customer', $2, $3, 'push', 'unread')
+            `, ['30f5c363-9f91-47ea-95b0-8ea020fc9caf', booking.user_id, bookingId]);
+
+            await db.query(`
+                INSERT INTO ps.booking_status_history (booking_id, from_status, to_status, actor_type, actor_id, reason)
+                VALUES ($1, 'draft', 'confirmed', 'customer', $2, 'payment_verified')
+            `, [bookingId, booking.user_id]);
+        } catch (notifErr) {
+            console.error('Warning: Failed to log booking confirmation notification or status history:', notifErr.message);
+        }
+
         return res.status(200).json({ success: true, message: 'Payment verified successfully' });
     } catch (err) {
         console.error('Error verifying Razorpay payment:', err.message);

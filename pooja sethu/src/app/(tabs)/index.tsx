@@ -9,6 +9,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import PoojaSethuLogo from '../../components/PoojaSethuLogo';
 import { API_BASE_URL } from '../../utils/apiBaseUrl';
 import { POOJA_CATEGORIES } from '../../constants/poojaCategories';
+import { CategoryIcon } from '../../components/CategoryIcons';
 
 export default function HomeScreen() {
   const { userData } = useUser();
@@ -26,6 +27,19 @@ export default function HomeScreen() {
   const [panchangam, setPanchangam] = useState<any>(null);
   const [homeData, setHomeData] = useState<any>({ popularPoojas: [], upcomingMuhurthams: [], festivals: [] });
   const [panchangamExpanded, setPanchangamExpanded] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [categories, setCategories] = useState<{ id: string; code: string; name: string; name_te?: string; svg_content?: string }[]>([]);
+
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/services/categories`)
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.success && Array.isArray(data.data) && data.data.length > 0) {
+          setCategories(data.data);
+        }
+      })
+      .catch(e => console.error('Failed to load categories:', e));
+  }, []);
 
   useEffect(() => {
     const fetchPanchangam = async () => {
@@ -178,18 +192,35 @@ export default function HomeScreen() {
         {/* Booking Section */}
         <Text style={styles.sectionTitle}>{t('bookAPooja')}</Text>
         <View style={styles.categoryGrid}>
-          {POOJA_CATEGORIES.map((category, index) => (
-            <TouchableOpacity
-              key={category}
-              style={[styles.categoryButton, index === 0 && styles.categoryButtonActive]}
-              onPress={() => router.push({ pathname: '/pooja/list', params: { category } })}
-              accessibilityRole="button"
-            >
-              <Text style={[styles.categoryButtonText, index === 0 && styles.categoryButtonTextActive]}>
-                {category}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          {(categories.length > 0 ? categories : POOJA_CATEGORIES.map(c => ({ id: c, code: c.toLowerCase(), name: c, svg_content: undefined }))).map((catItem) => {
+            const catName = catItem.name;
+            const isActive = selectedCategory === catName;
+            const iconColor = isActive ? '#FFFFFF' : colors.primary;
+            return (
+              <TouchableOpacity
+                key={catItem.id || catName}
+                style={[styles.categoryButton, isActive && styles.categoryButtonActive]}
+                onPress={() => {
+                  setSelectedCategory(catName);
+                  router.push({ pathname: '/pooja/list', params: { category: catName } });
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`${catName} Category`}
+                activeOpacity={0.7}
+              >
+                <View style={styles.categoryButtonContent}>
+                  <CategoryIcon category={catName} svgContent={catItem.svg_content} size={23} color={iconColor} />
+                  <Text
+                    style={[styles.categoryButtonText, isActive && styles.categoryButtonTextActive]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                  >
+                    {catName}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         <TouchableOpacity
@@ -481,28 +512,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   categoryButton: {
-    width: '31%',
-    minHeight: 42,
+    width: '31.8%',
+    minHeight: 46,
     paddingHorizontal: 6,
     paddingVertical: 9,
-    marginBottom: 10,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: '#DCD4CB',
+    marginBottom: 12,
+    borderRadius: 25,
+    borderWidth: 1.5,
+    borderColor: '#D4C6B8',
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   categoryButtonActive: {
-    backgroundColor: '#7C1B2C',
-    borderColor: '#7C1B2C',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  categoryButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 2,
   },
   categoryButtonText: {
     fontSize: 14,
-    color: '#333333',
+    fontWeight: '600',
+    color: colors.primary,
   },
   categoryButtonTextActive: {
     color: '#FFFFFF',

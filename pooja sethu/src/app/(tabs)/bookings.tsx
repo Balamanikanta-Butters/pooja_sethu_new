@@ -7,6 +7,7 @@ import { useUser } from '../../context/UserContext';
 import { useLanguage } from '../../context/LanguageContext';
 import PoojaSethuLogo from '../../components/PoojaSethuLogo';
 import { API_BASE_URL } from '../../utils/apiBaseUrl';
+import { apiFetch } from '../../utils/validation';
 
 export default function BookingsTabScreen() {
   const router = useRouter();
@@ -25,9 +26,8 @@ export default function BookingsTabScreen() {
           setLoading(false);
           return;
         }
-        const response = await fetch(`${API_BASE_URL}/api/bookings/my-bookings?mobileNumber=${userData.mobileNumber}`);
-        const data = await response.json();
-        if (data.success) {
+        const data = await apiFetch(`${API_BASE_URL}/api/bookings/my-bookings?mobileNumber=${encodeURIComponent(userData.mobileNumber)}`);
+        if (data && data.success) {
           setBookings(data.bookings || []);
         } else {
           setBookings([]);
@@ -42,7 +42,7 @@ export default function BookingsTabScreen() {
   }, [userData?.mobileNumber]);
 
   const filteredBookings = bookings.filter(b => {
-    if (activeTab === 'Upcoming') return b.status === 'draft' || b.status === 'confirmed' || b.status === 'requested';
+    if (activeTab === 'Upcoming') return b.status === 'draft' || b.status === 'confirmed' || b.status === 'requested' || b.status === 'purohit_assigned' || b.status === 'in_progress';
     if (activeTab === 'Completed') return b.status === 'completed';
     if (activeTab === 'Cancelled') return b.status === 'cancelled';
     return true;

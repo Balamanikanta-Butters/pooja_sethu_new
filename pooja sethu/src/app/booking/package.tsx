@@ -24,7 +24,7 @@ export default function PackageSelectionScreen() {
   const { t } = useLanguage();
   
   // State to track if the user wants the 'complete' package or just 'purohit'
-  const [bookingType, setBookingType] = useState('complete');
+  const [bookingType, setBookingType] = useState('purohit');
   
   // State to track if the Pooja Samagri kit addon is currently selected by the user
   const [samagriChecked, setSamagriChecked] = useState(true);

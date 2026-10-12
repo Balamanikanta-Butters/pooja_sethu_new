@@ -1,7 +1,9 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Dimensions, FlatList, Image, TouchableWithoutFeedback, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, FlatList, Image, TouchableWithoutFeedback, Animated, Platform, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons, Feather, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
+import PoojaSethuLogo from '../components/PoojaSethuLogo';
 
 const { width, height } = Dimensions.get('window');
 
@@ -154,12 +156,12 @@ export default function OnboardingScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       {/* HEADER */}
       {!showSplash && (
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Pooja Sethu</Text>
-          <TouchableOpacity onPress={skipToLogin}>
+          <PoojaSethuLogo style={styles.headerLogo} />
+          <TouchableOpacity onPress={skipToLogin} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
             <Text style={styles.skipButton}>Skip</Text>
           </TouchableOpacity>
         </View>
@@ -252,19 +254,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 24,
-    paddingTop: 20,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 16 : 36) : 20,
+    paddingBottom: 16,
     alignItems: 'center',
+    zIndex: 10,
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#7C1B2C', // Deep red
-    fontFamily: 'serif',
+  headerLogo: {
+    width: 140,
+    height: 42,
   },
   skipButton: {
-    fontSize: 16,
+    fontSize: 15,
     color: '#7C1B2C',
     fontWeight: '600',
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    backgroundColor: 'rgba(124, 27, 44, 0.08)',
   },
   slide: {
     width,

@@ -25,6 +25,8 @@ interface Purohit {
   raw_dakshina?: number;
   verified?: boolean;
   distance?: string;
+  is_available?: boolean;
+  availability_status?: 'available' | 'booked' | 'unavailable';
 }
 
 export default function PurohitListScreen() {
@@ -40,6 +42,8 @@ export default function PurohitListScreen() {
   const [loading, setLoading] = useState(true);
   const [profilePromptVisible, setProfilePromptVisible] = useState(false);
   const [pendingPurohit, setPendingPurohit] = useState<Purohit | null>(null);
+  const [unavailablePromptVisible, setUnavailablePromptVisible] = useState(false);
+  const [unavailablePurohit, setUnavailablePurohit] = useState<Purohit | null>(null);
 
   const navigateToPackage = (purohit: Purohit) => {
     router.push({
@@ -53,7 +57,9 @@ export default function PurohitListScreen() {
         purohitPhoto: purohit.photo_url,
         purohitLanguages: purohit.languages ? purohit.languages.join(',') : '',
         dakshina: purohit.dakshina,
-        rawDakshina: purohit.raw_dakshina
+        rawDakshina: purohit.raw_dakshina,
+        is_available: purohit.is_available ? 'true' : 'false',
+        availability_status: purohit.availability_status || 'available'
       }
     });
   };
@@ -63,6 +69,11 @@ export default function PurohitListScreen() {
   );
 
   const handleSelectPurohit = (purohit: Purohit) => {
+    if (purohit.is_available === false) {
+      setUnavailablePurohit(purohit);
+      setUnavailablePromptVisible(true);
+      return;
+    }
     if (!profilePromptDismissed && params.profilePromptDismissed !== 'true') {
       setPendingPurohit(purohit);
       setProfilePromptVisible(true);
@@ -72,7 +83,16 @@ export default function PurohitListScreen() {
   };
 
   React.useEffect(() => {
-    fetch(`${API_BASE_URL}/api/services/purohits?t=${new Date().getTime()}`)
+    const selectedDate = params.selectedMuhurtham === '11'
+      ? '2026-10-11'
+      : (params.selectedMuhurtham === '22'
+        ? '2026-10-22'
+        : (params.selectedMuhurtham === '25'
+          ? '2026-10-25'
+          : (typeof params.customDate === 'string' ? params.customDate : '')));
+
+    const url = `${API_BASE_URL}/api/services/purohits?date=${encodeURIComponent(selectedDate)}&t=${new Date().getTime()}`;
+    fetch(url)
       .then(res => res.json())
       .then(data => {
         if (data.success) {
@@ -84,7 +104,7 @@ export default function PurohitListScreen() {
         console.error(err);
         setLoading(false);
       });
-  }, []);
+  }, [params.selectedMuhurtham, params.customDate]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -195,6 +215,19 @@ export default function PurohitListScreen() {
                 <Text style={styles.purohitName}>{purohit.name}</Text>
                 
                 <View style={styles.tagsRow}>
+                  {purohit.is_available !== false ? (
+                    <View style={styles.availableTag}>
+                      <Ionicons name="checkmark-circle" size={12} color="#137333" style={{ marginRight: 2 }} />
+                      <Text style={styles.availableText}>Available</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.unavailableTag}>
+                      <Ionicons name="close-circle" size={12} color="#D93025" style={{ marginRight: 2 }} />
+                      <Text style={styles.unavailableText}>
+                        {purohit.availability_status === 'booked' ? 'Booked' : 'Unavailable'}
+                      </Text>
+                    </View>
+                  )}
                   {purohit.verified && (
                     <View style={styles.verifiedTag}>
                       <Ionicons name="checkmark" size={12} color="#137333" style={{ marginRight: 2 }} />
@@ -238,13 +271,20 @@ export default function PurohitListScreen() {
                     photo_url: purohit.photo_url,
                     languages: purohit.languages ? purohit.languages.join(',') : '',
                     dakshina: purohit.dakshina,
-                    raw_dakshina: purohit.raw_dakshina
+                    raw_dakshina: purohit.raw_dakshina,
+                    is_available: purohit.is_available ? 'true' : 'false',
+                    availability_status: purohit.availability_status || 'available'
                   }
                 })}>
                   <Text style={styles.profileLink}>{t('profileLink')}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.selectButton} onPress={() => handleSelectPurohit(purohit)}>
-                  <Text style={styles.selectButtonText}>{t('selectBtn')}</Text>
+                <TouchableOpacity
+                  style={[styles.selectButton, purohit.is_available === false && styles.selectButtonUnavailable]}
+                  onPress={() => handleSelectPurohit(purohit)}
+                >
+                  <Text style={[styles.selectButtonText, purohit.is_available === false && styles.selectButtonTextUnavailable]}>
+                    {purohit.is_available === false ? (purohit.availability_status === 'booked' ? 'Booked' : 'Unavailable') : t('selectBtn')}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -273,7 +313,7 @@ export default function PurohitListScreen() {
                   }
                 }}
               >
-                <Text style={styles.dialogCancelText}>Cancel</Text>
+                <Text style={styles.dialogCancelText}>Skip</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.dialogConfirmButton}
@@ -304,11 +344,96 @@ export default function PurohitListScreen() {
           </View>
         </View>
       </Modal>
+
+      <Modal
+        visible={unavailablePromptVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setUnavailablePromptVisible(false)}
+      >
+        <View style={styles.dialogBackdrop}>
+          <View style={styles.dialogCard}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+              <Ionicons name="alert-circle" size={24} color="#D93025" style={{ marginRight: 8 }} />
+              <Text style={styles.dialogTitle}>Purohit Unavailable</Text>
+            </View>
+            <Text style={{ fontSize: 14, color: '#555555', marginBottom: 20, lineHeight: 20 }}>
+              {unavailablePurohit?.name} is {unavailablePurohit?.availability_status === 'booked' ? 'already booked' : 'unavailable'} for this date and time.
+              {'\n\n'}You can pick another available Purohit for this Muhurtham, or change your date & time.
+            </Text>
+            <View style={{ gap: 10 }}>
+              <TouchableOpacity
+                style={[styles.dialogConfirmButton, { backgroundColor: '#7C1B2C', paddingVertical: 12 }]}
+                onPress={() => {
+                  setUnavailablePromptVisible(false);
+                }}
+              >
+                <Text style={styles.dialogConfirmText}>Choose Another Purohit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.dialogCancelButton, { borderColor: '#7C1B2C', paddingVertical: 12 }]}
+                onPress={() => {
+                  setUnavailablePromptVisible(false);
+                  router.push({
+                    pathname: '/booking/muhurtham',
+                    params: { ...params }
+                  });
+                }}
+              >
+                <Text style={[styles.dialogCancelText, { color: '#7C1B2C' }]}>Change Date / Muhurtham</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ alignItems: 'center', paddingVertical: 8 }}
+                onPress={() => setUnavailablePromptVisible(false)}
+              >
+                <Text style={{ color: '#888888', fontSize: 14 }}>Skip</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  availableTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E6F4EA',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  availableText: {
+    color: '#137333',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  unavailableTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FCE8E6',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  unavailableText: {
+    color: '#D93025',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  selectButtonUnavailable: {
+    backgroundColor: '#F1F3F4',
+    borderWidth: 1,
+    borderColor: '#DCD4CB',
+  },
+  selectButtonTextUnavailable: {
+    color: '#D93025',
+    fontWeight: '600',
+  },
   container: {
     flex: 1,
     backgroundColor: '#FDFBF7',

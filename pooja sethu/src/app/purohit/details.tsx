@@ -27,10 +27,13 @@ export default function PurohitDetailsScreen() {
   const [profilePromptDismissed, setProfilePromptDismissed] = useState(
     params.profilePromptDismissed === 'true'
   );
+  const [unavailablePromptVisible, setUnavailablePromptVisible] = useState(false);
   
   const id = params.id;
   const name = params.name;
   const desc = params.desc || 'No bio available.';
+  const isAvailable = params.is_available !== 'false';
+  const availabilityStatus = (params.availability_status as string) || 'available';
   
   // We will still read from params as initial state, but we will fetch and update them dynamically
   const [reviewsCount, setReviewsCount] = useState(params.reviews || '0');
@@ -116,9 +119,24 @@ export default function PurohitDetailsScreen() {
           />
           <Text style={styles.profileName}>{name}</Text>
           
-          <View style={styles.verifiedBadge}>
-            <Ionicons name="shield-checkmark" size={14} color="#137333" />
-            <Text style={styles.verifiedText}>{t('verifiedPurohit')}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 4 }}>
+            <View style={styles.verifiedBadge}>
+              <Ionicons name="shield-checkmark" size={14} color="#137333" />
+              <Text style={styles.verifiedText}>{t('verifiedPurohit')}</Text>
+            </View>
+            {isAvailable !== false ? (
+              <View style={[styles.verifiedBadge, { backgroundColor: '#E6F4EA' }]}>
+                <Ionicons name="checkmark-circle" size={14} color="#137333" />
+                <Text style={[styles.verifiedText, { color: '#137333' }]}>Available</Text>
+              </View>
+            ) : (
+              <View style={[styles.verifiedBadge, { backgroundColor: '#FCE8E6' }]}>
+                <Ionicons name="close-circle" size={14} color="#D93025" />
+                <Text style={[styles.verifiedText, { color: '#D93025' }]}>
+                  {availabilityStatus === 'booked' ? 'Booked' : 'Unavailable'}
+                </Text>
+              </View>
+            )}
           </View>
           
           <View style={styles.quickStatsRow}>
@@ -213,14 +231,23 @@ export default function PurohitDetailsScreen() {
 
       {/* Footer */}
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.selectButton} onPress={() => {
-          if (params.profilePromptDismissed !== 'true' && !profilePromptDismissed) {
-            setProfilePromptVisible(true);
-            return;
-          }
-          navigateToPackage();
-        }}>
-          <Text style={styles.selectButtonText}>{t('selectPurohit')}</Text>
+        <TouchableOpacity
+          style={[styles.selectButton, isAvailable === false && { backgroundColor: '#F1F3F4', borderWidth: 1, borderColor: '#DCD4CB' }]}
+          onPress={() => {
+            if (isAvailable === false) {
+              setUnavailablePromptVisible(true);
+              return;
+            }
+            if (params.profilePromptDismissed !== 'true' && !profilePromptDismissed) {
+              setProfilePromptVisible(true);
+              return;
+            }
+            navigateToPackage();
+          }}
+        >
+          <Text style={[styles.selectButtonText, isAvailable === false && { color: '#D93025' }]}>
+            {isAvailable === false ? (availabilityStatus === 'booked' ? 'Booked for Selected Slot' : 'Unavailable') : t('selectPurohit')}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -242,7 +269,7 @@ export default function PurohitDetailsScreen() {
                   navigateToPackage();
                 }}
               >
-                <Text style={styles.dialogCancelText}>Cancel</Text>
+                <Text style={styles.dialogCancelText}>Skip</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.dialogConfirmButton}
@@ -265,6 +292,58 @@ export default function PurohitDetailsScreen() {
                 }}
               >
                 <Text style={styles.dialogConfirmText}>OK</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={unavailablePromptVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setUnavailablePromptVisible(false)}
+      >
+        <View style={styles.dialogBackdrop}>
+          <View style={styles.dialogCard}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+              <Ionicons name="alert-circle" size={24} color="#D93025" style={{ marginRight: 8 }} />
+              <Text style={styles.dialogTitle}>Purohit Unavailable</Text>
+            </View>
+            <Text style={{ fontSize: 14, color: '#555555', marginBottom: 20, lineHeight: 20 }}>
+              {name} is {availabilityStatus === 'booked' ? 'already booked' : 'unavailable'} for this date and time.
+              {'\n\n'}You can pick another available Purohit for this Muhurtham, or change your date & time.
+            </Text>
+            <View style={{ gap: 10 }}>
+              <TouchableOpacity
+                style={[styles.dialogConfirmButton, { backgroundColor: '#7C1B2C', paddingVertical: 12 }]}
+                onPress={() => {
+                  setUnavailablePromptVisible(false);
+                  router.push({
+                    pathname: '/purohit/list',
+                    params: { ...params }
+                  });
+                }}
+              >
+                <Text style={styles.dialogConfirmText}>Choose Another Purohit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.dialogCancelButton, { borderColor: '#7C1B2C', paddingVertical: 12 }]}
+                onPress={() => {
+                  setUnavailablePromptVisible(false);
+                  router.push({
+                    pathname: '/booking/muhurtham',
+                    params: { ...params }
+                  });
+                }}
+              >
+                <Text style={[styles.dialogCancelText, { color: '#7C1B2C' }]}>Change Date / Muhurtham</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ alignItems: 'center', paddingVertical: 8 }}
+                onPress={() => setUnavailablePromptVisible(false)}
+              >
+                <Text style={{ color: '#888888', fontSize: 14 }}>Skip</Text>
               </TouchableOpacity>
             </View>
           </View>

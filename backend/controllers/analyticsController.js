@@ -96,16 +96,20 @@ async function insertPageVisit(client, sessionId, pagePath, pageName) {
 
 async function withTransaction(handler) {
     const client = await db.connect();
+    let hasError = false;
     try {
         await client.query('BEGIN');
         const result = await handler(client);
         await client.query('COMMIT');
         return result;
     } catch (error) {
-        await client.query('ROLLBACK');
+        hasError = true;
+        try {
+            await client.query('ROLLBACK');
+        } catch (_) {}
         throw error;
     } finally {
-        client.release();
+        client.release(hasError);
     }
 }
 

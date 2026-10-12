@@ -8,6 +8,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import PoojaSethuLogo from '../../components/PoojaSethuLogo';
 import { API_BASE_URL } from '../../utils/apiBaseUrl';
 import { POOJA_CATEGORIES } from '../../constants/poojaCategories';
+import { CategoryIcon } from '../../components/CategoryIcons';
 
 type PoojaItem = {
   id: string | number;
@@ -27,15 +28,24 @@ export default function PoojaListScreen() {
   const passedSampradayam = params.sampradayam as string;
   const [search, setSearch] = useState('');
   const requestedCategory =
-    typeof params.category === 'string' &&
-    POOJA_CATEGORIES.includes(params.category as (typeof POOJA_CATEGORIES)[number])
+    typeof params.category === 'string'
       ? params.category
       : 'All';
   const [activeFilter, setActiveFilter] = useState(requestedCategory);
   const [poojas, setPoojas] = useState<PoojaItem[]>([]);
+  const [categories, setCategories] = useState<{ id: string; code: string; name: string; svg_content?: string }[]>([]);
   const [loading, setLoading] = useState(true);
 
   React.useEffect(() => {
+    fetch(`${API_BASE_URL}/api/services/categories`)
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.success && Array.isArray(data.data) && data.data.length > 0) {
+          setCategories(data.data);
+        }
+      })
+      .catch(err => console.error('Error fetching categories:', err));
+
     fetch(`${API_BASE_URL}/api/services/poojas`)
       .then(res => res.json())
       .then(data => {
@@ -93,17 +103,25 @@ export default function PoojaListScreen() {
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
-          {POOJA_CATEGORIES.map(filter => (
-            <TouchableOpacity 
-              key={filter}
-              style={[styles.filterPill, activeFilter === filter && styles.filterPillActive]}
-              onPress={() => setActiveFilter(filter)}
-            >
-              <Text style={[styles.filterText, activeFilter === filter && styles.filterTextActive]}>
-                {filter}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          {(categories.length > 0 ? categories : POOJA_CATEGORIES.map(c => ({ id: c, code: c.toLowerCase(), name: c, svg_content: undefined }))).map(catItem => {
+            const filterName = catItem.name;
+            const isActive = activeFilter === filterName;
+            const iconColor = isActive ? '#FFFFFF' : '#731C28';
+            return (
+              <TouchableOpacity
+                key={catItem.id || filterName}
+                style={[styles.filterPill, isActive && styles.filterPillActive]}
+                onPress={() => setActiveFilter(filterName)}
+                accessibilityRole="button"
+                activeOpacity={0.7}
+              >
+                <CategoryIcon category={filterName} svgContent={catItem.svg_content} size={20} color={iconColor} />
+                <Text style={[styles.filterText, isActive && styles.filterTextActive]}>
+                  {filterName}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
       </View>
 
@@ -224,21 +242,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   filterPill: {
-    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#DCD4CB',
-    marginRight: 12,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    borderColor: '#D4C6B8',
+    marginRight: 10,
     backgroundColor: '#FFFFFF',
   },
   filterPillActive: {
-    backgroundColor: '#7C1B2C',
-    borderColor: '#7C1B2C',
+    backgroundColor: '#731C28',
+    borderColor: '#731C28',
   },
   filterText: {
     fontSize: 14,
-    color: '#333333',
+    fontWeight: '600',
+    color: '#731C28',
   },
   filterTextActive: {
     color: '#FFFFFF',

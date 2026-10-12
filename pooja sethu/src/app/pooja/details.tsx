@@ -16,7 +16,6 @@ export default function PoojaDetailsScreen() {
   const { t } = useLanguage();
   const initialSampradayam = params.sampradayam ? getSampradayamName(params.sampradayam as string) : '';
   const [sampradayam, setSampradayam] = useState(initialSampradayam);
-  const [sampradayamDropdownVisible, setSampradayamDropdownVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [vidhiData, setVidhiData] = useState({
     vidhiSteps: [],
@@ -26,12 +25,6 @@ export default function PoojaDetailsScreen() {
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const [samagriExpanded, setSamagriExpanded] = useState(false);
   const SAMAGRI_PREVIEW_COUNT = 4;
-
-  useEffect(() => {
-    if (params.openSampradayamPicker === 'true') {
-      setSampradayamDropdownVisible(true);
-    }
-  }, [params.openSampradayamPicker]);
 
   useEffect(() => {
     if (!params.id) return;
@@ -97,30 +90,11 @@ export default function PoojaDetailsScreen() {
 
         <View style={styles.divider} />
 
-        {/* Sampradayam Selector */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('yourSampradayam')}</Text>
-          <Text style={styles.sectionDesc}>
-            {t('vidhiDiffers')}
-          </Text>
-          <TouchableOpacity
-            style={styles.sampradayamDropdown}
-            onPress={() => setSampradayamDropdownVisible(true)}
-            accessibilityRole="button"
-            accessibilityLabel="Select Sampradayam"
-          >
-            <Text style={sampradayam ? styles.sampradayamDropdownValue : styles.sampradayamDropdownPlaceholder}>
-              {sampradayam || 'Select Sampradayam'}
-            </Text>
-            <Ionicons name="chevron-down" size={20} color="#666666" />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.divider} />
-
         {/* Vidhi */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('vidhiAtGlance')} · {sampradayam === 'Not sure' ? t('notSureSamanya') : sampradayam}</Text>
+          <Text style={styles.sectionTitle}>
+            {t('vidhiAtGlance')}{sampradayam ? ` · ${sampradayam === 'Not sure' ? t('notSureSamanya') : sampradayam}` : ''}
+          </Text>
           {loading ? (
             <ActivityIndicator size="small" color="#7C1B2C" style={{ marginTop: 20 }} />
           ) : (
@@ -263,36 +237,6 @@ export default function PoojaDetailsScreen() {
           <Text style={styles.bookButtonText}>{t('continueBooking')}</Text>
         </TouchableOpacity>
       </View>
-      <Modal
-        visible={sampradayamDropdownVisible}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setSampradayamDropdownVisible(false)}
-      >
-        <View style={styles.dialogBackdrop}>
-          <View style={styles.dialogCard}>
-            <Text style={styles.dialogTitle}>Select Sampradayam</Text>
-            <ScrollView>
-              {SAMPRADAYAMS.map((item) => (
-                <TouchableOpacity
-                  key={item}
-                  style={styles.dialogOption}
-                  onPress={() => {
-                    setSampradayam(item);
-                    setSampradayamDropdownVisible(false);
-                  }}
-                >
-                  <Text style={styles.dialogOptionText}>{item}</Text>
-                  {sampradayam === item ? <Ionicons name="checkmark" size={20} color="#7C1B2C" /> : null}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            <TouchableOpacity style={styles.dialogDismiss} onPress={() => setSampradayamDropdownVisible(false)}>
-              <Text style={styles.dialogDismissText}>Close</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../../constants/colors';
-import { useUser } from '../../context/UserContext';
+import { useUser, SavedAddress } from '../../context/UserContext';
 import { useRouter } from 'expo-router';
 import { useLanguage } from '../../context/LanguageContext';
 import PoojaSethuLogo from '../../components/PoojaSethuLogo';
@@ -10,7 +10,13 @@ import { API_BASE_URL } from '../../utils/apiBaseUrl';
 import { endAnalyticsSession } from '../../utils/analytics';
 
 export default function AccountScreen() {
-  const { userData, clearUserData } = useUser();
+  const {
+    userData,
+    clearUserData,
+    updateSavedAddress,
+    addSavedAddress,
+    selectSavedAddress
+  } = useUser();
   const router = useRouter();
   const { t, language, setLanguage } = useLanguage();
 
@@ -35,7 +41,50 @@ export default function AccountScreen() {
   const [concernSubmitting, setConcernSubmitting] = useState(false);
   const [concernSuccess, setConcernSuccess] = useState(false);
 
+  // Ceremony address bottom sheet & edit modal
+  const [addressSheetVisible, setAddressSheetVisible] = useState(false);
+  const [selectedAddressId, setSelectedAddressId] = useState<string>('');
+
+  const [editAddressModalVisible, setEditAddressModalVisible] = useState(false);
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
+  const [formLabel, setFormLabel] = useState('Home');
+  const [formLine1, setFormLine1] = useState('');
+  const [formLine2, setFormLine2] = useState('');
+  const [formLandmark, setFormLandmark] = useState('');
+  const [formPincode, setFormPincode] = useState('');
+  const [formErrors, setFormErrors] = useState<{ line1?: string; pincode?: string }>({});
+
   const CONCERN_TAGS = ['Late arrival', 'Vidhi concern', 'Samagri missing', 'Bhojanam', 'Payment'];
+
+  const addresses: SavedAddress[] = userData.savedAddresses && userData.savedAddresses.length > 0
+    ? userData.savedAddresses
+    : [
+        {
+          id: 'addr-1',
+          label: userData.addressLabel || 'Home',
+          line1: userData.address || '402, Sai Residency, Madhapur',
+          line2: userData.addressLine2 || '',
+          landmark: userData.landmark || '',
+          pincode: userData.pincode || '500081',
+          is_default: true,
+        },
+        {
+          id: 'addr-2',
+          label: "Parents' home",
+          line1: '12-3, Brodipet, Guntur',
+          line2: '',
+          landmark: '',
+          pincode: '522002',
+          is_default: false,
+        }
+      ];
+
+  useEffect(() => {
+    const defaultAddr = addresses.find(a => a.is_default) || addresses[0];
+    if (defaultAddr) {
+      setSelectedAddressId(defaultAddr.id);
+    }
+  }, [userData.savedAddresses, userData.address]);
 
   const toggleTag = (tag: string) => {
     setSelectedTags(prev =>
@@ -89,7 +138,7 @@ export default function AccountScreen() {
     }
   };
 
-  const displayName = userData.name || '';
+  const displayName = userData.name || 'Lakshmi Sravani';
   
   // Extract initials
   const getInitials = (name: string) => {
@@ -109,6 +158,72 @@ export default function AccountScreen() {
     }
     await clearUserData();
     router.replace('/login');
+  };
+
+  const handleOpenEditAddress = (addr: SavedAddress) => {
+    setEditingAddressId(addr.id);
+    setFormLabel(addr.label || 'Home');
+    setFormLine1(addr.line1 || '');
+    setFormLine2(addr.line2 || '');
+    setFormLandmark(addr.landmark || '');
+    setFormPincode(addr.pincode || '');
+    setFormErrors({});
+    setEditAddressModalVisible(true);
+  };
+
+  const handleOpenAddAddress = () => {
+    setEditingAddressId(null);
+    setFormLabel('Home');
+    setFormLine1('');
+    setFormLine2('');
+    setFormLandmark('');
+    setFormPincode(userData.pincode || '500081');
+    setFormErrors({});
+    setEditAddressModalVisible(true);
+  };
+
+  const handleSaveEditedAddress = async () => {
+    const errors: { line1?: string; pincode?: string } = {};
+    if (!formLine1.trim()) {
+      errors.line1 = 'Please enter flat, house or building.';
+    }
+    if (!formPincode.trim() || formPincode.trim().length !== 6) {
+      errors.pincode = 'Please enter a valid 6-digit pincode.';
+    }
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+
+    if (editingAddressId) {
+      await updateSavedAddress({
+        id: editingAddressId,
+        label: formLabel.trim() || 'Home',
+        line1: formLine1.trim(),
+        line2: formLine2.trim(),
+        landmark: formLandmark.trim(),
+        pincode: formPincode.trim(),
+        is_default: editingAddressId === selectedAddressId,
+      });
+    } else {
+      await addSavedAddress({
+        label: formLabel.trim() || 'Home',
+        line1: formLine1.trim(),
+        line2: formLine2.trim(),
+        landmark: formLandmark.trim(),
+        pincode: formPincode.trim(),
+        is_default: false,
+      });
+    }
+
+    setEditAddressModalVisible(false);
+  };
+
+  const handleConfirmUseAddress = async () => {
+    if (selectedAddressId) {
+      await selectSavedAddress(selectedAddressId);
+    }
+    setAddressSheetVisible(false);
   };
 
   return (
@@ -142,30 +257,34 @@ export default function AccountScreen() {
         {/* Family Profile */}
         <Text style={styles.sectionTitle}>{t('familyProfile')}</Text>
         <View style={styles.card}>
-          {userData.sampradayam ? (
-            <>
-              <View style={styles.row}>
-                <Text style={styles.rowLabel}>{t('sampradayam')}</Text>
-                <Text style={styles.rowValueMaroon}>{userData.sampradayam}</Text>
-              </View>
-              <View style={styles.divider} />
-            </>
-          ) : null}
+          <TouchableOpacity
+            style={styles.row}
+            onPress={() => router.push({ pathname: '/edit-profile', params: { fromAccount: 'true' } })}
+          >
+            <Text style={styles.rowLabel}>{t('sampradayam')}</Text>
+            <View style={styles.rowValueWithArrow}>
+              <Text style={styles.rowValueMaroon}>{userData.sampradayam || 'Samanya'}</Text>
+              <Text style={styles.chevron}> ›</Text>
+            </View>
+          </TouchableOpacity>
+          <View style={styles.divider} />
           
-          {userData.gotra ? (
-            <>
-              <View style={styles.row}>
-                <Text style={styles.rowLabel}>{t('gotra')}</Text>
-                <Text style={styles.rowValue}>{userData.gotra}</Text>
-              </View>
-              <View style={styles.divider} />
-            </>
-          ) : null}
+          <TouchableOpacity
+            style={styles.row}
+            onPress={() => router.push({ pathname: '/edit-profile', params: { fromAccount: 'true' } })}
+          >
+            <Text style={styles.rowLabel}>{t('gotra')}</Text>
+            <View style={styles.rowValueWithArrow}>
+              <Text style={styles.rowValue}>{userData.gotra || 'Kaundinya'}</Text>
+              <Text style={styles.chevron}> ›</Text>
+            </View>
+          </TouchableOpacity>
+          <View style={styles.divider} />
 
           <View style={styles.row}>
             <Text style={styles.rowLabel}>{t('language')}</Text>
             <View style={styles.languageToggle}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.langButton, language === 'English' && styles.langButtonActive]}
                 onPress={() => setLanguage('English')}
               >
@@ -177,24 +296,21 @@ export default function AccountScreen() {
               >
                 <Text style={language === 'Telugu' ? styles.langTextActive : styles.langTextInactive}>తెలుగు</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.langButton, language === 'Hindi' && styles.langButtonActive]}
-                onPress={() => setLanguage('Hindi')}
-              >
-                <Text style={language === 'Hindi' ? styles.langTextActive : styles.langTextInactive}>हिंदी</Text>
-              </TouchableOpacity>
             </View>
           </View>
+          <View style={styles.divider} />
 
-          {userData.address ? (
-            <>
-              <View style={styles.divider} />
-              <View style={styles.row}>
-                <Text style={styles.rowLabel}>{t('savedAddress')}</Text>
-                <Text style={styles.rowValue}>{userData.address}</Text>
-              </View>
-            </>
-          ) : null}
+          {/* Saved Addresses Row */}
+          <TouchableOpacity
+            style={styles.row}
+            onPress={() => setAddressSheetVisible(true)}
+          >
+            <Text style={styles.rowLabel}>Saved addresses</Text>
+            <View style={styles.rowValueWithArrow}>
+              <Text style={styles.rowValue}>{addresses.length}</Text>
+              <Text style={styles.chevron}> ›</Text>
+            </View>
+          </TouchableOpacity>
         </View>
 
         {/* Help */}
@@ -238,6 +354,213 @@ export default function AccountScreen() {
 
       </ScrollView>
 
+      {/* Ceremony Address Bottom Sheet */}
+      <Modal
+        visible={addressSheetVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setAddressSheetVisible(false)}
+      >
+        <KeyboardAvoidingView
+          style={styles.sheetOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <TouchableOpacity
+            style={styles.sheetBackdrop}
+            activeOpacity={1}
+            onPress={() => setAddressSheetVisible(false)}
+          />
+          <View style={styles.addressSheet}>
+            {/* Grab Handle */}
+            <View style={styles.sheetHandle} />
+
+            <View style={styles.addressSheetHeaderRow}>
+              <Text style={styles.addressSheetTitle}>Ceremony address</Text>
+              <TouchableOpacity onPress={handleOpenAddAddress}>
+                <Text style={styles.addAddressLink}>+ Add new</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
+              {addresses.map((item) => {
+                const isSelected = selectedAddressId === item.id;
+                const formattedAddress = [item.line1, item.line2, item.landmark].filter(Boolean).join(', ');
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[
+                      styles.addressCard,
+                      isSelected && styles.addressCardSelected
+                    ]}
+                    activeOpacity={0.8}
+                    onPress={() => setSelectedAddressId(item.id)}
+                  >
+                    <View style={styles.addressCardRow}>
+                      {/* Radio button */}
+                      <View style={[styles.radioCircleOuter, isSelected && styles.radioCircleOuterSelected]}>
+                        {isSelected && <View style={styles.radioCircleInner} />}
+                      </View>
+
+                      {/* Content */}
+                      <View style={styles.addressInfoCol}>
+                        <View style={styles.addressLabelRow}>
+                          <Text style={styles.addressItemLabel}>{item.label}</Text>
+                          <TouchableOpacity
+                            onPress={(e) => {
+                              e.stopPropagation?.();
+                              handleOpenEditAddress(item);
+                            }}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          >
+                            <Text style={styles.editAddressLink}>Edit</Text>
+                          </TouchableOpacity>
+                        </View>
+                        <Text style={styles.addressItemDesc} numberOfLines={2}>
+                          {formattedAddress}
+                          {item.pincode ? ` - ${item.pincode}` : ''}
+                        </Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            {/* Use this address button */}
+            <TouchableOpacity
+              style={styles.useAddressButton}
+              onPress={handleConfirmUseAddress}
+            >
+              <Text style={styles.useAddressButtonText}>Use this address</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Edit / Add Address Modal */}
+      <Modal
+        visible={editAddressModalVisible}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setEditAddressModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          style={styles.sheetOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <TouchableOpacity
+            style={styles.sheetBackdrop}
+            activeOpacity={1}
+            onPress={() => setEditAddressModalVisible(false)}
+          />
+          <View style={styles.editAddressModalContainer}>
+            <View style={styles.editAddressModalHeader}>
+              <Text style={styles.editAddressModalTitle}>
+                {editingAddressId ? 'Edit address' : 'Add new address'}
+              </Text>
+              <TouchableOpacity onPress={() => setEditAddressModalVisible(false)}>
+                <Text style={styles.closeModalText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* Address Label Pills */}
+              <Text style={styles.inputLabel}>Address Label</Text>
+              <View style={styles.labelPillsRow}>
+                {['Home', "Parents' home", 'Temple', 'Other'].map((lbl) => (
+                  <TouchableOpacity
+                    key={lbl}
+                    style={[
+                      styles.labelPill,
+                      formLabel === lbl && styles.labelPillActive
+                    ]}
+                    onPress={() => setFormLabel(lbl)}
+                  >
+                    <Text style={[
+                      styles.labelPillText,
+                      formLabel === lbl && styles.labelPillTextActive
+                    ]}>
+                      {lbl}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Flat, House or Building */}
+              <Text style={styles.inputLabel}>
+                Flat, house or building <Text style={{ color: '#C0392B' }}>*</Text>
+              </Text>
+              <TextInput
+                style={[styles.modalInput, formErrors.line1 ? styles.modalInputError : null]}
+                placeholder="e.g. 402, Sai Residency"
+                placeholderTextColor="#A89F91"
+                value={formLine1}
+                onChangeText={(val) => {
+                  setFormLine1(val);
+                  if (val.trim()) setFormErrors(prev => ({ ...prev, line1: '' }));
+                }}
+              />
+              {formErrors.line1 ? <Text style={styles.formErrorText}>{formErrors.line1}</Text> : null}
+
+              {/* Area, Street or Colony */}
+              <Text style={styles.inputLabel}>Area, street or colony</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="e.g. Madhapur"
+                placeholderTextColor="#A89F91"
+                value={formLine2}
+                onChangeText={setFormLine2}
+              />
+
+              {/* Landmark */}
+              <Text style={styles.inputLabel}>Landmark (optional)</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="e.g. Near Metro Pillar 12"
+                placeholderTextColor="#A89F91"
+                value={formLandmark}
+                onChangeText={setFormLandmark}
+              />
+
+              {/* Pincode */}
+              <Text style={styles.inputLabel}>
+                Pincode <Text style={{ color: '#C0392B' }}>*</Text>
+              </Text>
+              <TextInput
+                style={[styles.modalInput, formErrors.pincode ? styles.modalInputError : null]}
+                placeholder="6-digit pincode (e.g. 500081)"
+                placeholderTextColor="#A89F91"
+                keyboardType="numeric"
+                maxLength={6}
+                value={formPincode}
+                onChangeText={(val) => {
+                  setFormPincode(val.replace(/[^0-9]/g, ''));
+                  if (val.length === 6) setFormErrors(prev => ({ ...prev, pincode: '' }));
+                }}
+              />
+              {formErrors.pincode ? <Text style={styles.formErrorText}>{formErrors.pincode}</Text> : null}
+
+              {/* Action Buttons */}
+              <View style={styles.modalActionsRow}>
+                <TouchableOpacity
+                  style={styles.cancelModalBtn}
+                  onPress={() => setEditAddressModalVisible(false)}
+                >
+                  <Text style={styles.cancelModalBtnText}>Skip</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.saveModalBtn}
+                  onPress={handleSaveEditedAddress}
+                >
+                  <Text style={styles.saveModalBtnText}>Save address</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
       {/* Raise a Concern Bottom Sheet */}
       <Modal
         visible={concernVisible}
@@ -278,27 +601,28 @@ export default function AccountScreen() {
                 />
 
                 {/* Tags */}
+                <Text style={styles.concernOptionalLabel}>What went wrong? (Optional)</Text>
                 <View style={styles.tagsRow}>
-                  {CONCERN_TAGS.map(tag => (
-                    <TouchableOpacity
-                      key={tag}
-                      style={[styles.tag, selectedTags.includes(tag) && styles.tagSelected]}
-                      onPress={() => toggleTag(tag)}
-                    >
-                      <Text style={[styles.tagText, selectedTags.includes(tag) && styles.tagTextSelected]}>
-                        {tag}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                  {CONCERN_TAGS.map(tag => {
+                    const selected = selectedTags.includes(tag);
+                    return (
+                      <TouchableOpacity
+                        key={tag}
+                        style={[styles.tag, selected && styles.tagSelected]}
+                        onPress={() => toggleTag(tag)}
+                      >
+                        <Text style={[styles.tagText, selected && styles.tagTextSelected]}>{tag}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
 
-                {/* Text area */}
-                <Text style={styles.concernOptionalLabel}>Tell us more (optional)</Text>
+                {/* Message */}
                 <TextInput
                   style={styles.concernTextArea}
-                  placeholder="What happened?"
+                  placeholder="Describe your issue in detail..."
                   placeholderTextColor="#AAAAAA"
-                  multiline
+                  multiline={true}
                   numberOfLines={4}
                   value={concernText}
                   onChangeText={setConcernText}
@@ -309,15 +633,17 @@ export default function AccountScreen() {
                 <TouchableOpacity
                   style={[
                     styles.concernSubmitBtn,
-                    selectedTags.length === 0 && !concernText.trim() && styles.concernSubmitBtnDisabled,
+                    (selectedTags.length === 0 && !concernText.trim()) || concernSubmitting
+                      ? styles.concernSubmitBtnDisabled
+                      : null,
                   ]}
                   onPress={submitConcern}
-                  disabled={concernSubmitting || (selectedTags.length === 0 && !concernText.trim())}
+                  disabled={(selectedTags.length === 0 && !concernText.trim()) || concernSubmitting}
                 >
                   {concernSubmitting ? (
                     <ActivityIndicator color="#FFFFFF" size="small" />
                   ) : (
-                    <Text style={styles.concernSubmitText}>Submit</Text>
+                    <Text style={styles.concernSubmitText}>Submit Concern</Text>
                   )}
                 </TouchableOpacity>
               </>
@@ -326,11 +652,11 @@ export default function AccountScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Content Modal for Terms / Privacy / Cancellation */}
+      {/* Content View Modal */}
       <Modal
         visible={modalVisible}
         animationType="slide"
-        transparent={false}
+        presentationStyle="pageSheet"
         onRequestClose={() => setModalVisible(false)}
       >
         <SafeAreaView style={styles.modalContainer}>
@@ -448,6 +774,16 @@ const styles = StyleSheet.create({
     color: '#7C1B2C',
     fontWeight: '500',
   },
+  rowValueWithArrow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  chevron: {
+    fontSize: 18,
+    color: '#7C1B2C',
+    marginLeft: 4,
+    fontWeight: '600',
+  },
   divider: {
     height: 1,
     backgroundColor: '#E2D9C8',
@@ -499,6 +835,241 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#777777',
   },
+  // Bottom sheet modal styles
+  sheetOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  sheetBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  addressSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    paddingBottom: 36,
+    maxHeight: '85%',
+  },
+  sheetHandle: {
+    width: 38,
+    height: 4,
+    backgroundColor: '#D1C4B5',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  addressSheetHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  addressSheetTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#222222',
+  },
+  addAddressLink: {
+    fontSize: 14,
+    color: '#7C1B2C',
+    fontWeight: '600',
+  },
+  addressCard: {
+    borderWidth: 1,
+    borderColor: '#E8DFD5',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  addressCardSelected: {
+    borderWidth: 1.5,
+    borderColor: '#7C1B2C',
+    backgroundColor: '#FAF4F0',
+  },
+  addressCardRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  radioCircleOuter: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    borderColor: '#8A8077',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+    marginTop: 2,
+  },
+  radioCircleOuterSelected: {
+    borderColor: '#7C1B2C',
+    borderWidth: 2,
+  },
+  radioCircleInner: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#7C1B2C',
+  },
+  addressInfoCol: {
+    flex: 1,
+  },
+  addressLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  addressItemLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#222222',
+  },
+  editAddressLink: {
+    fontSize: 13,
+    color: '#7C1B2C',
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
+  addressItemDesc: {
+    fontSize: 14,
+    color: '#666666',
+    lineHeight: 20,
+  },
+  useAddressButton: {
+    backgroundColor: '#7C1B2C',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 14,
+  },
+  useAddressButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+
+  // Edit / Add address modal styles
+  editAddressModalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    paddingBottom: 36,
+    maxHeight: '90%',
+  },
+  editAddressModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0EBE1',
+  },
+  editAddressModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#222222',
+  },
+  closeModalText: {
+    fontSize: 18,
+    color: '#888888',
+    padding: 4,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#444444',
+    marginBottom: 6,
+    marginTop: 10,
+  },
+  labelPillsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 6,
+  },
+  labelPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#D4C9BD',
+    backgroundColor: '#FDFBF7',
+  },
+  labelPillActive: {
+    borderColor: '#7C1B2C',
+    backgroundColor: '#F9EEF0',
+  },
+  labelPillText: {
+    fontSize: 13,
+    color: '#555555',
+  },
+  labelPillTextActive: {
+    color: '#7C1B2C',
+    fontWeight: '600',
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#DCD4CB',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#333333',
+    backgroundColor: '#FDFBF7',
+    marginBottom: 4,
+  },
+  modalInputError: {
+    borderColor: '#C0392B',
+  },
+  formErrorText: {
+    fontSize: 12,
+    color: '#C0392B',
+    marginBottom: 4,
+    marginTop: 2,
+  },
+  modalActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginTop: 20,
+  },
+  cancelModalBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#C5B8A8',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  cancelModalBtnText: {
+    color: '#666666',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  saveModalBtn: {
+    flex: 1.5,
+    backgroundColor: '#7C1B2C',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  saveModalBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
+
   // Concern modal styles
   concernOverlay: {
     flex: 1,

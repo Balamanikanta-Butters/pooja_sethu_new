@@ -8,4 +8,10 @@ router.post('/verify-otp', authController.verifyOtp);
 router.put('/profile', authMiddleware, authController.updateProfile);
 router.get('/me', authMiddleware, authController.getMe);
 
+// Address Management
+router.get('/addresses', authMiddleware, authController.getAddresses);
+router.post('/addresses', authMiddleware, authController.saveAddress);
+router.put('/addresses/:id/default', authMiddleware, authController.setDefaultAddress);
+router.delete('/addresses/:id', authMiddleware, authController.deleteAddress);
+
 module.exports = router;
