@@ -6,7 +6,8 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useUser } from '../../context/UserContext';
 import FieldError from '../../components/FieldError';
 import { validateName, validateBookingPhone, apiFetch, getToken, clearToken, ApiError } from '../../utils/validation';
-import { openRazorpayCheckout } from '../../utils/razorpay';
+import { openRazorpayCheckout, RazorpayCheckoutOptions, RazorpayPaymentResult } from '../../utils/razorpay';
+import { RazorpayWebViewModal } from '../../components/RazorpayWebViewModal';
 import { API_BASE_URL } from '../../utils/apiBaseUrl';
 import { SAMPRADAYAMS, getSampradayamName } from '../../constants/sampradayams';
 
@@ -133,6 +134,9 @@ export default function BookingSummaryScreen() {
   const [selectedSampradayam, setSelectedSampradayam] = useState(initialSampradayam);
   const [sampradayamPromptVisible, setSampradayamPromptVisible] = useState(false);
   const [sampradayamDropdownVisible, setSampradayamDropdownVisible] = useState(false);
+  const [mobilePaymentModalVisible, setMobilePaymentModalVisible] = useState(false);
+  const [mobileCheckoutOptions, setMobileCheckoutOptions] = useState<RazorpayCheckoutOptions | null>(null);
+  const [pendingBooking, setPendingBooking] = useState<{ bookingId: string; bookingNo: string } | null>(null);
 
   const redirectToLoginForPayment = () => {
     router.push({
@@ -225,18 +229,54 @@ export default function BookingSummaryScreen() {
         throw new Error(orderData.message || 'Failed to initialize payment gateway.');
       }
 
-      paymentStep = 'Opening Razorpay checkout';
-      const paymentResult = await openRazorpayCheckout({
+      const checkoutOptions: RazorpayCheckoutOptions = {
         key: orderData.key_id,
         amount: orderData.amount,
-        currency: orderData.currency,
+        currency: orderData.currency || 'INR',
         name: "Pooja Sethu",
-        description: `${params.title} Booking`,
+        description: `${params.title || 'Pooja'} Booking`,
         order_id: orderData.order_id,
-        theme: { color: "#7C1B2C" }
-      });
+        theme: { color: "#7C1B2C" },
+        prefill: {
+          name: someoneElse ? bookedForName : (userData?.name || ''),
+          contact: someoneElse ? bookedForPhone : (userData?.mobileNumber || ''),
+          email: userData?.email || ''
+        }
+      };
 
-      paymentStep = 'Verifying payment';
+      if (Platform.OS === 'web') {
+        paymentStep = 'Opening Razorpay checkout';
+        const paymentResult = await openRazorpayCheckout(checkoutOptions);
+        await verifyAndCompletePayment(paymentResult, bookingId, bookingNo);
+      } else {
+        // On Mobile (Expo Go / Native), launch WebView Checkout modal
+        setPendingBooking({ bookingId, bookingNo });
+        setMobileCheckoutOptions(checkoutOptions);
+        setMobilePaymentModalVisible(true);
+        setIsLoading(false);
+      }
+    } catch (error: any) {
+      if (error instanceof ApiError && error.statusCode === 401) {
+        await clearToken();
+        redirectToLoginForPayment();
+        return;
+      }
+      setPaymentError(`${paymentStep} failed: ${error.message || 'Could not complete payment.'}`);
+    } finally {
+      if (Platform.OS === 'web') {
+        setIsLoading(false);
+      }
+    }
+  };
+
+  const verifyAndCompletePayment = async (
+    paymentResult: RazorpayPaymentResult,
+    bookingId: string,
+    bookingNo: string
+  ) => {
+    setIsLoading(true);
+    setPaymentError('');
+    try {
       const verifyData = await apiFetch(`${API_BASE_URL}/api/payments/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -249,7 +289,6 @@ export default function BookingSummaryScreen() {
       });
 
       if (verifyData.success) {
-        // Only go to success page if payment was successfully verified
         router.push({
           pathname: '/booking/success',
           params: { ...params, booking_no: bookingNo }
@@ -263,7 +302,7 @@ export default function BookingSummaryScreen() {
         redirectToLoginForPayment();
         return;
       }
-      setPaymentError(`${paymentStep} failed: ${error.message || 'Could not complete payment.'}`);
+      setPaymentError(`Verification failed: ${error.message || 'Could not verify payment.'}`);
     } finally {
       setIsLoading(false);
     }
@@ -542,6 +581,29 @@ export default function BookingSummaryScreen() {
           </View>
         </View>
       </Modal>
+      <RazorpayWebViewModal
+        visible={mobilePaymentModalVisible}
+        options={mobileCheckoutOptions}
+        onSuccess={async (paymentResult) => {
+          setMobilePaymentModalVisible(false);
+          if (pendingBooking) {
+            await verifyAndCompletePayment(
+              paymentResult,
+              pendingBooking.bookingId,
+              pendingBooking.bookingNo
+            );
+          }
+        }}
+        onDismiss={() => {
+          setMobilePaymentModalVisible(false);
+          setIsLoading(false);
+        }}
+        onError={(error) => {
+          setMobilePaymentModalVisible(false);
+          setIsLoading(false);
+          setPaymentError(`Payment failed: ${error.message || 'Could not complete transaction.'}`);
+        }}
+      />
     </SafeAreaView>
   );
 }

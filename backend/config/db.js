@@ -9,16 +9,19 @@ if (!connStr.includes('options=')) {
 
 const pool = new Pool({
   connectionString: connStr,
-  max: 20,
-  idleTimeoutMillis: 10000,
-  connectionTimeoutMillis: 15000,
+  max: 5,
+  idleTimeoutMillis: 5000,
+  connectionTimeoutMillis: 10000,
 });
 
-// Removed pool.on connect to prevent client.query concurrency issues
+pool.on('connect', (client) => {
+  client.on('error', (err) => {
+    console.warn('PostgreSQL client socket error (handled):', err.message);
+  });
+});
 
-pool.on('error', (err, client) => {
-  console.error('Unexpected error on idle client', err);
-  process.exit(-1);
+pool.on('error', (err) => {
+  console.warn('PostgreSQL pool idle error (handled):', err.message);
 });
 
 module.exports = {

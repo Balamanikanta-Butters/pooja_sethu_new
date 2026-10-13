@@ -37,7 +37,7 @@ function getPageName(pagePath: string) {
 }
 
 function reportAnalyticsError(action: string, error: unknown) {
-  console.error(`Analytics ${action} failed:`, error);
+  console.warn(`Analytics ${action} failed:`, error);
 }
 
 function isAppActive() {

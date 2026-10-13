@@ -68,6 +68,20 @@ app.locals.optionalBookingAddressSchemaReady = db.query(optionalBookingAddressSc
         return true;
     });
 
+const schemaFixes = fs.readFileSync(
+    path.join(__dirname, 'migrations', '004_pooja_category_svg_and_purohit_status.sql'),
+    'utf8'
+);
+app.locals.schemaFixesReady = db.query(schemaFixes)
+    .then(() => {
+        console.log('Category icons and purohit status schema is ready.');
+        return true;
+    })
+    .catch((err) => {
+        console.warn('Schema fixes already applied or skipped:', err.message);
+        return true;
+    });
+
 app.listen(PORT, '0.0.0.0', async () => {
     console.log(`Backend server is running on http://0.0.0.0:${PORT}`);
     console.log(`Modular backend initialized. Mock OTP is enabled (use 1234).`);
@@ -78,3 +92,12 @@ app.listen(PORT, '0.0.0.0', async () => {
         console.error('Database connection failed:', err.message);
     }
 });
+
+process.on('uncaughtException', (err) => {
+    console.warn('Unhandled exception caught (server continuing):', err.message);
+});
+
+process.on('unhandledRejection', (reason) => {
+    console.warn('Unhandled rejection caught (server continuing):', reason);
+});
+

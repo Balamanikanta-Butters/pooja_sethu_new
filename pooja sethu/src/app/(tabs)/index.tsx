@@ -194,12 +194,13 @@ export default function HomeScreen() {
         <View style={styles.categoryGrid}>
           {(categories.length > 0 ? categories : POOJA_CATEGORIES.map(c => ({ id: c, code: c.toLowerCase(), name: c, svg_content: undefined }))).map((catItem) => {
             const catName = catItem.name;
+            const displayName = catName.toLowerCase() === 'business and vehicle' ? 'Business &\nVehicle' : catName;
             const isActive = selectedCategory === catName;
             const iconColor = isActive ? '#FFFFFF' : colors.primary;
             return (
               <TouchableOpacity
                 key={catItem.id || catName}
-                style={[styles.categoryButton, isActive && styles.categoryButtonActive]}
+                style={[styles.categoryCard, isActive && styles.categoryCardActive]}
                 onPress={() => {
                   setSelectedCategory(catName);
                   router.push({ pathname: '/pooja/list', params: { category: catName } });
@@ -208,16 +209,15 @@ export default function HomeScreen() {
                 accessibilityLabel={`${catName} Category`}
                 activeOpacity={0.7}
               >
-                <View style={styles.categoryButtonContent}>
-                  <CategoryIcon category={catName} svgContent={catItem.svg_content} size={23} color={iconColor} />
-                  <Text
-                    style={[styles.categoryButtonText, isActive && styles.categoryButtonTextActive]}
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
-                  >
-                    {catName}
-                  </Text>
+                <View style={[styles.categoryIconBadge, isActive && styles.categoryIconBadgeActive]}>
+                  <CategoryIcon category={catName} svgContent={catItem.svg_content} size={25} color={iconColor} />
                 </View>
+                <Text
+                  style={[styles.categoryCardText, isActive && styles.categoryCardTextActive]}
+                  numberOfLines={2}
+                >
+                  {displayName}
+                </Text>
               </TouchableOpacity>
             );
           })}
@@ -512,38 +512,50 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 16,
   },
-  categoryButton: {
-    width: '31.8%',
-    minHeight: 46,
-    paddingHorizontal: 6,
-    paddingVertical: 9,
-    marginBottom: 12,
-    borderRadius: 25,
+  categoryCard: {
+    width: '31.5%',
+    minHeight: 96,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    marginBottom: 11,
+    borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: '#D4C6B8',
+    borderColor: '#E8E1D5',
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
-  categoryButtonActive: {
+  categoryCardActive: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
-  categoryButtonContent: {
-    flexDirection: 'row',
+  categoryIconBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FAF4EB',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingHorizontal: 2,
+    marginBottom: 7,
   },
-  categoryButtonText: {
-    fontSize: 14,
+  categoryIconBadgeActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+  },
+  categoryCardText: {
+    fontSize: 12,
     fontWeight: '600',
-    color: colors.primary,
+    color: '#333333',
+    textAlign: 'center',
+    lineHeight: 15,
   },
-  categoryButtonTextActive: {
+  categoryCardTextActive: {
     color: '#FFFFFF',
     fontWeight: 'bold',
   },

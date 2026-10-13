@@ -8,6 +8,11 @@ export type RazorpayCheckoutOptions = {
   description: string;
   order_id: string;
   theme?: { color: string };
+  prefill?: {
+    name?: string;
+    email?: string;
+    contact?: string;
+  };
 };
 
 export type RazorpayPaymentResult = {
@@ -24,6 +29,11 @@ type WebCheckoutInstance = {
 type RazorpayWindow = Window & {
   Razorpay?: new (options: RazorpayCheckoutOptions & {
     handler: (response: RazorpayPaymentResult) => void;
+    modal?: {
+      ondismiss?: () => void;
+      backdropclose?: boolean;
+      escape?: boolean;
+    };
   }) => WebCheckoutInstance;
 };
 
@@ -53,14 +63,15 @@ export const loadRazorpayScript = (): Promise<boolean> => {
   });
 };
 
+/**
+ * Opens Razorpay checkout modal in Web environments.
+ * For Mobile (iOS/Android), use `<RazorpayWebViewModal />` which supports Expo Go & APKs.
+ */
 export const openRazorpayCheckout = async (
   options: RazorpayCheckoutOptions
 ): Promise<RazorpayPaymentResult> => {
   if (Platform.OS !== 'web') {
-    const RazorpayCheckout = require('react-native-razorpay').default as {
-      open: (checkoutOptions: RazorpayCheckoutOptions) => Promise<RazorpayPaymentResult>;
-    };
-    return RazorpayCheckout.open(options);
+    throw new Error('On mobile platforms, use RazorpayWebViewModal to open checkout.');
   }
 
   const isLoaded = await loadRazorpayScript();
@@ -75,13 +86,30 @@ export const openRazorpayCheckout = async (
 
   return new Promise((resolve, reject) => {
     try {
+      let isSettled = false;
       const checkout = new Razorpay({
         ...options,
-        handler: resolve
+        handler: (response: RazorpayPaymentResult) => {
+          if (!isSettled) {
+            isSettled = true;
+            resolve(response);
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            if (!isSettled) {
+              isSettled = true;
+              reject(new Error('Payment was cancelled by user.'));
+            }
+          }
+        }
       });
 
       checkout.on('payment.failed', (response) => {
-        reject(new Error(response.error?.description || 'Payment failed'));
+        if (!isSettled) {
+          isSettled = true;
+          reject(new Error(response.error?.description || 'Payment failed'));
+        }
       });
       checkout.open();
     } catch (error) {
