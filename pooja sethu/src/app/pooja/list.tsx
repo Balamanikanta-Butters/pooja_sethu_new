@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  TextInput,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { colors } from '../../constants/colors';
-import { useLanguage } from '../../context/LanguageContext';
-import PoojaSethuLogo from '../../components/PoojaSethuLogo';
 import { API_BASE_URL } from '../../utils/apiBaseUrl';
-import { POOJA_CATEGORIES } from '../../constants/poojaCategories';
-import { CategoryIcon } from '../../components/CategoryIcons';
+import { PoojaCardIllustration } from '../../components/HomeIllustrations';
 
 type PoojaItem = {
   id: string | number;
@@ -16,108 +19,147 @@ type PoojaItem = {
   subtitle: string;
   desc: string;
   duration: string;
-  price: number | string;
+  price: string;
   category: string;
-  sampradayam: string;
+  sampradayam?: string;
 };
+
+const DEFAULT_CATEGORIES = [
+  { key: 'All', label: 'All', icon: 'grid-outline' },
+];
 
 export default function PoojaListScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { t } = useLanguage();
-  const passedSampradayam = params.sampradayam as string;
-  const [search, setSearch] = useState('');
-  const requestedCategory =
-    typeof params.category === 'string'
-      ? params.category
-      : 'All';
-  const [activeFilter, setActiveFilter] = useState(requestedCategory);
+  const initialCategory = typeof params.category === 'string' ? params.category : 'All';
+  const initialSearch = typeof params.search === 'string' ? params.search : '';
+
+  const [search, setSearch] = useState(initialSearch);
+  const [activeFilter, setActiveFilter] = useState(initialCategory);
+  const [categories, setCategories] = useState<{ key: string; label: string; icon: string }[]>(DEFAULT_CATEGORIES);
   const [poojas, setPoojas] = useState<PoojaItem[]>([]);
-  const [categories, setCategories] = useState<{ id: string; code: string; name: string; svg_content?: string }[]>([]);
   const [loading, setLoading] = useState(true);
 
   React.useEffect(() => {
     fetch(`${API_BASE_URL}/api/services/categories`)
-      .then(res => res.json())
-      .then(data => {
-        if (data && data.success && Array.isArray(data.data) && data.data.length > 0) {
-          setCategories(data.data);
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.data)) {
+          const apiCats = data.data.map((c: any) => ({
+            key: c.name,
+            label: c.name,
+            icon:
+              c.icon === 'home'
+                ? 'home-outline'
+                : c.icon === 'lamp'
+                ? 'sparkles-outline'
+                : c.icon === 'fire'
+                ? 'flame-outline'
+                : c.icon === 'child'
+                ? 'person-outline'
+                : c.icon === 'shop'
+                ? 'business-outline'
+                : 'leaf-outline',
+          }));
+          setCategories([{ key: 'All', label: 'All', icon: 'grid-outline' }, ...apiCats]);
         }
       })
-      .catch(err => console.error('Error fetching categories:', err));
+      .catch((err) => console.log('Categories fetch notice:', err.message));
 
     fetch(`${API_BASE_URL}/api/services/poojas`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.data)) {
           setPoojas(data.data);
         }
         setLoading(false);
       })
-      .catch(err => {
-        console.error(err);
+      .catch((err) => {
+        console.log('Poojas fetch notice:', err.message);
         setLoading(false);
       });
   }, []);
 
-  React.useEffect(() => {
-    setActiveFilter(requestedCategory);
-  }, [requestedCategory]);
+  const filteredPoojas = poojas.filter((p) => {
+    const matchesSearch =
+      p.title.toLowerCase().includes(search.toLowerCase()) ||
+      p.subtitle.toLowerCase().includes(search.toLowerCase());
 
-  const filteredPoojas = poojas.filter(p => {
-    const matchesSearch = p.title.toLowerCase().includes(search.toLowerCase());
-    const matchesFilter = activeFilter === 'All' || p.category === activeFilter;
-    return matchesSearch && matchesFilter;
+    if (activeFilter === 'All') return matchesSearch;
+
+    const cat = (p.category || '').toLowerCase();
+    const sel = activeFilter.toLowerCase();
+    if (sel.includes('business') || sel.includes('vehicle')) {
+      return (cat.includes('business') || cat.includes('vehicle')) && matchesSearch;
+    }
+    if (sel.includes('pitru')) {
+      return (cat.includes('pitru') || cat.includes('shanti')) && matchesSearch;
+    }
+    return (cat === sel || cat.includes(sel)) && matchesSearch;
   });
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header */}
+      {/* ── HEADER ── */}
       <View style={styles.header}>
-        <View style={styles.logoBar}>
-          <PoojaSethuLogo />
-        </View>
-        <View style={styles.headerNav}>
-        <TouchableOpacity onPress={() => { if(router.canGoBack()) { router.back(); } else { router.push('/(tabs)/catalogue'); } }} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color="#333333" />
+        <TouchableOpacity
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.push('/(tabs)');
+            }
+          }}
+          style={styles.backButton}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="chevron-back" size={24} color="#1F1A18" />
         </TouchableOpacity>
         <View style={styles.headerTextContainer}>
-          <Text style={styles.headerTitle}>{t('chooseAPooja')}</Text>
-          <Text style={styles.headerSubtitle}>{t('allPoojas')}</Text>
-        </View>
+          <Text style={styles.headerTitle}>Choose a Pooja</Text>
+          <Text style={styles.headerSubtitle}>All Poojas · every tradition</Text>
         </View>
       </View>
 
-      {/* Search and Filters */}
+      {/* ── SEARCH BAR ── */}
       <View style={styles.searchSection}>
         <View style={styles.searchBar}>
-          <Ionicons name="search" size={20} color="#666666" style={styles.searchIcon} />
-          <TextInput 
+          <Ionicons name="search" size={20} color="#7E7771" style={styles.searchIcon} />
+          <TextInput
             style={styles.searchInput}
-            placeholder={t('searchPooja')}
+            placeholder="Search Gruhapravesam, Homam..."
             placeholderTextColor="#888888"
             value={search}
             onChangeText={setSearch}
-            autoFocus={true}
           />
         </View>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
-          {(categories.length > 0 ? categories : POOJA_CATEGORIES.map(c => ({ id: c, code: c.toLowerCase(), name: c, svg_content: undefined }))).map(catItem => {
-            const filterName = catItem.name;
-            const isActive = activeFilter === filterName;
-            const iconColor = isActive ? '#FFFFFF' : '#731C28';
+        {/* ── CATEGORY PILLS ── */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterScrollContent}
+          style={styles.filterScroll}
+        >
+          {categories.map((cat) => {
+            const isActive = activeFilter === cat.key;
             return (
               <TouchableOpacity
-                key={catItem.id || filterName}
+                key={cat.key}
                 style={[styles.filterPill, isActive && styles.filterPillActive]}
-                onPress={() => setActiveFilter(filterName)}
-                accessibilityRole="button"
+                onPress={() => setActiveFilter(cat.key)}
                 activeOpacity={0.7}
               >
-                <CategoryIcon category={filterName} svgContent={catItem.svg_content} size={20} color={iconColor} />
-                <Text style={[styles.filterText, isActive && styles.filterTextActive]}>
-                  {filterName}
+                <Ionicons
+                  name={cat.icon as any}
+                  size={16}
+                  color={isActive ? '#FFFFFF' : '#1F1A18'}
+                  style={{ marginRight: 6 }}
+                />
+                <Text
+                  style={[styles.filterText, isActive && styles.filterTextActive]}
+                >
+                  {cat.label}
                 </Text>
               </TouchableOpacity>
             );
@@ -125,52 +167,67 @@ export default function PoojaListScreen() {
         </ScrollView>
       </View>
 
-      {/* List */}
-      <ScrollView style={styles.listContainer} showsVerticalScrollIndicator={false}>
+      {/* ── POOJA LIST ── */}
+      <ScrollView
+        style={styles.listContainer}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.resultsCount}>
-          {activeFilter === 'All'
-            ? t('poojasInAll', { count: filteredPoojas.length.toString() })
-            : t('poojasInCategory', {
-                count: filteredPoojas.length.toString(),
-                category: activeFilter,
-              })}
+          {filteredPoojas.length === 1 ? '1 Pooja' : `${filteredPoojas.length} Poojas`} in{' '}
+          {activeFilter === 'Business and Vehicle' ? 'Business and Vehicle' : activeFilter}
         </Text>
-        
-        {filteredPoojas.map(pooja => (
-          <TouchableOpacity 
-            key={pooja.id} 
-            style={styles.card} 
-            onPress={() => router.push({
-              pathname: '/pooja/details',
-              params: {
-                id: pooja.id,
-                title: pooja.title,
-                subtitle: pooja.subtitle,
-                desc: pooja.desc,
-                duration: pooja.duration,
-                price: `${t('dakshina')} ${pooja.price}`,
-                sampradayam: passedSampradayam
-              }
-            })}
+
+        {filteredPoojas.map((pooja) => (
+          <TouchableOpacity
+            key={pooja.id}
+            style={styles.card}
+            onPress={() =>
+              router.push({
+                pathname: '/pooja/details',
+                params: {
+                  id: pooja.id,
+                  title: pooja.title,
+                  subtitle: pooja.subtitle,
+                  desc: pooja.desc,
+                  duration: pooja.duration,
+                  price: pooja.price,
+                },
+              })
+            }
+            activeOpacity={0.8}
           >
-            <View style={styles.cardHeader}>
-              <View style={styles.titleContainer}>
-                <Text style={styles.cardTitle}>{pooja.title}</Text>
-                <Text style={styles.cardSubtitle}>{pooja.subtitle}</Text>
-              </View>
-              <Text style={styles.durationText}>{pooja.duration}</Text>
+            {/* Left Square Illustration Box */}
+            <View style={styles.cardIllustrationBox}>
+              <PoojaCardIllustration type={pooja.title} width={90} height={90} />
             </View>
-            
-            <Text style={styles.cardDesc}>{pooja.desc}</Text>
-            
-            <View style={styles.cardFooter}>
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{pooja.sampradayam}</Text>
+
+            {/* Right Content */}
+            <View style={styles.cardRightContent}>
+              <View style={styles.cardTitleRow}>
+                <Text style={styles.cardTitle} numberOfLines={1}>
+                  {pooja.title}
+                </Text>
+                <Text style={styles.durationText}>{pooja.duration}</Text>
               </View>
-              <Text style={styles.priceText}>{t('dakshina')} {pooja.price}</Text>
+
+              <Text style={styles.cardSubtitle}>{pooja.subtitle}</Text>
+              <Text style={styles.cardDesc} numberOfLines={2}>
+                {pooja.desc}
+              </Text>
+
+              <View style={styles.cardFooter}>
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>
+                    {pooja.sampradayam || 'All Sampradayams'}
+                  </Text>
+                </View>
+                <Text style={styles.priceText}>{pooja.price}</Text>
+              </View>
             </View>
           </TouchableOpacity>
         ))}
+
         <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
@@ -180,24 +237,18 @@ export default function PoojaListScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9F6F0',
+    backgroundColor: '#FAF7F2',
   },
   header: {
-    backgroundColor: '#FFFFFF',
-  },
-  logoBar: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 6,
-  },
-  headerNav: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingTop: 8,
+    paddingBottom: 10,
+    backgroundColor: '#FAF7F2',
   },
   backButton: {
-    padding: 8,
+    padding: 6,
     marginRight: 8,
   },
   headerTextContainer: {
@@ -205,114 +256,134 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333333',
+    fontWeight: '700',
+    color: '#1F1A18',
+    fontFamily: 'serif',
   },
   headerSubtitle: {
-    fontSize: 13,
-    color: '#666666',
-    marginTop: 2,
+    fontSize: 12,
+    color: '#7E7771',
+    marginTop: 1,
   },
   searchSection: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2D9C8',
+    paddingHorizontal: 16,
+    backgroundColor: '#FAF7F2',
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#DCD4CB',
-    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
     paddingHorizontal: 12,
-    height: 44,
-    marginBottom: 16,
+    height: 46,
+    borderWidth: 1,
+    borderColor: '#ECE3D5',
+    marginBottom: 10,
   },
   searchIcon: {
     marginRight: 8,
   },
   searchInput: {
     flex: 1,
-    fontSize: 15,
-    color: '#333333',
+    fontSize: 14,
+    color: '#1F1A18',
   },
   filterScroll: {
-    flexDirection: 'row',
+    marginBottom: 10,
+  },
+  filterScrollContent: {
+    paddingRight: 8,
   },
   filterPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 22,
-    borderWidth: 1.5,
-    borderColor: '#D4C6B8',
-    marginRight: 10,
+    paddingVertical: 7,
+    borderRadius: 20,
     backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#ECE3D5',
+    marginRight: 8,
   },
   filterPillActive: {
-    backgroundColor: '#731C28',
-    borderColor: '#731C28',
+    backgroundColor: '#7A1B28',
+    borderColor: '#7A1B28',
   },
   filterText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    color: '#731C28',
+    color: '#1F1A18',
   },
   filterTextActive: {
     color: '#FFFFFF',
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   listContainer: {
     flex: 1,
-    paddingHorizontal: 20,
+  },
+  listContent: {
+    paddingHorizontal: 16,
+    paddingTop: 4,
   },
   resultsCount: {
     fontSize: 13,
-    color: '#666666',
-    marginTop: 16,
+    fontWeight: '600',
+    color: '#6E645C',
     marginBottom: 12,
   },
   card: {
+    flexDirection: 'row',
     backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E2D9C8',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    borderColor: '#ECE3D5',
+    padding: 10,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
   },
-  cardHeader: {
+  cardIllustrationBox: {
+    width: 90,
+    height: 90,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginRight: 12,
+  },
+  cardRightContent: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  cardTitleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  titleContainer: {
-    flex: 1,
-    paddingRight: 16,
+    alignItems: 'center',
   },
   cardTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333333',
-  },
-  cardSubtitle: {
-    fontSize: 13,
-    color: '#666666',
-    marginTop: 4,
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1F1A18',
+    flex: 1,
+    marginRight: 8,
   },
   durationText: {
-    fontSize: 13,
-    color: '#666666',
+    fontSize: 12,
+    color: '#7E7771',
+    fontWeight: '500',
+  },
+  cardSubtitle: {
+    fontSize: 11,
+    color: '#7E7771',
+    marginTop: 1,
+    marginBottom: 3,
   },
   cardDesc: {
-    fontSize: 14,
-    color: '#333333',
-    lineHeight: 20,
-    marginBottom: 16,
+    fontSize: 12,
+    color: '#554E48',
+    lineHeight: 16,
+    marginBottom: 6,
   },
   cardFooter: {
     flexDirection: 'row',
@@ -320,19 +391,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   badge: {
-    backgroundColor: '#EBE5D9',
+    backgroundColor: '#F3EDE2',
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 3,
     borderRadius: 6,
   },
   badgeText: {
-    fontSize: 12,
-    color: '#5C4A31',
-    fontWeight: '500',
+    fontSize: 11,
+    color: '#685F57',
+    fontWeight: '600',
   },
   priceText: {
     fontSize: 13,
-    fontWeight: 'bold',
-    color: '#333333',
+    fontWeight: '700',
+    color: '#1F1A18',
   },
 });

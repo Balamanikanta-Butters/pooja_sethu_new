@@ -154,17 +154,40 @@ exports.verifyPayment = async (req, res) => {
 
         // Insert notification and status history
         try {
-            await db.query(`
-                INSERT INTO ps.notification_log (template_id, recipient_type, recipient_id, booking_id, channel, status)
-                VALUES ($1, 'customer', $2, $3, 'push', 'unread')
-            `, ['30f5c363-9f91-47ea-95b0-8ea020fc9caf', booking.user_id, bookingId]);
+            const templateRes = await db.query(`
+                SELECT id, channel 
+                FROM ps.notification_template 
+                WHERE code = 'booking_confirmed' 
+                ORDER BY CASE WHEN language_code = 'en' THEN 1 ELSE 2 END 
+                LIMIT 1
+            `);
 
+            let templateId = templateRes.rows[0]?.id;
+            let channel = templateRes.rows[0]?.channel || 'whatsapp';
+
+            if (!templateId) {
+                const fallbackRes = await db.query(`SELECT id, channel FROM ps.notification_template LIMIT 1`);
+                templateId = fallbackRes.rows[0]?.id;
+                channel = fallbackRes.rows[0]?.channel || 'whatsapp';
+            }
+
+            if (templateId) {
+                await db.query(`
+                    INSERT INTO ps.notification_log (template_id, recipient_type, recipient_id, booking_id, channel, status)
+                    VALUES ($1, 'customer', $2, $3, $4, 'unread')
+                `, [templateId, booking.user_id, bookingId, channel]);
+            }
+        } catch (notifErr) {
+            console.error('Warning: Failed to log booking confirmation notification:', notifErr.message);
+        }
+
+        try {
             await db.query(`
                 INSERT INTO ps.booking_status_history (booking_id, from_status, to_status, actor_type, actor_id, reason)
                 VALUES ($1, 'draft', 'confirmed', 'customer', $2, 'payment_verified')
             `, [bookingId, booking.user_id]);
-        } catch (notifErr) {
-            console.error('Warning: Failed to log booking confirmation notification or status history:', notifErr.message);
+        } catch (historyErr) {
+            console.error('Warning: Failed to log booking status history:', historyErr.message);
         }
 
         return res.status(200).json({ success: true, message: 'Payment verified successfully' });

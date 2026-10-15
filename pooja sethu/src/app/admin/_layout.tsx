@@ -64,9 +64,6 @@ export default function AdminLayout() {
             <Text style={styles.cityDropdownText}>Hyderabad and Secundera...</Text>
             <Ionicons name="chevron-down" size={16} color="#333" />
           </View>
-          <View style={styles.sampleDataBadge}>
-            <Text style={styles.sampleDataText}>SAMPLE DATA</Text>
-          </View>
           <View style={styles.avatarCircle}>
             <Text style={styles.avatarText}>OA</Text>
           </View>

@@ -10,5 +10,7 @@ router.get('/purohits', poojaController.getPurohits);
 router.get('/purohits/:id/reviews', poojaController.getPurohitReviews);
 router.get('/addons', poojaController.getAddons);
 router.get('/package-options', poojaController.getPackageOptions);
+router.get('/sampradayams', poojaController.getSampradayams);
+router.get('/muhurthams', poojaController.getMuhurthams);
 
 module.exports = router;

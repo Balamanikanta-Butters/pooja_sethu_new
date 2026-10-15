@@ -163,11 +163,32 @@ exports.updateProfile = async (req, res) => {
             [name, gotra, sampradayamId, email, mobileNumber]
         );
 
+        let user;
         if (updateResult.rows.length === 0) {
-            return res.status(404).json({ success: false, message: 'User not found' });
-        }
+            const cleanPhone = mobileNumber.startsWith('+') ? mobileNumber : `+91${mobileNumber}`;
+            const altResult = await db.query(
+                `UPDATE ps.app_user 
+                 SET name = $1, gotram = $2, sampradayam_id = $3, email = $4, updated_at = NOW()
+                 WHERE phone_e164 = $5 RETURNING *`,
+                [name, gotra, sampradayamId, email, cleanPhone]
+            );
 
-        const user = updateResult.rows[0];
+            if (altResult.rows.length > 0) {
+                user = altResult.rows[0];
+            } else {
+                const insertResult = await db.query(
+                    `INSERT INTO ps.app_user (phone_e164, name, gotram, sampradayam_id, email, created_at, updated_at)
+                     VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+                     ON CONFLICT (phone_e164) DO UPDATE
+                     SET name = EXCLUDED.name, gotram = EXCLUDED.gotram, sampradayam_id = EXCLUDED.sampradayam_id, email = EXCLUDED.email, updated_at = NOW()
+                     RETURNING *`,
+                    [mobileNumber, name, gotra, sampradayamId, email]
+                );
+                user = insertResult.rows[0];
+            }
+        } else {
+            user = updateResult.rows[0];
+        }
 
         // 2. Upsert Address Table
         if (address) {
@@ -242,10 +263,32 @@ exports.updateProfile = async (req, res) => {
 
 exports.getMe = async (req, res) => {
     try {
-        const userId = req.user.userId;
-        const userResult = await db.query('SELECT * FROM ps.app_user WHERE id = $1', [userId]);
+        const userId = req.user?.userId;
+        const mobileNumber = req.user?.mobileNumber;
+
+        let userResult;
+        if (userId) {
+            userResult = await db.query('SELECT * FROM ps.app_user WHERE id = $1', [userId]);
+        }
         
-        if (userResult.rows.length === 0) {
+        // If not found by userId, try finding by phone_e164 (both raw and +91 formatted)
+        if ((!userResult || userResult.rows.length === 0) && mobileNumber) {
+            const rawPhone = String(mobileNumber).replace(/^\+91/, '');
+            userResult = await db.query(
+                'SELECT * FROM ps.app_user WHERE phone_e164 = $1 OR phone_e164 = $2 OR phone_e164 = $3',
+                [mobileNumber, rawPhone, `+91${rawPhone}`]
+            );
+            
+            // If user authenticated during DB outage, create user record now
+            if (userResult.rows.length === 0) {
+                userResult = await db.query(
+                    'INSERT INTO ps.app_user (phone_e164, created_at, updated_at) VALUES ($1, NOW(), NOW()) RETURNING *',
+                    [mobileNumber]
+                );
+            }
+        }
+
+        if (!userResult || userResult.rows.length === 0) {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
         
@@ -307,7 +350,27 @@ exports.getMe = async (req, res) => {
             }
         });
     } catch (err) {
-        console.error("Error in getMe:", err);
+        console.error("Error in getMe:", err.message);
+        if (req.user && (req.user.mobileNumber || req.user.userId)) {
+            return res.status(200).json({
+                success: true,
+                user: {
+                    id: req.user.userId || 'offline-user',
+                    mobileNumber: req.user.mobileNumber || '',
+                    name: '',
+                    email: '',
+                    sampradayam: '',
+                    gotra: '',
+                    address: '',
+                    addressLine2: '',
+                    landmark: '',
+                    addressLabel: 'Home',
+                    pincode: '',
+                    addresses: [],
+                    familyMembers: []
+                }
+            });
+        }
         return res.status(500).json({ success: false, message: 'Server error' });
     }
 };

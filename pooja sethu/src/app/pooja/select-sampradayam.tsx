@@ -7,23 +7,36 @@ import { useUser } from '../../context/UserContext';
 import { useLanguage } from '../../context/LanguageContext';
 import PoojaSethuLogo from '../../components/PoojaSethuLogo';
 
-const sampradayams = [
-  { id: 'Smartha', title: 'Smartha · స్మార్త', desc: 'Advaita tradition of Adi Shankaracharya' },
-  { id: 'Madhva', title: 'Madhva · మాధ్వ', desc: 'Dvaita tradition of Sri Madhvacharya' },
-  { id: 'Sri Vaishnava', title: 'Sri Vaishnava · శ్రీ వైష్ణవ', desc: 'Vishishtadvaita of Sri Ramanujacharya' },
-  { id: 'Vaikhanasa', title: 'Vaikhanasa · వైఖానస', desc: 'Agama tradition, Vaikhanasa Sutra' },
-  { id: 'Pancharatra', title: 'Pancharatra · పాంచరాత్ర', desc: 'Agama-based Vaishnava worship' },
-  { id: 'Samanya', title: 'Samanya (General) · సామాన్య', desc: 'Common to all traditions' },
-  { id: 'Not sure', title: 'Not sure · తెలియదు', desc: 'Resolves to Samanya Poojas' },
-  { id: 'Veerashaiva', title: 'Veerashaiva · వీరశైవ', desc: 'Draft: Vidhis not yet prepared' },
-];
+import { API_BASE_URL } from '../../utils/apiBaseUrl';
 
 export default function SelectSampradayamScreen() {
   const router = useRouter();
   const { userData, updateUserData } = useUser();
   const { t } = useLanguage();
+  const [sampradayams, setSampradayams] = useState<{ id: string; title: string; desc: string }[]>([]);
   const [selected, setSelected] = useState<string>('Not sure');
   const [remember, setRemember] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  React.useEffect(() => {
+    fetch(`${API_BASE_URL}/api/services/sampradayams`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && Array.isArray(data.data)) {
+          const list = data.data.map((item: any) => ({
+            id: item.name,
+            title: item.name_te ? `${item.name} · ${item.name_te}` : item.name,
+            desc: item.description || ''
+          }));
+          setSampradayams(list);
+        }
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('Error fetching sampradayams:', err);
+        setLoading(false);
+      });
+  }, []);
 
   const handleContinue = () => {
     if (remember) {

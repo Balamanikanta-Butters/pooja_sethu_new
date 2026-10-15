@@ -1,0 +1,148 @@
+import React from 'react';
+import type { PolicyModalTab } from './PolicySupportModal';
+
+interface FooterProps {
+  onNavClick: (tab: string, category?: string) => void;
+  onOpenPanchangam: () => void;
+  onOpenPolicy: (tab: PolicyModalTab) => void;
+}
+
+export const Footer: React.FC<FooterProps> = ({ 
+  onNavClick, 
+  onOpenPanchangam,
+  onOpenPolicy
+}) => {
+  return (
+    <footer className="site-footer">
+      <div className="container footer-content">
+        {/* Brand Description Column */}
+        <div className="footer-col brand-col">
+          <div className="footer-brand" onClick={() => onNavClick('Home')} style={{ cursor: 'pointer' }}>
+            <img src="/logo.png" alt="PoojaSethu" className="footer-logo" />
+          </div>
+          <p className="footer-tagline">
+            The bridge between your family and tradition. Verified Purohits, the right muhurtham, everything arranged.
+          </p>
+        </div>
+
+        {/* Column 2: Poojas */}
+        <div className="footer-col">
+          <h4 className="footer-col-title">Poojas</h4>
+          <ul className="footer-links">
+            <li><button onClick={() => onNavClick('Poojas', 'gruha')}>Gruha</button></li>
+            <li><button onClick={() => onNavClick('Poojas', 'samskaras')}>Samskaras</button></li>
+            <li><button onClick={() => onNavClick('Homams', 'homams')}>Homams</button></li>
+            <li><button onClick={() => onNavClick('Poojas', 'festivals')}>Festivals</button></li>
+          </ul>
+        </div>
+
+        {/* Column 3: Pooja Sethu */}
+        <div className="footer-col">
+          <h4 className="footer-col-title">Pooja Sethu</h4>
+          <ul className="footer-links">
+            <li><button onClick={onOpenPanchangam}>Panchangam</button></li>
+            <li><button onClick={() => onNavClick('My bookings')}>My bookings</button></li>
+            <li><button onClick={() => onOpenPolicy('purohit_join')}>Purohits: join us</button></li>
+            <li><button onClick={() => onOpenPolicy('support')}>Help and support</button></li>
+          </ul>
+        </div>
+
+        {/* Column 4: Policies */}
+        <div className="footer-col">
+          <h4 className="footer-col-title">Policies</h4>
+          <ul className="footer-links">
+            <li><button onClick={() => onOpenPolicy('terms')}>Terms of use</button></li>
+            <li><button onClick={() => onOpenPolicy('privacy')}>Privacy policy</button></li>
+            <li><button onClick={() => onOpenPolicy('cancellation')}>Cancellation policy</button></li>
+          </ul>
+        </div>
+      </div>
+
+      {/* Bottom Copyright Bar */}
+      <div className="container">
+        <div className="footer-bottom">
+          <p>© 2026 Pooja Sethu · All rights reserved · Traditional Vedic Purohit Services</p>
+        </div>
+      </div>
+
+      <style>{`
+        .site-footer {
+          background-color: var(--deep-burgundy);
+          color: #FFFFFF;
+          padding-top: 60px;
+          padding-bottom: 24px;
+        }
+        .footer-content {
+          display: grid;
+          grid-template-columns: 2fr 1fr 1fr 1fr;
+          gap: 40px;
+          margin-bottom: 40px;
+        }
+        .footer-brand {
+          margin-bottom: 12px;
+        }
+        .footer-logo {
+          height: 38px;
+          width: auto;
+          object-fit: contain;
+          filter: brightness(0) invert(1);
+        }
+        .footer-tagline {
+          color: rgba(255, 255, 255, 0.7);
+          font-size: 0.9rem;
+          line-height: 1.5;
+          max-width: 320px;
+        }
+        .footer-col-title {
+          font-size: 0.95rem;
+          font-weight: 700;
+          margin-bottom: 16px;
+          color: #FFFFFF;
+        }
+        .footer-links {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+        }
+        .footer-links li {
+          margin-bottom: 10px;
+        }
+        .footer-links button, .footer-links a {
+          color: rgba(255, 255, 255, 0.75);
+          font-size: 0.88rem;
+          text-decoration: none;
+          transition: color 0.15s;
+          background: transparent;
+          border: none;
+          padding: 0;
+          cursor: pointer;
+          font-family: inherit;
+          text-align: left;
+        }
+        .footer-links button:hover, .footer-links a:hover {
+          color: #FFFFFF;
+          text-decoration: underline;
+        }
+        .footer-bottom {
+          border-top: 1px solid rgba(255, 255, 255, 0.15);
+          padding-top: 24px;
+          text-align: center;
+        }
+        .footer-bottom p {
+          color: rgba(255, 255, 255, 0.5);
+          font-size: 0.8rem;
+        }
+        @media (max-width: 850px) {
+          .footer-content {
+            grid-template-columns: 1fr 1fr;
+          }
+        }
+        @media (max-width: 500px) {
+          .footer-content {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
+    </footer>
+  );
+};

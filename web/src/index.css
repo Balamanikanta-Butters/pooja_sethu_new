@@ -1,0 +1,119 @@
+:root {
+  --bg-page: #FAF7F2;
+  --bg-card: #FFFFFF;
+  --bg-subtle: #F4EFEB;
+  --primary-maroon: #741B28;
+  --primary-maroon-hover: #5E131E;
+  --primary-maroon-light: #F7EAEB;
+  --primary-maroon-border: #E8D0D3;
+  
+  --deep-burgundy: #4A0E17;
+  --deep-burgundy-card: linear-gradient(150deg, #6E1B29 0%, #4B0E19 100%);
+  
+  --gold-warm: #C98B27;
+  --gold-banner-bg: #FFF8EC;
+  --gold-banner-border: #F6E5C7;
+  --gold-badge-bg: #EED7A1;
+  --gold-badge-text: #61440A;
+
+  --tag-green-bg: #E8F5E9;
+  --tag-green-text: #2E7D32;
+  
+  --tag-rose-bg: #FBE9E7;
+  --tag-rose-text: #C62828;
+
+  --text-dark: #221D1A;
+  --text-body: #4A433F;
+  --text-muted: #756D67;
+  --text-light: #9B938D;
+  
+  --border-light: #EBE3D7;
+  --border-card: #EDE5D8;
+  
+  --font-serif: 'DM Serif Display', Georgia, serif;
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-telugu: 'Tiro Telugu', 'Plus Jakarta Sans', sans-serif;
+  
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 26px;
+  --radius-pill: 9999px;
+  
+  --shadow-sm: 0 2px 6px rgba(45, 30, 20, 0.04);
+  --shadow-md: 0 6px 18px rgba(45, 30, 20, 0.06);
+  --shadow-lg: 0 12px 32px rgba(45, 30, 20, 0.09);
+  --shadow-panchangam: 0 12px 30px rgba(74, 14, 23, 0.25);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg-page);
+  color: var(--text-dark);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  transition: all 0.2s ease;
+}
+
+input {
+  font-family: inherit;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* Typography Utility */
+.font-serif {
+  font-family: var(--font-serif);
+}
+
+.font-telugu {
+  font-family: var(--font-telugu);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #F4EFEB;
+}
+::-webkit-scrollbar-thumb {
+  background: #D8CCC0;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #BAAC9F;
+}

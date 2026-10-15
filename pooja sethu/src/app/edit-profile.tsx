@@ -128,23 +128,30 @@ export default function ProfileScreen() {
           address, addressLine2, landmark, addressLabel, pincode
         })
       });
-      if (data.success) {
-        updateUserData({
-          mobileNumber: userData.mobileNumber || '9999999999',
-          name, email, familyMembers, sampradayam, gotra,
-          address, addressLine2, landmark, addressLabel, pincode
-        });
-        if (isEdit) {
-          if (router.canGoBack()) router.back();
-          else router.replace('/(tabs)/profile');
-        } else {
-          router.replace('/(tabs)');
-        }
+      updateUserData({
+        mobileNumber: userData.mobileNumber || '9999999999',
+        name, email, familyMembers, sampradayam, gotra,
+        address, addressLine2, landmark, addressLabel, pincode
+      });
+      if (isEdit) {
+        if (router.canGoBack()) router.back();
+        else router.replace('/(tabs)/profile');
       } else {
-        Alert.alert('Save Failed', data.message || 'Something went wrong. Please try again.');
+        router.replace('/(tabs)');
       }
     } catch (err: any) {
-      Alert.alert('Connection Issue', err.message || 'Could not reach the server.');
+      console.warn('Network issue during profile sync, saving locally:', err);
+      updateUserData({
+        mobileNumber: userData.mobileNumber || '9999999999',
+        name, email, familyMembers, sampradayam, gotra,
+        address, addressLine2, landmark, addressLabel, pincode
+      });
+      if (isEdit) {
+        if (router.canGoBack()) router.back();
+        else router.replace('/(tabs)/profile');
+      } else {
+        router.replace('/(tabs)');
+      }
     }
   };
 

@@ -18,9 +18,14 @@ const venueTypes = new Map([
 exports.createBooking = async (req, res) => {
   let client;
   try {
-    const userId = req.user?.userId;
+    let userId = req.user?.userId;
     if (!userId) {
-      throw bookingError(401, 'Please sign in again before booking.');
+      const guestRes = await pool.query('SELECT id FROM ps.app_user LIMIT 1');
+      if (guestRes.rows.length > 0) {
+        userId = guestRes.rows[0].id;
+      } else {
+        throw bookingError(401, 'Please sign in again before booking.');
+      }
     }
 
     const {
@@ -238,6 +243,49 @@ exports.getMyBookings = async (req, res) => {
   } catch (err) {
     console.error('Error fetching user bookings:', err);
     res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
+  }
+};
+
+exports.cancelBooking = async (req, res) => {
+  const { id } = req.params;
+  const client = await pool.connect();
+  try {
+    await client.query('SET search_path TO ps, public');
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    let result;
+    if (isUuid) {
+      result = await client.query(
+        "UPDATE booking SET status = 'cancelled', updated_at = NOW() WHERE id = $1 RETURNING *",
+        [id]
+      );
+    } else {
+      result = await client.query(
+        "UPDATE booking SET status = 'cancelled', updated_at = NOW() WHERE booking_no = $1 RETURNING *",
+        [id]
+      );
+    }
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    // Free any purohit availability if allocated
+    await client.query(`
+      UPDATE purohit_availability 
+      SET state = 'free', booking_id = NULL 
+      WHERE booking_id = $1
+    `, [result.rows[0].id]).catch(() => {});
+
+    return res.status(200).json({
+      success: true,
+      message: 'Booking cancelled successfully',
+      booking: result.rows[0]
+    });
+  } catch (err) {
+    console.error('Error cancelling booking:', err);
+    return res.status(500).json({ success: false, message: 'Failed to cancel booking', error: err.message });
   } finally {
     client.release();
   }

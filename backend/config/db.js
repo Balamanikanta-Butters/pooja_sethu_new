@@ -2,7 +2,7 @@ const { Pool } = require('pg');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
-let connStr = process.env.DATABASE_URL || 'postgresql://postgres:kasturi@192.168.88.13:5432/pooja_sethu';
+let connStr = process.env.DATABASE_URL || 'postgresql://postgres:postgres@192.168.88.10:5432/pooja_sethu';
 if (!connStr.includes('options=')) {
   connStr += (connStr.includes('?') ? '&' : '?') + 'options=-c%20search_path%3Dps,public';
 }

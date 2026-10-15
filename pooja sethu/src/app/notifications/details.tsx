@@ -1,8 +1,9 @@
-import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Platform, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../constants/colors';
+import { API_BASE_URL } from '../../utils/apiBaseUrl';
 
 type NotificationDetail = {
   label: string;
@@ -13,40 +14,23 @@ type NotificationDetail = {
 export default function NotificationDetailsScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
+  const [loading, setLoading] = useState(true);
+  const [notifData, setNotifData] = useState<any>(null);
 
-  // Mock data lookup based on ID
-  const isReminder = id === '3';
-  
-  const notifData = isReminder ? {
-    icon: 'notifications',
-    iconColor: '#FFC107',
-    iconBg: '#FFF8E1',
-    title: 'Pooja Reminder',
-    subtitle: 'Your Satyanarayana Vratham is tomorrow.',
-    details: [
-      { label: 'Date', value: '12 October 2026', icon: 'calendar-outline' },
-      { label: 'Time', value: '08:15 AM - 09:30 AM', icon: 'time-outline' },
-      { label: 'Venue', value: 'Home', icon: 'home-outline' },
-      { label: 'Location', value: 'Hitech City, Hyderabad', icon: 'location-outline' },
-    ] as NotificationDetail[],
-    infoBox: 'Please keep the samagri ready and ensure the venue is prepared.',
-    buttonText: 'View Instructions'
-  } : {
-    icon: 'checkmark-circle',
-    iconColor: '#4CAF50',
-    iconBg: '#E8F5E9',
-    title: 'Booking Confirmed',
-    subtitle: 'Your Pooja has been successfully booked.',
-    details: [
-      { label: 'Booking ID', value: 'PS20261012001' },
-      { label: 'Pooja', value: 'Satyanarayana Vratham' },
-      { label: 'Purohit', value: 'Sri Venkatesh Sharma' },
-      { label: 'Date & Time', value: '12 Oct 2026, 08:15 AM' },
-      { label: 'Venue', value: 'Home' },
-      { label: 'Location', value: 'Hitech City, Hyderabad' },
-    ] as NotificationDetail[],
-    buttonText: 'View Booking Details'
-  };
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/notifications/${id}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.data) {
+          setNotifData(data.data);
+        }
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('Error fetching notification detail:', err);
+        setLoading(false);
+      });
+  }, [id]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -59,56 +43,67 @@ export default function NotificationDetailsScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        
-        {/* Status Header */}
-        <View style={styles.statusHeader}>
-          <View style={[styles.largeIconContainer, { backgroundColor: notifData.iconBg }]}>
-            <Ionicons name={notifData.icon as any} size={48} color={notifData.iconColor} />
-          </View>
-          <Text style={[styles.statusTitle, { color: notifData.iconColor }]}>{notifData.title}</Text>
-          <Text style={styles.statusSubtitle}>{notifData.subtitle}</Text>
+      {loading ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color="#7C1B2C" />
         </View>
-
-        {/* Details Card */}
-        <View style={styles.detailsCard}>
-          {notifData.details.map((row, idx) => (
-            <View key={idx}>
-              <View style={styles.detailRow}>
-                {row.icon ? (
-                  <View style={styles.detailRowWithIcon}>
-                    <Ionicons name={row.icon as any} size={20} color={colors.textLight} style={styles.detailIcon} />
-                    <Text style={styles.detailLabel}>{row.label}</Text>
-                  </View>
-                ) : (
-                  <Text style={styles.detailLabel}>{row.label}</Text>
-                )}
-                <Text style={styles.detailValue}>{row.value}</Text>
+      ) : !notifData ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <Ionicons name="notifications-off-outline" size={48} color="#ccc" />
+          <Text style={{ marginTop: 12, fontSize: 16, color: '#666' }}>Notification not found</Text>
+        </View>
+      ) : (
+        <>
+          <ScrollView contentContainerStyle={styles.scrollContent}>
+            {/* Status Header */}
+            <View style={styles.statusHeader}>
+              <View style={[styles.largeIconContainer, { backgroundColor: notifData.iconBg }]}>
+                <Ionicons name={notifData.icon as any} size={48} color={notifData.iconColor} />
               </View>
-              {idx < notifData.details.length - 1 && <View style={styles.divider} />}
+              <Text style={[styles.statusTitle, { color: notifData.iconColor }]}>{notifData.title}</Text>
+              <Text style={styles.statusSubtitle}>{notifData.subtitle}</Text>
             </View>
-          ))}
-        </View>
 
-        {/* Info Box for Reminder */}
-        {notifData.infoBox && (
-          <View style={styles.infoBox}>
-            <Ionicons name="information-circle" size={24} color="#7C1B2C" />
-            <Text style={styles.infoText}>{notifData.infoBox}</Text>
+            {/* Details Card */}
+            <View style={styles.detailsCard}>
+              {Array.isArray(notifData.details) && notifData.details.map((row: any, idx: number) => (
+                <View key={idx}>
+                  <View style={styles.detailRow}>
+                    {row.icon ? (
+                      <View style={styles.detailRowWithIcon}>
+                        <Ionicons name={row.icon as any} size={20} color={colors.textLight} style={styles.detailIcon} />
+                        <Text style={styles.detailLabel}>{row.label}</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.detailLabel}>{row.label}</Text>
+                    )}
+                    <Text style={styles.detailValue}>{row.value}</Text>
+                  </View>
+                  {idx < notifData.details.length - 1 && <View style={styles.divider} />}
+                </View>
+              ))}
+            </View>
+
+            {/* Info Box for Reminder */}
+            {notifData.infoBox && (
+              <View style={styles.infoBox}>
+                <Ionicons name="information-circle" size={24} color="#7C1B2C" />
+                <Text style={styles.infoText}>{notifData.infoBox}</Text>
+              </View>
+            )}
+          </ScrollView>
+
+          {/* Bottom Button */}
+          <View style={styles.footer}>
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => router.push('/(tabs)')}
+            >
+              <Text style={styles.actionButtonText}>{notifData.buttonText || 'Back to Home'}</Text>
+            </TouchableOpacity>
           </View>
-        )}
-
-      </ScrollView>
-
-      {/* Bottom Button */}
-      <View style={styles.footer}>
-        <TouchableOpacity 
-          style={styles.actionButton}
-          onPress={() => router.push('/pooja/details')}
-        >
-          <Text style={styles.actionButtonText}>{notifData.buttonText}</Text>
-        </TouchableOpacity>
-      </View>
+        </>
+      )}
     </SafeAreaView>
   );
 }

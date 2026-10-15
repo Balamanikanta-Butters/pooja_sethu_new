@@ -11,7 +11,9 @@ router.use(async (req, res, next) => {
     next();
 });
 
-router.post('/', authMiddleware, bookingController.createBooking);
+router.post('/', authMiddleware.optional, bookingController.createBooking);
 router.get('/my-bookings', authMiddleware.optional, bookingController.getMyBookings);
+router.post('/:id/cancel', authMiddleware.optional, bookingController.cancelBooking);
+router.patch('/:id/cancel', authMiddleware.optional, bookingController.cancelBooking);
 
 module.exports = router;

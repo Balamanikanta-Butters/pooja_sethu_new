@@ -202,9 +202,54 @@ exports.getAddons = async (req, res) => {
 exports.getPoojaDetails = async (req, res) => {
     try {
         const { id } = req.params;
-        const { sampradayam } = req.query; // 'smartha', 'madhva', etc.
-        
-        // Map frontend codes to DB string names
+        const { sampradayam } = req.query;
+
+        // 1. Resolve Pooja record from ps.pooja
+        const poojaRes = await db.query(`
+            SELECT 
+                p.id,
+                p.code,
+                p.name->>'en' as title,
+                p.name->>'te' as subtitle,
+                p.significance->>'en' as "desc",
+                p.image_url,
+                c.name->>'en' as category,
+                (SELECT MIN(vv.dakshina_min) FROM ps.pooja_vidhi pv JOIN ps.vidhi_version vv ON pv.current_version_id = vv.id WHERE pv.pooja_id = p.id) as min_price,
+                (SELECT MAX(vv.dakshina_max) FROM ps.pooja_vidhi pv JOIN ps.vidhi_version vv ON pv.current_version_id = vv.id WHERE pv.pooja_id = p.id) as max_price,
+                (SELECT MAX(vv.duration_minutes) FROM ps.pooja_vidhi pv JOIN ps.vidhi_version vv ON pv.current_version_id = vv.id WHERE pv.pooja_id = p.id) as duration
+            FROM ps.pooja p
+            LEFT JOIN ps.pooja_category c ON p.category_id = c.id
+            WHERE p.id::text = $1 
+               OR p.code = $1 
+               OR LOWER(p.name->>'en') = LOWER($1) 
+               OR p.code ILIKE '%' || $1 || '%'
+               OR LOWER(p.name->>'en') ILIKE '%' || $1 || '%'
+            LIMIT 1
+        `, [id]);
+
+        if (poojaRes.rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Pooja not found in database' });
+        }
+
+        const pooja = poojaRes.rows[0];
+        const resolvedPoojaId = pooja.id;
+
+        // Format duration & price
+        let durationText = '2 hrs';
+        if (pooja.duration) {
+            const hrs = Math.floor(pooja.duration / 60);
+            const mins = pooja.duration % 60;
+            durationText = hrs > 0 ? (mins > 0 ? `${hrs}.${mins / 6} hrs` : `${hrs} hrs`) : `${mins} min`;
+        }
+
+        let priceText = 'Price on Request';
+        if (pooja.min_price && pooja.max_price) {
+            priceText = `₹${Number(pooja.min_price).toLocaleString('en-IN')} – ₹${Number(pooja.max_price).toLocaleString('en-IN')}`;
+        } else if (pooja.min_price) {
+            priceText = `From ₹${Number(pooja.min_price).toLocaleString('en-IN')}`;
+        }
+
+        // Map frontend sampradayam codes to DB string names
         const sampradayamMap = {
             'smartha': 'Smartha',
             'madhva': 'Madhva',
@@ -217,9 +262,8 @@ exports.getPoojaDetails = async (req, res) => {
         };
 
         let mappedSampradayam = sampradayamMap[sampradayam?.toLowerCase()] || 'Smartha';
-        if (mappedSampradayam === 'Not sure') mappedSampradayam = 'Smartha'; // Fallback to Smartha
+        if (mappedSampradayam === 'Not sure') mappedSampradayam = 'Smartha';
 
-        // Function to fetch details for a specific sampradayam
         const fetchDetailsForSampradayam = async (filter) => {
             const stepsRes = await db.query(`
                 SELECT vs.name->>'en' as step_name
@@ -229,7 +273,7 @@ exports.getPoojaDetails = async (req, res) => {
                 JOIN ps.vidhi_step vs ON vv.id = vs.vidhi_version_id
                 WHERE pv.pooja_id = $1 AND s.name->>'en' = $2
                 ORDER BY vs.step_no ASC
-            `, [id, filter]);
+            `, [resolvedPoojaId, filter]);
 
             const samagriRes = await db.query(`
                 SELECT si.name->>'en' as item_name
@@ -239,7 +283,7 @@ exports.getPoojaDetails = async (req, res) => {
                 JOIN ps.vidhi_samagri vsa ON vv.id = vsa.vidhi_version_id
                 JOIN ps.samagri_item si ON vsa.samagri_item_id = si.id
                 WHERE pv.pooja_id = $1 AND s.name->>'en' = $2 AND vsa.supplied_by != 'family'
-            `, [id, filter]);
+            `, [resolvedPoojaId, filter]);
 
             const tasksRes = await db.query(`
                 SELECT vft.task->>'en' as task_name
@@ -249,7 +293,7 @@ exports.getPoojaDetails = async (req, res) => {
                 JOIN ps.vidhi_family_task vft ON vv.id = vft.vidhi_version_id
                 WHERE pv.pooja_id = $1 AND s.name->>'en' = $2
                 ORDER BY vft.sort_order ASC
-            `, [id, filter]);
+            `, [resolvedPoojaId, filter]);
 
             const familySamagriRes = await db.query(`
                 SELECT si.name->>'en' as item_name
@@ -259,7 +303,7 @@ exports.getPoojaDetails = async (req, res) => {
                 JOIN ps.vidhi_samagri vsa ON vv.id = vsa.vidhi_version_id
                 JOIN ps.samagri_item si ON vsa.samagri_item_id = si.id
                 WHERE pv.pooja_id = $1 AND s.name->>'en' = $2 AND vsa.supplied_by = 'family'
-            `, [id, filter]);
+            `, [resolvedPoojaId, filter]);
 
             return {
                 vidhiSteps: stepsRes.rows.map(r => r.step_name),
@@ -283,13 +327,154 @@ exports.getPoojaDetails = async (req, res) => {
             }
         }
 
+        // FAQs from ps.vidhi_faq
+        const faqRes = await db.query(`
+            SELECT 
+                f.id,
+                f.question->>'en' as q,
+                f.answer->>'en' as a
+            FROM ps.pooja_vidhi pv
+            JOIN ps.vidhi_version vv ON pv.current_version_id = vv.id
+            JOIN ps.vidhi_faq f ON vv.id = f.vidhi_version_id
+            WHERE pv.pooja_id = $1
+            ORDER BY f.sort_order ASC
+        `, [resolvedPoojaId]);
+
+        let faqs = faqRes.rows;
+        if (faqs.length === 0) {
+            const generalFaqRes = await db.query(`
+                SELECT DISTINCT ON (f.question->>'en')
+                    f.id,
+                    f.question->>'en' as q,
+                    f.answer->>'en' as a
+                FROM ps.vidhi_faq f
+                ORDER BY f.question->>'en', f.sort_order ASC
+                LIMIT 5
+            `);
+            faqs = generalFaqRes.rows;
+        }
+
         res.status(200).json({
             success: true,
-            data: details
+            data: {
+                id: pooja.id,
+                code: pooja.code,
+                title: pooja.title,
+                subtitle: pooja.subtitle,
+                desc: pooja.desc,
+                category: pooja.category,
+                price: priceText,
+                duration: durationText,
+                vidhiSteps: details.vidhiSteps,
+                samagriItems: details.samagriItems,
+                familyArranges: details.familyArranges,
+                faqs: faqs
+            }
         });
     } catch (err) {
-        console.error(err);
+        console.error('Error in getPoojaDetails:', err);
         res.status(500).json({ success: false, message: 'Server error while fetching pooja details' });
+    }
+};
+
+exports.getSampradayams = async (req, res) => {
+    try {
+        const result = await db.query(`
+            SELECT id, code, name->>'en' as name, name->>'te' as name_te, description->>'en' as description
+            FROM ps.sampradayam
+            ORDER BY CASE WHEN code = 'unknown' THEN 999 ELSE 1 END, name->>'en' ASC
+        `);
+        return res.status(200).json({ success: true, data: result.rows });
+    } catch (err) {
+        console.error('Error fetching sampradayams:', err);
+        return res.status(500).json({ success: false, message: 'Failed to fetch sampradayams' });
+    }
+};
+
+exports.getMuhurthams = async (req, res) => {
+    try {
+        const { poojaId } = req.query;
+        let query = `
+            SELECT 
+                m.id, 
+                m.pooja_id,
+                m.starts_at, 
+                m.ends_at, 
+                m.lagnam, 
+                m.note->>'en' as note, 
+                m.quality,
+                p.name->>'en' as pooja_name,
+                p.name->>'te' as pooja_name_te
+            FROM ps.muhurtham_suggestion m 
+            LEFT JOIN ps.pooja p ON m.pooja_id = p.id
+        `;
+        const params = [];
+        if (poojaId) {
+            query += ` WHERE m.pooja_id::text = $1 OR p.code = $1 OR p.name->>'en' ILIKE '%' || $1 || '%'`;
+            params.push(poojaId);
+        }
+        query += ` ORDER BY m.starts_at ASC`;
+        let result = await db.query(query, params);
+
+        if (result.rows.length === 0 && poojaId) {
+            result = await db.query(`
+                SELECT 
+                    m.id, 
+                    m.pooja_id,
+                    m.starts_at, 
+                    m.ends_at, 
+                    m.lagnam, 
+                    m.note->>'en' as note, 
+                    m.quality,
+                    p.name->>'en' as pooja_name,
+                    p.name->>'te' as pooja_name_te
+                FROM ps.muhurtham_suggestion m 
+                LEFT JOIN ps.pooja p ON m.pooja_id = p.id
+                ORDER BY m.starts_at ASC
+            `);
+        }
+
+        const formatted = result.rows.map(m => {
+            const start = new Date(m.starts_at);
+            const end = new Date(m.ends_at);
+            const dateStr = start.toLocaleDateString('en-US', {
+                timeZone: 'Asia/Kolkata',
+                weekday: 'short',
+                day: 'numeric',
+                month: 'short'
+            });
+            const startTimeStr = start.toLocaleTimeString('en-US', {
+                timeZone: 'Asia/Kolkata',
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+            });
+            const endTimeStr = end.toLocaleTimeString('en-US', {
+                timeZone: 'Asia/Kolkata',
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+            });
+
+            return {
+                id: m.id,
+                poojaId: m.pooja_id,
+                date: dateStr,
+                time: `${startTimeStr} – ${endTimeStr}`,
+                desc: `${m.lagnam} lagnam${m.note ? ' · ' + m.note : ''}`,
+                tag: m.quality === 'best' ? 'Best' : 'Good',
+                tagColor: m.quality === 'best' ? '#E6F4EA' : '#E8F0FE',
+                tagTextColor: m.quality === 'best' ? '#137333' : '#1967D2',
+                starts_at: m.starts_at,
+                ends_at: m.ends_at,
+                lagnam: m.lagnam
+            };
+        });
+
+        return res.status(200).json({ success: true, data: formatted });
+    } catch (err) {
+        console.error('Error fetching muhurthams:', err);
+        return res.status(500).json({ success: false, message: 'Failed to fetch muhurthams' });
     }
 };
 

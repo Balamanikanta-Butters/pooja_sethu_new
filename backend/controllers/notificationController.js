@@ -118,3 +118,93 @@ exports.getNotifications = async (req, res) => {
         return res.status(500).json({ success: false, message: 'Server error fetching notifications' });
     }
 };
+
+exports.getNotificationById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const query = `
+            SELECT 
+                n.id, 
+                n.channel, 
+                n.status, 
+                n.created_at,
+                n.booking_id,
+                t.code as template_code,
+                t.body as template_body,
+                b.booking_no,
+                b.starts_at,
+                b.venue_type,
+                b.address_line1,
+                b.pincode,
+                p.name->>'en' as pooja_name,
+                pur.name as purohit_name
+            FROM ps.notification_log n
+            LEFT JOIN ps.notification_template t ON n.template_id = t.id
+            LEFT JOIN ps.booking b ON n.booking_id = b.id
+            LEFT JOIN ps.pooja_vidhi pv ON b.pooja_vidhi_id = pv.id
+            LEFT JOIN ps.pooja p ON pv.pooja_id = p.id
+            LEFT JOIN ps.booking_assignment ba ON b.id = ba.booking_id
+            LEFT JOIN ps.purohit pur ON ba.purohit_id = pur.id
+            WHERE n.id::text = $1
+            LIMIT 1
+        `;
+
+        const result = await db.query(query, [id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Notification not found' });
+        }
+
+        const row = result.rows[0];
+        let type = 'update';
+        let title = 'Notification';
+        let icon = 'notifications';
+        let iconColor = '#7C1B2C';
+        let iconBg = '#F4EAD3';
+
+        if (row.template_code === 'booking_confirmed') {
+            type = 'booking';
+            title = 'Booking Confirmed';
+            icon = 'checkmark-circle';
+            iconColor = '#4CAF50';
+            iconBg = '#E8F5E9';
+        } else if (row.template_code === 'pooja_reminder') {
+            type = 'reminder';
+            title = 'Pooja Reminder';
+            icon = 'notifications';
+            iconColor = '#FFC107';
+            iconBg = '#FFF8E1';
+        }
+
+        const details = [];
+        if (row.booking_no) details.push({ label: 'Booking ID', value: row.booking_no });
+        if (row.pooja_name) details.push({ label: 'Pooja', value: row.pooja_name });
+        if (row.purohit_name) details.push({ label: 'Purohit', value: row.purohit_name });
+        if (row.starts_at) {
+            const d = new Date(row.starts_at);
+            details.push({
+                label: 'Date & Time',
+                value: d.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }),
+                icon: 'calendar-outline'
+            });
+        }
+        if (row.venue_type) details.push({ label: 'Venue', value: row.venue_type, icon: 'home-outline' });
+        if (row.address_line1) details.push({ label: 'Location', value: `${row.address_line1} ${row.pincode || ''}`.trim(), icon: 'location-outline' });
+
+        return res.status(200).json({
+            success: true,
+            data: {
+                id: row.id,
+                icon,
+                iconColor,
+                iconBg,
+                title,
+                subtitle: row.template_body || 'Details for your ceremony.',
+                details,
+                buttonText: row.booking_id ? 'View Booking Details' : 'Go to Home'
+            }
+        });
+    } catch (error) {
+        console.error('Error in getNotificationById:', error);
+        return res.status(500).json({ success: false, message: 'Server error' });
+    }
+};

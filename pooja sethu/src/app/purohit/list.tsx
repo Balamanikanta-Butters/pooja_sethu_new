@@ -83,13 +83,9 @@ export default function PurohitListScreen() {
   };
 
   React.useEffect(() => {
-    const selectedDate = params.selectedMuhurtham === '11'
-      ? '2026-10-11'
-      : (params.selectedMuhurtham === '22'
-        ? '2026-10-22'
-        : (params.selectedMuhurtham === '25'
-          ? '2026-10-25'
-          : (typeof params.customDate === 'string' ? params.customDate : '')));
+    const selectedDate = (typeof params.selectedMuhurthamDate === 'string' && params.selectedMuhurthamDate)
+      ? params.selectedMuhurthamDate
+      : (typeof params.customDate === 'string' ? params.customDate : '');
 
     const url = `${API_BASE_URL}/api/services/purohits?date=${encodeURIComponent(selectedDate)}&t=${new Date().getTime()}`;
     fetch(url)

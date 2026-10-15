@@ -19,7 +19,8 @@ export default function DateAndVenueScreen() {
   const { userData, updateUserData } = useUser();
   const title = (params.title as string) || 'Gruhapravesam';
   const passedSampradayam = (params.sampradayam as string) || '';
-  const [selectedMuhurtham, setSelectedMuhurtham] = useState('11');
+  const [dbMuhurthams, setDbMuhurthams] = useState<any[]>([]);
+  const [selectedMuhurtham, setSelectedMuhurtham] = useState('');
   const [selectedVenue, setSelectedVenue] = useState('Home');
   const [customDate, setCustomDate] = useState('');
   const [customTime, setCustomTime] = useState('');
@@ -43,6 +44,27 @@ export default function DateAndVenueScreen() {
   );
 
   const proceedToPurohitList = (dismissed = false) => {
+    const selectedItem = dbMuhurthams.find(m => m.id === selectedMuhurtham);
+    if (params.isReschedule === 'true') {
+      const muhurthamDisplay = selectedMuhurtham === 'custom'
+        ? `${customDate} · ${customTime}`
+        : selectedItem
+        ? `${selectedItem.date} · ${selectedItem.time}`
+        : `${customDate || 'Upcoming Muhurtham'}`;
+
+      router.push({
+        pathname: '/booking/success',
+        params: {
+          ...params,
+          selectedMuhurtham: muhurthamDisplay,
+          customDate,
+          customTime,
+          rescheduled: 'true',
+        }
+      });
+      return;
+    }
+
     router.push({
       pathname: '/purohit/list',
       params: {
@@ -50,6 +72,8 @@ export default function DateAndVenueScreen() {
         title,
         sampradayam: passedSampradayam,
         selectedMuhurtham,
+        selectedMuhurthamText: selectedItem ? `${selectedItem.date} · ${selectedItem.time}` : '',
+        selectedMuhurthamDate: selectedItem?.starts_at ? new Date(selectedItem.starts_at).toISOString().split('T')[0] : '',
         customDate,
         customTime,
         selectedVenue,
@@ -64,6 +88,16 @@ export default function DateAndVenueScreen() {
 
   React.useEffect(() => {
     let isMounted = true;
+    fetch(`${API_BASE_URL}/api/services/muhurthams?poojaId=${encodeURIComponent((params.id as string) || title)}`)
+      .then(res => res.json())
+      .then(data => {
+        if (isMounted && data.success && Array.isArray(data.data) && data.data.length > 0) {
+          setDbMuhurthams(data.data);
+          setSelectedMuhurtham(data.data[0].id);
+        }
+      })
+      .catch(err => console.error('Error fetching muhurthams:', err));
+
     fetch(`${API_BASE_URL}/api/services/pincodes`)
       .then(async (response) => {
         const data = await response.json();
@@ -151,8 +185,12 @@ export default function DateAndVenueScreen() {
           <Ionicons name="chevron-back" size={24} color="#333333" />
         </TouchableOpacity>
         <View>
-          <Text style={styles.headerTitle}>{t('whenAndWhere')}</Text>
-          <Text style={styles.headerSubtitle}>{title}</Text>
+          <Text style={styles.headerTitle}>
+            {params.isReschedule === 'true' ? 'Reschedule Ceremony' : t('whenAndWhere')}
+          </Text>
+          <Text style={styles.headerSubtitle}>
+            {params.isReschedule === 'true' ? `Booking #${params.booking_no || 'PS-26-10482'} · ${title}` : title}
+          </Text>
         </View>
       </View>
 
@@ -170,9 +208,7 @@ export default function DateAndVenueScreen() {
         <Text style={styles.sectionDesc}>{t('calculatedFor')}</Text>
 
         {[
-          { id: '11', date: 'Sun, 11 Oct', time: '7:12 – 9:04 AM', desc: 'Tula lagnam · Hasta Nakshatram', tag: 'Best', tagColor: '#E6F4EA', tagTextColor: '#137333' },
-          { id: '22', date: 'Thu, 22 Oct', time: '7:10 – 8:52 AM', desc: 'Vrischika lagnam', tag: 'Good', tagColor: '#E8F0FE', tagTextColor: '#1967D2' },
-          { id: '25', date: 'Sun, 25 Oct', time: '6:40 – 8:15 AM', desc: 'Weekend · high demand', tag: 'Filling fast', tagColor: '#FEF7E0', tagTextColor: '#B06000' },
+          ...dbMuhurthams,
           { id: 'custom', date: t('customDateTime'), time: t('familyHasMuhurtham'), desc: '', tag: 'Custom', tagColor: '#F1F3F4', tagTextColor: '#5F6368' },
         ].map((item) => (
           <TouchableOpacity 
@@ -383,7 +419,9 @@ export default function DateAndVenueScreen() {
       <View style={styles.footer}>
         <Text style={styles.footerTip}>{t('chooseMuhurthamTip')}</Text>
         <TouchableOpacity style={styles.continueButton} onPress={handleContinue}>
-          <Text style={styles.continueButtonText}>{t('seeAvailablePurohits')}</Text>
+          <Text style={styles.continueButtonText}>
+            {params.isReschedule === 'true' ? 'Confirm Rescheduled Date' : t('seeAvailablePurohits')}
+          </Text>
         </TouchableOpacity>
       </View>
       </KeyboardAvoidingView>
@@ -522,15 +560,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333333',
-  },
-  sampleBadge: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    backgroundColor: '#F4EAD3',
-    color: '#8C6C3F',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
   },
   sectionDesc: {
     fontSize: 13,

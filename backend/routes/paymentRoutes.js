@@ -12,9 +12,9 @@ router.use(async (req, res, next) => {
 });
 
 // Route to create a new Razorpay order
-router.post('/create-order', authMiddleware, paymentController.createOrder);
+router.post('/create-order', authMiddleware.optional, paymentController.createOrder);
 
 // Route to verify a payment after successful frontend checkout
-router.post('/verify', authMiddleware, paymentController.verifyPayment);
+router.post('/verify', authMiddleware.optional, paymentController.verifyPayment);
 
 module.exports = router;

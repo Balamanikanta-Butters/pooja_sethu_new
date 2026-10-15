@@ -6,6 +6,7 @@ import {
   pauseAnalyticsSession,
   recordAnalyticsPage,
   startOrResumeAnalyticsSession,
+  AnalyticsRequestError,
 } from '../utils/analytics';
 
 const pageNames: Record<string, string> = {
@@ -37,6 +38,9 @@ function getPageName(pagePath: string) {
 }
 
 function reportAnalyticsError(action: string, error: unknown) {
+  if (error instanceof AnalyticsRequestError && error.status === 404) {
+    return;
+  }
   console.warn(`Analytics ${action} failed:`, error);
 }
 

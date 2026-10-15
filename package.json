@@ -1,10 +1,15 @@
 {
   "name": "pooja-sethu",
   "version": "1.0.0",
-  "description": "",
+  "description": "PoojaSethu Monorepo (Backend, Mobile, Web)",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "backend": "cd backend && node server.js",
+    "web": "cd web && npm run dev -- --open",
+    "mobile": "cd \"pooja sethu\" && npx expo start --web",
+    "dev": "npx concurrently -n \"BACKEND,WEB,APP\" -c \"cyan,magenta,yellow\" \"npm run backend\" \"npm run web\" \"npm run mobile\"",
+    "start": "npx concurrently -n \"BACKEND,WEB,APP\" -c \"cyan,magenta,yellow\" \"npm run backend\" \"npm run web\" \"npm run mobile\"",
+    "expo": "cd \"pooja sethu\" && npx expo start --web"
   },
   "keywords": [],
   "author": "",

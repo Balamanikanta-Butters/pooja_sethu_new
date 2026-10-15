@@ -175,11 +175,6 @@ export default function PanchangamScreen() {
 
             <View style={styles.sectionHeading}>
               <Text style={styles.sectionTitle}>Panchanga elements</Text>
-              {selectedDay.source === 'sample' ? (
-                <View style={styles.sampleBadge}>
-                  <Text style={styles.sampleText}></Text>
-                </View>
-              ) : null}
             </View>
             <View style={styles.elementsCard}>
               <ElementRow label="Vaaram" value={selectedDay.vaaram} />

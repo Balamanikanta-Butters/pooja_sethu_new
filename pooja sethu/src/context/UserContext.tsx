@@ -69,27 +69,6 @@ type UserContextType = {
   selectSavedAddress: (id: string) => Promise<void>;
 };
 
-const initialDefaultAddresses: SavedAddress[] = [
-  {
-    id: 'addr-1',
-    label: 'Home',
-    line1: '402, Sai Residency, Madhapur',
-    line2: '',
-    landmark: '',
-    pincode: '500081',
-    is_default: true,
-  },
-  {
-    id: 'addr-2',
-    label: "Parents' home",
-    line1: '12-3, Brodipet, Guntur',
-    line2: '',
-    landmark: '',
-    pincode: '522002',
-    is_default: false,
-  },
-];
-
 const defaultUserData: UserData = {
   mobileNumber: '',
   email: '',
@@ -97,12 +76,12 @@ const defaultUserData: UserData = {
   familyMembers: [],
   sampradayam: '',
   gotra: '',
-  address: '402, Sai Residency, Madhapur',
+  address: '',
   addressLine2: '',
   landmark: '',
-  addressLabel: 'Home',
-  pincode: '500081',
-  savedAddresses: initialDefaultAddresses,
+  addressLabel: '',
+  pincode: '',
+  savedAddresses: [],
   familyDates: [],
   reviews: [],
 };
@@ -144,25 +123,38 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
             setUserData(prev => {
               const mergedAddresses = backendAddresses.length > 0
                 ? backendAddresses
-                : (prev.savedAddresses && prev.savedAddresses.length > 0 ? prev.savedAddresses : initialDefaultAddresses);
+                : (prev.savedAddresses || []);
 
               const defaultAddr = mergedAddresses.find(a => a.is_default) || mergedAddresses[0];
 
               return {
                 ...prev,
                 ...data.user,
-                address: defaultAddr?.line1 || data.user.address || prev.address,
-                addressLine2: defaultAddr?.line2 || data.user.addressLine2 || prev.addressLine2,
-                landmark: defaultAddr?.landmark || data.user.landmark || prev.landmark,
-                addressLabel: defaultAddr?.label || data.user.addressLabel || prev.addressLabel,
-                pincode: defaultAddr?.pincode || data.user.pincode || prev.pincode,
+                address: defaultAddr?.line1 || data.user.address || prev.address || '',
+                addressLine2: defaultAddr?.line2 || data.user.addressLine2 || prev.addressLine2 || '',
+                landmark: defaultAddr?.landmark || data.user.landmark || prev.landmark || '',
+                addressLabel: defaultAddr?.label || data.user.addressLabel || prev.addressLabel || '',
+                pincode: defaultAddr?.pincode || data.user.pincode || prev.pincode || '',
                 savedAddresses: mergedAddresses,
               };
             });
           }
         }
-      } catch (err) {
-        console.error("Failed to load user profile", err);
+      } catch (err: any) {
+        const isAuthOrNotFound =
+          err?.statusCode === 401 ||
+          err?.statusCode === 404 ||
+          err?.message?.toLowerCase?.().includes('user not found') ||
+          err?.message?.toLowerCase?.().includes('unauthorized') ||
+          err?.message?.toLowerCase?.().includes('not found');
+
+        if (isAuthOrNotFound) {
+          console.warn("Session expired or user not found. Resetting session.");
+          await clearToken();
+          setUserData(defaultUserData);
+        } else {
+          console.warn("Failed to load user profile:", err?.message || err);
+        }
       } finally {
         setLoading(false);
       }
@@ -175,7 +167,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
       const updated = { ...prev, ...data };
       // If address fields were updated directly, also update the default savedAddress
       if (data.address !== undefined || data.pincode !== undefined || data.addressLabel !== undefined) {
-        const list = [...(updated.savedAddresses || initialDefaultAddresses)];
+        const list = [...(updated.savedAddresses || [])];
         const defaultIndex = list.findIndex(a => a.is_default) >= 0 ? list.findIndex(a => a.is_default) : 0;
         if (list[defaultIndex]) {
           list[defaultIndex] = {
@@ -195,7 +187,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
 
   const updateSavedAddress = async (updatedAddr: SavedAddress) => {
     setUserData(prev => {
-      const list = prev.savedAddresses && prev.savedAddresses.length > 0 ? prev.savedAddresses : initialDefaultAddresses;
+      const list = prev.savedAddresses && prev.savedAddresses.length > 0 ? prev.savedAddresses : [];
       const updatedList = list.map(item => item.id === updatedAddr.id ? updatedAddr : item);
       const isDefault = updatedAddr.is_default || (!list.find(item => item.is_default) && updatedList[0]?.id === updatedAddr.id);
       return {

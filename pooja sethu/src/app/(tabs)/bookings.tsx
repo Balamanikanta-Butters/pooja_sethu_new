@@ -108,7 +108,17 @@ export default function BookingsTabScreen() {
                 <Text style={styles.amountText}>₹{b.total_payable || '0'}</Text>
                 <TouchableOpacity 
                   style={styles.viewButton}
-                  onPress={() => router.push('/booking/success')}
+                  onPress={() => router.push({
+                    pathname: '/booking/success',
+                    params: {
+                      bookingId: b.id,
+                      booking_no: b.booking_no,
+                      title: b.pooja_name,
+                      purohitName: b.purohit_name,
+                      selectedMuhurtham: b.starts_at ? new Date(b.starts_at).toLocaleString() : '',
+                      total_payable: b.total_payable
+                    }
+                  })}
                 >
                   <Text style={styles.viewButtonText}>{t('viewDetails')}</Text>
                 </TouchableOpacity>

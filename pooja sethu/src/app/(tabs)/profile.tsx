@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../constants/colors';
 import { useUser, SavedAddress } from '../../context/UserContext';
 import { useRouter } from 'expo-router';
@@ -58,26 +59,17 @@ export default function AccountScreen() {
 
   const addresses: SavedAddress[] = userData.savedAddresses && userData.savedAddresses.length > 0
     ? userData.savedAddresses
-    : [
+    : (userData.address ? [
         {
-          id: 'addr-1',
+          id: 'user-addr',
           label: userData.addressLabel || 'Home',
-          line1: userData.address || '402, Sai Residency, Madhapur',
+          line1: userData.address,
           line2: userData.addressLine2 || '',
           landmark: userData.landmark || '',
-          pincode: userData.pincode || '500081',
+          pincode: userData.pincode || '',
           is_default: true,
-        },
-        {
-          id: 'addr-2',
-          label: "Parents' home",
-          line1: '12-3, Brodipet, Guntur',
-          line2: '',
-          landmark: '',
-          pincode: '522002',
-          is_default: false,
         }
-      ];
+      ] : []);
 
   useEffect(() => {
     const defaultAddr = addresses.find(a => a.is_default) || addresses[0];
@@ -138,12 +130,12 @@ export default function AccountScreen() {
     }
   };
 
-  const displayName = userData.name || 'Lakshmi Sravani';
+  const displayName = userData.name ? userData.name.trim() : (userData.mobileNumber ? `+91 ${userData.mobileNumber}` : 'User');
   
   // Extract initials
   const getInitials = (name: string) => {
-    if (!name) return 'LS';
-    const parts = name.split(' ');
+    if (!name || name === 'User') return 'PS';
+    const parts = name.trim().split(' ');
     if (parts.length >= 2) {
       return (parts[0][0] + parts[1][0]).toUpperCase();
     }
@@ -177,7 +169,7 @@ export default function AccountScreen() {
     setFormLine1('');
     setFormLine2('');
     setFormLandmark('');
-    setFormPincode(userData.pincode || '500081');
+    setFormPincode(userData.pincode || '');
     setFormErrors({});
     setEditAddressModalVisible(true);
   };
@@ -296,6 +288,12 @@ export default function AccountScreen() {
               >
                 <Text style={language === 'Telugu' ? styles.langTextActive : styles.langTextInactive}>తెలుగు</Text>
               </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.langButton, language === 'Hindi' && styles.langButtonActive]}
+                onPress={() => setLanguage('Hindi')}
+              >
+                <Text style={language === 'Hindi' ? styles.langTextActive : styles.langTextInactive}>हिन्दी</Text>
+              </TouchableOpacity>
             </View>
           </View>
           <View style={styles.divider} />
@@ -382,57 +380,67 @@ export default function AccountScreen() {
             </View>
 
             <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
-              {addresses.map((item) => {
-                const isSelected = selectedAddressId === item.id;
-                const formattedAddress = [item.line1, item.line2, item.landmark].filter(Boolean).join(', ');
-                return (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={[
-                      styles.addressCard,
-                      isSelected && styles.addressCardSelected
-                    ]}
-                    activeOpacity={0.8}
-                    onPress={() => setSelectedAddressId(item.id)}
-                  >
-                    <View style={styles.addressCardRow}>
-                      {/* Radio button */}
-                      <View style={[styles.radioCircleOuter, isSelected && styles.radioCircleOuterSelected]}>
-                        {isSelected && <View style={styles.radioCircleInner} />}
-                      </View>
-
-                      {/* Content */}
-                      <View style={styles.addressInfoCol}>
-                        <View style={styles.addressLabelRow}>
-                          <Text style={styles.addressItemLabel}>{item.label}</Text>
-                          <TouchableOpacity
-                            onPress={(e) => {
-                              e.stopPropagation?.();
-                              handleOpenEditAddress(item);
-                            }}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                          >
-                            <Text style={styles.editAddressLink}>Edit</Text>
-                          </TouchableOpacity>
+              {addresses.length === 0 ? (
+                <View style={{ paddingVertical: 36, alignItems: 'center' }}>
+                  <Ionicons name="location-outline" size={40} color="#B5A99B" />
+                  <Text style={{ color: '#555555', fontSize: 15, fontWeight: '600', marginTop: 10 }}>No saved addresses yet</Text>
+                  <Text style={{ color: '#888888', fontSize: 13, marginTop: 4, textAlign: 'center', paddingHorizontal: 20 }}>Tap '+ Add new' above to add your address</Text>
+                </View>
+              ) : (
+                addresses.map((item) => {
+                  const isSelected = selectedAddressId === item.id;
+                  const formattedAddress = [item.line1, item.line2, item.landmark].filter(Boolean).join(', ');
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={[
+                        styles.addressCard,
+                        isSelected && styles.addressCardSelected
+                      ]}
+                      activeOpacity={0.8}
+                      onPress={() => setSelectedAddressId(item.id)}
+                    >
+                      <View style={styles.addressCardRow}>
+                        {/* Radio button */}
+                        <View style={[styles.radioCircleOuter, isSelected && styles.radioCircleOuterSelected]}>
+                          {isSelected && <View style={styles.radioCircleInner} />}
                         </View>
-                        <Text style={styles.addressItemDesc} numberOfLines={2}>
-                          {formattedAddress}
-                          {item.pincode ? ` - ${item.pincode}` : ''}
-                        </Text>
+
+                        {/* Content */}
+                        <View style={styles.addressInfoCol}>
+                          <View style={styles.addressLabelRow}>
+                            <Text style={styles.addressItemLabel}>{item.label}</Text>
+                            <TouchableOpacity
+                              onPress={(e) => {
+                                e.stopPropagation?.();
+                                handleOpenEditAddress(item);
+                              }}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            >
+                              <Text style={styles.editAddressLink}>Edit</Text>
+                            </TouchableOpacity>
+                          </View>
+                          <Text style={styles.addressItemDesc} numberOfLines={2}>
+                            {formattedAddress}
+                            {item.pincode ? ` - ${item.pincode}` : ''}
+                          </Text>
+                        </View>
                       </View>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
+                    </TouchableOpacity>
+                  );
+                })
+              )}
             </ScrollView>
 
             {/* Use this address button */}
-            <TouchableOpacity
-              style={styles.useAddressButton}
-              onPress={handleConfirmUseAddress}
-            >
-              <Text style={styles.useAddressButtonText}>Use this address</Text>
-            </TouchableOpacity>
+            {addresses.length > 0 && (
+              <TouchableOpacity
+                style={styles.useAddressButton}
+                onPress={handleConfirmUseAddress}
+              >
+                <Text style={styles.useAddressButtonText}>Use this address</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -797,7 +805,7 @@ const styles = StyleSheet.create({
   },
   langButton: {
     paddingVertical: 6,
-    paddingHorizontal: 16,
+    paddingHorizontal: 10,
     borderRadius: 6,
   },
   langButtonActive: {

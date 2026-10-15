@@ -11,7 +11,7 @@ type AnalyticsResponse = {
   message?: string;
 };
 
-class AnalyticsRequestError extends Error {
+export class AnalyticsRequestError extends Error {
   status: number;
 
   constructor(message: string, status: number) {
@@ -148,7 +148,16 @@ export function recordAnalyticsPage(pagePath: string, pageName: string) {
       await startOrResume(pagePath, pageName);
       return;
     }
-    await recordPage(token, sessionId, pagePath, pageName);
+    try {
+      await recordPage(token, sessionId, pagePath, pageName);
+    } catch (error) {
+      if (error instanceof AnalyticsRequestError && error.status === 404) {
+        await saveSessionId(null);
+        await startOrResume(pagePath, pageName);
+        return;
+      }
+      throw error;
+    }
   });
 }
 
@@ -157,8 +166,17 @@ export function pauseAnalyticsSession() {
     const sessionId = await readSessionId();
     const token = await getToken();
     if (!sessionId || !token) return;
-    await request(token, `/sessions/${sessionId}/pause`, 'POST');
-    sessionIsActive = false;
+    try {
+      await request(token, `/sessions/${sessionId}/pause`, 'POST');
+      sessionIsActive = false;
+    } catch (error) {
+      if (error instanceof AnalyticsRequestError && error.status === 404) {
+        await saveSessionId(null);
+        sessionIsActive = false;
+        return;
+      }
+      throw error;
+    }
   });
 }
 
@@ -167,7 +185,16 @@ export function heartbeatAnalyticsSession() {
     const sessionId = await readSessionId();
     const token = await getToken();
     if (!sessionId || !token) return;
-    await request(token, `/sessions/${sessionId}/heartbeat`, 'POST');
+    try {
+      await request(token, `/sessions/${sessionId}/heartbeat`, 'POST');
+    } catch (error) {
+      if (error instanceof AnalyticsRequestError && error.status === 404) {
+        await saveSessionId(null);
+        sessionIsActive = false;
+        return;
+      }
+      throw error;
+    }
   });
 }
 
