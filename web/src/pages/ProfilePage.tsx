@@ -11,7 +11,8 @@ import {
   LogOut,
   ChevronRight,
   Shield,
-  Sparkles
+  Sparkles,
+  Users
 } from 'lucide-react';
 import { apiRequest } from '../utils/apiClient';
 import { showToast } from '../components/ToastNotification';
@@ -75,6 +76,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [addrPincode, setAddrPincode] = useState('500081');
   const [addrIsDefault, setAddrIsDefault] = useState(false);
 
+  // Family Members State (from ps.family_member)
+  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
+  const [isFamilyModalOpen, setIsFamilyModalOpen] = useState(false);
+  const [famName, setFamName] = useState('');
+  const [famRelation, setFamRelation] = useState('spouse');
+  const [famGotram, setFamGotram] = useState('');
+  const [famNakshatram, setFamNakshatram] = useState('Rohini');
+
   // Raise concern modal state
   const [isConcernModalOpen, setIsConcernModalOpen] = useState(false);
   const [concernBookingId, setConcernBookingId] = useState('');
@@ -91,16 +100,21 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     setLoading(true);
     try {
       // 1. Fetch user profile from backend
+      let currentUserObj: any = null;
       const res = await apiRequest('/api/auth/me', { timeoutMs: 8000 });
       if (res.success) {
         const u = res.raw?.user || res.data?.user || res.data;
         if (u) {
+          currentUserObj = u;
           setName(u.name || '');
           setEmail(u.email || '');
           setSampradayam(u.sampradayam || 'smartha');
           setGotra(u.gotra || u.gotram || 'Kashyapa');
           if (Array.isArray(u.addresses) && u.addresses.length > 0) {
             setAddresses(u.addresses);
+          }
+          if (Array.isArray(u.familyMembers) && u.familyMembers.length > 0) {
+            setFamilyMembers(u.familyMembers);
           }
           onUserUpdate(u);
         }
@@ -125,6 +139,17 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           message: 'Saved addresses unavailable (database offline).'
         });
       }
+
+      // 3. Fetch family members directly from /api/auth/family-members
+      try {
+        const famRes = await apiRequest('/api/auth/family-members', { timeoutMs: 8000 });
+        const rawFams = famRes.raw?.familyMembers || famRes.data?.familyMembers || (Array.isArray(famRes.data) ? famRes.data : []);
+        if (famRes.success && Array.isArray(rawFams) && rawFams.length > 0) {
+          setFamilyMembers(rawFams);
+        } else if (currentUserObj && Array.isArray(currentUserObj.familyMembers)) {
+          setFamilyMembers(currentUserObj.familyMembers);
+        }
+      } catch {}
     } catch (err: any) {
       console.error('Failed to load profile from backend:', err);
       showToast({ type: 'error', message: err.message || 'Unable to sync profile with database' });
@@ -268,6 +293,62 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       }
     } catch (err: any) {
       showToast({ type: 'error', message: err.message || 'Failed to update default address' });
+    }
+  };
+
+  // Family Members Management (ps.family_member)
+  const handleOpenAddFamily = () => {
+    setFamName('');
+    setFamRelation('spouse');
+    setFamGotram(gotra || '');
+    setFamNakshatram('Rohini');
+    setIsFamilyModalOpen(true);
+  };
+
+  const handleSaveFamilyMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!famName.trim()) {
+      showToast({ type: 'warning', message: 'Please enter member name' });
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await apiRequest('/api/auth/family-members', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: famName.trim(),
+          relation: famRelation,
+          gotram: famGotram.trim() || gotra,
+          janma_nakshatram: famNakshatram
+        })
+      });
+
+      if (res.success && res.data?.familyMember) {
+        setFamilyMembers(prev => [...prev, res.data.familyMember]);
+        setIsFamilyModalOpen(false);
+        showToast({ type: 'success', message: `${famName.trim()} added for Sankalpam.` });
+      } else {
+        showToast({ type: 'error', message: res.error || 'Failed to save family member' });
+      }
+    } catch (err: any) {
+      showToast({ type: 'error', message: err.message || 'Failed to save family member' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteFamilyMember = async (id: string, memberName: string) => {
+    if (!window.confirm(`Remove ${memberName} from family list?`)) return;
+    try {
+      const res = await apiRequest(`/api/auth/family-members/${id}`, { method: 'DELETE' });
+      if (res.success) {
+        setFamilyMembers(prev => prev.filter(m => m.id !== id));
+        showToast({ type: 'success', message: 'Family member removed.' });
+      } else {
+        showToast({ type: 'error', message: res.error || 'Failed to remove member' });
+      }
+    } catch (err: any) {
+      showToast({ type: 'error', message: err.message || 'Failed to remove member' });
     }
   };
 
@@ -470,6 +551,63 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             </div>
           </div>
 
+          {/* Devotee Family Members for Sankalpam (ps.family_member) */}
+          <div className="profile-section-card">
+            <div className="section-head-between">
+              <h3 className="section-head-title">
+                <Users size={18} className="sec-icon" /> Family Members for Sankalpam
+              </h3>
+              <button className="btn-add-address" onClick={handleOpenAddFamily}>
+                <Plus size={16} /> Add Member
+              </button>
+            </div>
+            <p className="section-subtitle">
+              Names, Gotrams, and Janma Nakshatrams invoked by the Vedic Purohit during the live Sankalpam ritual.
+            </p>
+
+            {familyMembers.length === 0 ? (
+              <div className="empty-family-box">
+                <Users size={32} style={{ color: 'var(--text-light)', marginBottom: 8 }} />
+                <p style={{ margin: 0, fontWeight: 600, color: 'var(--text-dark)' }}>No family members added yet</p>
+                <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                  Add your spouse, children, or elders to automatically include them in the priest's sacred Sankalpam chanting.
+                </p>
+              </div>
+            ) : (
+              <div className="family-members-grid">
+                {familyMembers.map((member, idx) => (
+                  <div key={member.id || idx} className="family-member-card">
+                    <div className="fam-top-row">
+                      <div className="fam-name-wrap">
+                        <span className="fam-name">{member.name}</span>
+                        <span className="fam-relation-tag">{member.relation}</span>
+                      </div>
+                      {member.id && (
+                        <button 
+                          className="btn-icon-action delete"
+                          title="Remove family member"
+                          onClick={() => handleDeleteFamilyMember(member.id!, member.name)}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      )}
+                    </div>
+                    <div className="fam-meta-row">
+                      <span className="fam-meta-item">
+                        <strong>Gotram:</strong> {member.gotram || gotra || 'Kashyapa'}
+                      </span>
+                      {member.janma_nakshatram && (
+                        <span className="fam-meta-item">
+                          <strong>Nakshatram:</strong> {member.janma_nakshatram}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Saved Addresses Section (Matching Mobile & Uploaded Design) */}
           <div className="profile-section-card">
             <div className="section-head-between">
@@ -657,6 +795,85 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 </button>
                 <button type="submit" className="btn-submit" disabled={loading}>
                   {loading ? 'Saving...' : 'Save Address'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Family Member Modal (ps.family_member) */}
+      {isFamilyModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsFamilyModalOpen(false)}>
+          <div className="modal-dialog" onClick={e => e.stopPropagation()}>
+            <div className="modal-head">
+              <h3>Add Family Member for Sankalpam</h3>
+              <button className="btn-close" onClick={() => setIsFamilyModalOpen(false)}>✕</button>
+            </div>
+
+            <form onSubmit={handleSaveFamilyMember}>
+              <div className="modal-body">
+                <div className="form-group">
+                  <label>Full Name *</label>
+                  <input 
+                    type="text" 
+                    required 
+                    placeholder="e.g. Lakshmi Devi" 
+                    value={famName}
+                    onChange={e => setFamName(e.target.value)}
+                  />
+                </div>
+
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>Relationship *</label>
+                    <select value={famRelation} onChange={e => setFamRelation(e.target.value)}>
+                      <option value="spouse">Spouse</option>
+                      <option value="son">Son</option>
+                      <option value="daughter">Daughter</option>
+                      <option value="father">Father</option>
+                      <option value="mother">Mother</option>
+                      <option value="brother">Brother</option>
+                      <option value="sister">Sister</option>
+                      <option value="grandfather">Grandfather</option>
+                      <option value="grandmother">Grandmother</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Family Gotram</label>
+                    <input 
+                      type="text" 
+                      placeholder={gotra || "e.g. Kashyapa"} 
+                      value={famGotram}
+                      onChange={e => setFamGotram(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Janma Nakshatram (Birth Star)</label>
+                  <select value={famNakshatram} onChange={e => setFamNakshatram(e.target.value)}>
+                    {[
+                      'Ashwini', 'Bharani', 'Krittika', 'Rohini', 'Mrigashira', 'Ardra', 
+                      'Punarvasu', 'Pushya', 'Ashlesha', 'Magha', 'Purva Phalguni', 'Uttara Phalguni', 
+                      'Hasta', 'Chitra', 'Swati', 'Vishakha', 'Anuradha', 'Jyeshtha', 
+                      'Mula', 'Purva Ashadha', 'Uttara Ashadha', 'Shravana', 'Dhanishta', 
+                      'Shatabhisha', 'Purva Bhadrapada', 'Uttara Bhadrapada', 'Revati'
+                    ].map(n => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="modal-foot">
+                <button type="button" className="btn-cancel" onClick={() => setIsFamilyModalOpen(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-submit" disabled={loading}>
+                  {loading ? 'Saving...' : 'Add to Sankalpam'}
                 </button>
               </div>
             </form>
@@ -1122,6 +1339,69 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         }
         .btn-icon-action.delete:hover {
           color: #C5221F;
+        }
+
+        .empty-family-box {
+          border: 1px dashed var(--border-card);
+          border-radius: var(--radius-md);
+          padding: 24px;
+          text-align: center;
+          background: #FAFAFA;
+        }
+
+        .family-members-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 14px;
+        }
+
+        .family-member-card {
+          border: 1px solid var(--border-card);
+          border-radius: var(--radius-md);
+          padding: 14px 16px;
+          background: #FFFFFF;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          transition: box-shadow 0.2s;
+        }
+        .family-member-card:hover {
+          box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+
+        .fam-top-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .fam-name-wrap {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .fam-name {
+          font-weight: 700;
+          font-size: 0.95rem;
+          color: var(--text-dark);
+        }
+
+        .fam-relation-tag {
+          background: var(--primary-maroon-light);
+          color: var(--primary-maroon);
+          font-size: 0.72rem;
+          font-weight: 700;
+          padding: 2px 7px;
+          border-radius: 4px;
+          text-transform: capitalize;
+        }
+
+        .fam-meta-row {
+          display: flex;
+          gap: 16px;
+          font-size: 0.82rem;
+          color: var(--text-muted);
         }
 
         .address-full-line {

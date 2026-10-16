@@ -45,18 +45,19 @@ export default function DateAndVenueScreen() {
 
   const proceedToPurohitList = (dismissed = false) => {
     const selectedItem = dbMuhurthams.find(m => m.id === selectedMuhurtham);
-    if (params.isReschedule === 'true') {
-      const muhurthamDisplay = selectedMuhurtham === 'custom'
-        ? `${customDate} · ${customTime}`
-        : selectedItem
-        ? `${selectedItem.date} · ${selectedItem.time}`
-        : `${customDate || 'Upcoming Muhurtham'}`;
+    const muhurthamDisplay = selectedMuhurtham === 'custom'
+      ? `${customDate} · ${customTime}`
+      : selectedItem
+      ? `${selectedItem.date} · ${selectedItem.time}`
+      : `${customDate || 'Upcoming Muhurtham'}`;
 
+    if (params.isReschedule === 'true') {
       router.push({
         pathname: '/booking/success',
         params: {
           ...params,
           selectedMuhurtham: muhurthamDisplay,
+          selectedMuhurthamText: muhurthamDisplay,
           customDate,
           customTime,
           rescheduled: 'true',
@@ -71,9 +72,12 @@ export default function DateAndVenueScreen() {
         poojaId: params.id,
         title,
         sampradayam: passedSampradayam,
-        selectedMuhurtham,
-        selectedMuhurthamText: selectedItem ? `${selectedItem.date} · ${selectedItem.time}` : '',
+        selectedMuhurthamId: selectedMuhurtham,
+        selectedMuhurtham: muhurthamDisplay,
+        selectedMuhurthamText: muhurthamDisplay,
         selectedMuhurthamDate: selectedItem?.starts_at ? new Date(selectedItem.starts_at).toISOString().split('T')[0] : '',
+        selectedStartsAt: selectedItem?.starts_at ? new Date(selectedItem.starts_at).toISOString() : '',
+        selectedEndsAt: selectedItem?.ends_at ? new Date(selectedItem.ends_at).toISOString() : '',
         customDate,
         customTime,
         selectedVenue,
@@ -92,8 +96,17 @@ export default function DateAndVenueScreen() {
       .then(res => res.json())
       .then(data => {
         if (isMounted && data.success && Array.isArray(data.data) && data.data.length > 0) {
-          setDbMuhurthams(data.data);
-          setSelectedMuhurtham(data.data[0].id);
+          const seen = new Set();
+          const uniqueList = data.data.filter((item: any) => {
+            const k = `${item.date || ''}_${item.time || ''}`.toLowerCase().trim();
+            if (seen.has(k)) return false;
+            seen.add(k);
+            return true;
+          });
+          setDbMuhurthams(uniqueList);
+          if (uniqueList.length > 0) {
+            setSelectedMuhurtham(uniqueList[0].id);
+          }
         }
       })
       .catch(err => console.error('Error fetching muhurthams:', err));

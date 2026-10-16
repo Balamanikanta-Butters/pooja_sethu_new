@@ -101,10 +101,13 @@ exports.getHomeData = async (req, res) => {
       FROM ps.muhurtham_suggestion m 
       LEFT JOIN ps.pooja p ON m.pooja_id = p.id
       ORDER BY m.starts_at ASC 
-      LIMIT 6
+      LIMIT 4
     `);
 
-    const formattedMuhurthams = muhurthamResult.rows.map(m => {
+    const seenMuhurthamKeys = new Set();
+    const formattedMuhurthams = [];
+
+    for (const m of muhurthamResult.rows) {
       const start = new Date(m.starts_at);
       const end = new Date(m.ends_at);
       const month = start.toLocaleDateString('en-US', { timeZone: 'Asia/Kolkata', month: 'short' }).toUpperCase();
@@ -114,7 +117,13 @@ exports.getHomeData = async (req, res) => {
       const endTime = end.toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour: 'numeric', minute: '2-digit', hour12: true });
       const isBest = m.quality === 'best';
 
-      return {
+      const key = `${month}_${day}_${startTime}_${endTime}`.toLowerCase();
+      if (seenMuhurthamKeys.has(key)) {
+        continue;
+      }
+      seenMuhurthamKeys.add(key);
+
+      formattedMuhurthams.push({
         id: m.id,
         poojaId: m.pooja_id,
         month,
@@ -127,8 +136,10 @@ exports.getHomeData = async (req, res) => {
         badgeBg: isBest ? '#DCFCE7' : '#E0F2FE',
         badgeColor: isBest ? '#15803D' : '#0369A1',
         icon: 'home-outline'
-      };
-    });
+      });
+
+      if (formattedMuhurthams.length >= 4) break;
+    }
 
     // 5. Festivals from ps.panchangam_day
     const festivalsResult = await client.query(`

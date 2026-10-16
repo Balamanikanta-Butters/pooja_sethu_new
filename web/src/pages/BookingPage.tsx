@@ -124,6 +124,7 @@ export const BookingPage: React.FC<BookingPageProps> = ({
   const [includeBhojanalu, setIncludeBhojanalu] = useState(true);
   const [cateringType, setCateringType] = useState<'Traditional' | 'Festive'>('Traditional');
   const [guestCount, setGuestCount] = useState(25);
+  const [cateringMenus, setCateringMenus] = useState<any[]>([]);
   const mealRate = cateringType === 'Festive' ? 500 : 350;
 
   // Step 4: Karta Details & Payment
@@ -192,9 +193,6 @@ export const BookingPage: React.FC<BookingPageProps> = ({
             };
           });
           setPurohitsList(livePurohits);
-          if (!selectedPurohitId && livePurohits[0]) {
-            setSelectedPurohitId(livePurohits[0].id);
-          }
           setDbOfflinePurohits(false);
         } else {
           setDbOfflinePurohits(true);
@@ -218,6 +216,19 @@ export const BookingPage: React.FC<BookingPageProps> = ({
         }
       } catch (uErr) {
         console.warn('Profile fetch notice:', uErr);
+      }
+
+      // 4. Fetch live catering menus from ps.caterer_menu & ps.food_item
+      try {
+        const menuRes = await apiRequest('/api/services/catering-menu', { timeoutMs: 6000 });
+        if (isMounted && menuRes.success) {
+          const mList = menuRes.data?.menus || menuRes.raw?.menus || (Array.isArray(menuRes.data) ? menuRes.data : []);
+          if (Array.isArray(mList) && mList.length > 0) {
+            setCateringMenus(mList);
+          }
+        }
+      } catch (mErr) {
+        console.warn('Catering menu notice:', mErr);
       }
     };
 
@@ -247,14 +258,24 @@ export const BookingPage: React.FC<BookingPageProps> = ({
 
         const list = Array.isArray(res.data) ? res.data : (res.raw?.data || []);
         if (res.success && Array.isArray(list) && list.length > 0) {
-          const mapped = list.map((m: any) => ({
-            id: m.id,
-            title: `${m.date} · ${m.time}`,
-            sub: `${m.lagnam ? m.lagnam + ' · ' : ''}${m.note || 'Shubha Muhurtham'}`,
-            badge: m.tag || 'Good',
-            color: m.tag === 'Best' ? 'green' : m.tag === 'Good' ? 'blue' : 'orange'
-          }));
-          setSuggestedSlots(mapped);
+          const seen = new Set<string>();
+          const mapped: any[] = [];
+          for (const m of list) {
+            const title = `${m.date} · ${m.time}`;
+            const key = title.trim().toLowerCase();
+            if (seen.has(key)) continue;
+            seen.add(key);
+            mapped.push({
+              id: m.id,
+              title: title,
+              sub: `${m.lagnam ? m.lagnam + ' · ' : ''}${m.note || 'Shubha Muhurtham'}`,
+              badge: m.tag || 'Good',
+              color: m.tag === 'Best' ? 'green' : m.tag === 'Good' ? 'blue' : 'orange',
+              starts_at: m.starts_at,
+              ends_at: m.ends_at
+            });
+          }
+          setSuggestedSlots(mapped.slice(0, 4));
           if (!selectedSlot && mapped[0]) {
             setSelectedSlot(mapped[0].title);
           }
@@ -374,7 +395,7 @@ export const BookingPage: React.FC<BookingPageProps> = ({
     return p.languages.includes(selectedLanguage);
   });
 
-  const chosenPurohit = purohitsList.find(p => p.id === selectedPurohitId) || purohitsList[0];
+  const chosenPurohit = selectedPurohitId ? (purohitsList.find(p => p.id === selectedPurohitId) || null) : null;
   const matchNums = String(pooja.price || '').replace(/,/g, '').match(/\d+/);
   const parsedPoojaPrice = matchNums ? parseInt(matchNums[0], 10) : 1800;
   const safePoojaPrice = (parsedPoojaPrice > 0 && parsedPoojaPrice < 50000) ? parsedPoojaPrice : 1800;
@@ -407,8 +428,22 @@ export const BookingPage: React.FC<BookingPageProps> = ({
       setIsSubmittingBooking(true);
       setBookingError('');
       
-      const startsDate = new Date(whenMode === 'custom' ? `${customDate}T${customExactTime}:00` : '2026-10-25T06:40:00');
-      const endsDate = new Date(startsDate.getTime() + 3 * 3600 * 1000);
+      let startsDate: Date;
+      let endsDate: Date;
+
+      if (whenMode === 'custom') {
+        startsDate = new Date(`${customDate}T${customExactTime}:00`);
+        endsDate = new Date(startsDate.getTime() + 3 * 3600 * 1000);
+      } else {
+        const matchingSlot = suggestedSlots.find(s => s.title === selectedSlot);
+        if (matchingSlot?.starts_at && matchingSlot?.ends_at) {
+          startsDate = new Date(matchingSlot.starts_at);
+          endsDate = new Date(matchingSlot.ends_at);
+        } else {
+          startsDate = new Date('2026-10-25T06:40:00');
+          endsDate = new Date(startsDate.getTime() + 3 * 3600 * 1000);
+        }
+      }
 
       const bookingPayload = {
         pooja_id: pooja.id || 'ff33f14c-2cbd-48a4-b620-933afd600aad',
@@ -430,7 +465,7 @@ export const BookingPage: React.FC<BookingPageProps> = ({
         tax_amount: gst,
         discount_amount: 0,
         total_payable: totalAmount,
-        diet_preference: 'sattvic',
+        diet_preference: 'satvik',
         booked_for_name: kartaName,
         booked_for_phone: phoneNumber
       };
@@ -447,8 +482,8 @@ export const BookingPage: React.FC<BookingPageProps> = ({
         }
 
         const data = res.raw || res.data;
-        const createdBookingId = data?.booking?.id;
-        const createdBookingNo = data?.booking?.booking_no || `PS-BK-${Math.floor(10000 + Math.random() * 90000)}`;
+        const createdBookingId = data?.booking?.id || data?.data?.id || data?.id;
+        const createdBookingNo = data?.booking?.booking_no || data?.data?.booking_no || data?.booking_no || `PS-BK-${Math.floor(10000 + Math.random() * 90000)}`;
 
         let razorpayKey = 'rzp_test_TlpNdLGDOhtL2O';
         let razorpayOrderId: string | undefined = undefined;
@@ -1060,13 +1095,12 @@ export const BookingPage: React.FC<BookingPageProps> = ({
                   backgroundColor: '#FFF8F6',
                   border: '1px solid #F3C4B9',
                   borderRadius: '12px',
-                  padding: '24px',
+                  padding: '20px',
                   textAlign: 'center',
                   margin: '16px 0'
                 }}>
-                  <h4 style={{ color: '#900', margin: '0 0 6px 0', fontSize: '1.05rem', fontWeight: 600 }}>Database Connection Pending</h4>
-                  <p style={{ color: '#555', margin: '0 auto', maxWidth: '500px', fontSize: '0.88rem', lineHeight: '1.5' }}>
-                    Purohit profiles and availability are retrieved live from PostgreSQL (<code>192.168.88.3:5432</code>). Please ensure your PostgreSQL service is started.
+                  <p style={{ color: '#7C1B2C', margin: '0', fontSize: '0.92rem', fontWeight: 500 }}>
+                    Unable to load available Purohits right now.
                   </p>
                 </div>
               ) : (
@@ -1275,6 +1309,10 @@ export const BookingPage: React.FC<BookingPageProps> = ({
                       />
                       <span>Include complete, sanitized Pooja Samagri Kit</span>
                     </label>
+                    <div style={{ marginTop: '10px', fontSize: '0.82rem', color: '#6A5D52', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>📦</span>
+                      <span><strong>Kit Delivery Window:</strong> Between 16:00 – 19:00 on the evening prior to the ceremony.</span>
+                    </div>
                   </div>
 
                   {/* Bhojanalu Catering Option */}
@@ -1318,25 +1356,51 @@ export const BookingPage: React.FC<BookingPageProps> = ({
                     </label>
 
                     {includeBhojanalu && (
-                      <div className="guest-counter-box">
-                        <span className="guest-label">Number of meals (Guests):</span>
-                        <div className="stepper-wrap">
-                          <button 
-                            type="button"
-                            className="btn-stepper"
-                            onClick={() => setGuestCount(Math.max(10, guestCount - 5))}
-                          >-</button>
-                          <span className="stepper-count">{guestCount}</span>
-                          <button 
-                            type="button"
-                            className="btn-stepper"
-                            onClick={() => setGuestCount(guestCount + 5)}
-                          >+</button>
+                      <>
+                        <div className="guest-counter-box">
+                          <span className="guest-label">Number of meals (Guests):</span>
+                          <div className="stepper-wrap">
+                            <button 
+                              type="button"
+                              className="btn-stepper"
+                              onClick={() => setGuestCount(Math.max(15, guestCount - 5))}
+                            >-</button>
+                            <span className="stepper-count">{guestCount}</span>
+                            <button 
+                              type="button"
+                              className="btn-stepper"
+                              onClick={() => setGuestCount(guestCount + 5)}
+                            >+</button>
+                          </div>
+                          <span className="stepper-calc-sub">
+                            = ₹{(guestCount * mealRate).toLocaleString('en-IN')}
+                          </span>
                         </div>
-                        <span className="stepper-calc-sub">
-                          = ₹{(guestCount * mealRate).toLocaleString('en-IN')}
-                        </span>
-                      </div>
+
+                        {/* Sattvic Menu Dishes Preview from ps.caterer_menu & ps.food_item */}
+                        <div style={{ marginTop: '14px', background: '#FFFDF9', border: '1px solid #F3DFB7', borderRadius: '10px', padding: '12px 16px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#78350F' }}>
+                              🍃 {cateringType} Sattvic Feast Menu (Pure Vegetarian, No Onion / Garlic):
+                            </span>
+                            <span style={{ fontSize: '0.78rem', color: '#888' }}>Fresh on banana leaf</span>
+                          </div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                            {((cateringMenus.find(m => m.name === cateringType)?.dishes) || (
+                              cateringType === 'Festive' 
+                                ? ['Annam', 'Pulihora', 'Daddojanam', 'Mudda Pappu', 'Sambar (no onion)', 'Aratikaya Kura', 'Gummadikaya Kura', 'Garelu', 'Allam Pachadi', 'Semiya Payasam', 'Bobbatlu', 'Besan Laddu']
+                                : ['Annam', 'Pulihora', 'Mudda Pappu', 'Sambar (no onion)', 'Gummadikaya Kura', 'Garelu', 'Appadam', 'Allam Pachadi', 'Semiya Payasam']
+                            )).map((dish: string, dIdx: number) => (
+                              <span key={dIdx} style={{ fontSize: '0.8rem', background: '#FDF4E5', color: '#7C1B2C', padding: '3px 8px', borderRadius: '4px', fontWeight: 600 }}>
+                                {dish}
+                              </span>
+                            ))}
+                          </div>
+                          <div style={{ marginTop: '8px', fontSize: '0.76rem', color: '#8A7A6A' }}>
+                            * Minimum 15 guests for authentic traditional banana leaf arrangement.
+                          </div>
+                        </div>
+                      </>
                     )}
                   </div>
                 </>
@@ -1467,14 +1531,14 @@ export const BookingPage: React.FC<BookingPageProps> = ({
               </div>
               <div className="summary-kv-row">
                 <span className="kv-label">Purohit</span>
-                <span className={`kv-val ${chosenPurohit ? 'purohit-chosen' : 'purohit-not-chosen'}`}>
-                  {chosenPurohit ? chosenPurohit.name : 'Not chosen yet'}
+                <span className={`kv-val ${chosenPurohit ? 'purohit-chosen' : 'purohit-not-chosen'}`} style={{ color: chosenPurohit ? '#15803D' : '#8C6B1C', fontWeight: chosenPurohit ? 700 : 500 }}>
+                  {chosenPurohit ? chosenPurohit.name : 'Select in Step 2'}
                 </span>
               </div>
               <div className="summary-kv-row">
                 <span className="kv-label">Package</span>
-                <span className="kv-val" style={{ fontWeight: 700, color: '#7C1B2C' }}>
-                  {bookingType === 'purohit' ? 'Purohit only' : 'Complete Package'}
+                <span className="kv-val" style={{ fontWeight: 600, color: currentStep >= 3 ? '#7C1B2C' : '#777' }}>
+                  {currentStep >= 3 ? (bookingType === 'purohit' ? 'Purohit only' : 'Complete Package') : 'Select in Step 3'}
                 </span>
               </div>
             </div>
@@ -1483,19 +1547,21 @@ export const BookingPage: React.FC<BookingPageProps> = ({
             <div className="summary-pricing-section">
               <div className="pricing-row">
                 <span className="price-item-name">
-                  Purohit Dakshina {chosenPurohit ? '' : '(estimate)'}
+                  Purohit Dakshina {chosenPurohit ? '' : '(Step 2)'}
                 </span>
-                <span className="price-item-val">₹{dakshinaAmount.toLocaleString('en-IN')}</span>
+                <span className="price-item-val" style={{ color: chosenPurohit ? '#1a1a1a' : '#888' }}>
+                  {chosenPurohit ? `₹${dakshinaAmount.toLocaleString('en-IN')}` : 'To be selected'}
+                </span>
               </div>
 
-              {bookingType === 'complete' && includeSamagri && (
+              {currentStep >= 3 && bookingType === 'complete' && includeSamagri && (
                 <div className="pricing-row">
                   <span className="price-item-name">Pooja Samagri kit</span>
                   <span className="price-item-val">₹{samagriAmount.toLocaleString('en-IN')}</span>
                 </div>
               )}
 
-              {bookingType === 'complete' && includeBhojanalu && (
+              {currentStep >= 3 && bookingType === 'complete' && includeBhojanalu && (
                 <div className="pricing-row">
                   <span className="price-item-name">
                     Bhojanalu ({cateringType}) - {guestCount} × ₹{mealRate}
@@ -1504,7 +1570,7 @@ export const BookingPage: React.FC<BookingPageProps> = ({
                 </div>
               )}
 
-              {bookingType === 'complete' ? (
+              {currentStep >= 3 && bookingType === 'complete' ? (
                 <>
                   <div className="pricing-row">
                     <span className="price-item-name">Coordination fee</span>
@@ -1527,13 +1593,23 @@ export const BookingPage: React.FC<BookingPageProps> = ({
             {/* Total Row */}
             <div className="summary-total-row">
               <span className="total-label">{bookingType === 'purohit' ? 'Total Payable (Purohit only)' : 'Total for package'}</span>
-              <span className="total-amount">₹{totalAmount.toLocaleString('en-IN')}</span>
+              <span className="total-amount" style={{ color: chosenPurohit ? '#7C1B2C' : '#888', fontSize: chosenPurohit ? '1.5rem' : '1.15rem' }}>
+                {chosenPurohit ? `₹${totalAmount.toLocaleString('en-IN')}` : 'Pending selection'}
+              </span>
             </div>
 
             {/* Safety Trust Note */}
             <p className="summary-trust-note">
               Held safely and released after you confirm the ceremony.
             </p>
+
+            {/* Policy & Operational Guarantee Notice from ps.app_setting */}
+            <div style={{ marginTop: '16px', background: '#F8FBF8', border: '1px solid #DCFCE7', borderRadius: '10px', padding: '12px 14px', fontSize: '0.82rem', color: '#166534', display: 'flex', alignItems: 'flex-start', gap: '8px', textAlign: 'left' }}>
+              <span style={{ fontSize: '1.1rem' }}>🛡️</span>
+              <div>
+                <strong>Peace of Mind Guarantee:</strong> 100% full refund if cancelled up to 72 hours prior to muhurtham. Purohit direct call contact is unlocked 24 hours prior.
+              </div>
+            </div>
           </div>
         </div>
       </div>

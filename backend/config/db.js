@@ -9,9 +9,11 @@ if (!connStr.includes('options=')) {
 
 const pool = new Pool({
   connectionString: connStr,
-  max: 5,
-  idleTimeoutMillis: 5000,
+  max: 10,
+  idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10000,
 });
 
 pool.on('connect', (client) => {
@@ -24,7 +26,31 @@ pool.on('error', (err) => {
   console.warn('PostgreSQL pool idle error (handled):', err.message);
 });
 
+const isTransientError = (err) => {
+  if (!err) return false;
+  const msg = (err.message || '').toLowerCase();
+  const code = (err.code || '').toLowerCase();
+  return (
+    msg.includes('connection terminated') ||
+    msg.includes('connection timeout') ||
+    msg.includes('timeout exceeded') ||
+    code === 'econnreset' ||
+    code === '57p01' // admin shutdown
+  );
+};
+
 module.exports = {
-  query: (text, params) => pool.query(text, params),
+  query: async (text, params) => {
+    try {
+      return await pool.query(text, params);
+    } catch (err) {
+      if (isTransientError(err)) {
+        // Wait 300ms and retry once with fresh connection
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        return await pool.query(text, params);
+      }
+      throw err;
+    }
+  },
   connect: () => pool.connect(),
 };

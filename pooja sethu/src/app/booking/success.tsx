@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useLanguage } from '../../context/LanguageContext';
 import { PoojaHeroIllustration } from '../../components/HomeIllustrations';
+import { API_BASE_URL } from '../../utils/apiBaseUrl';
 
 export default function BookingSuccessScreen() {
   const router = useRouter();

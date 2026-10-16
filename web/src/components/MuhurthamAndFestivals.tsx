@@ -2,18 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { Home, Clock, Sparkles } from 'lucide-react';
 import type { MuhurthamItem, FestivalItem } from '../types';
 import { MahalayaArt, NavaratriArt, DeepavaliArt } from './Illustrations';
-
 import { apiRequest } from '../utils/apiClient';
+import { useLanguage } from '../context/LanguageContext';
 
 interface MuhurthamAndFestivalsProps {
   onSelectMuhurtham: (item: MuhurthamItem) => void;
   onSelectFestival: (festival: FestivalItem) => void;
+  onNavigatePanchangam?: () => void;
 }
 
 export const MuhurthamAndFestivals: React.FC<MuhurthamAndFestivalsProps> = ({
   onSelectMuhurtham,
-  onSelectFestival
+  onSelectFestival,
+  onNavigatePanchangam
 }) => {
+  const { t } = useLanguage();
   const [muhurthams, setMuhurthams] = useState<MuhurthamItem[]>([]);
   const [festivals, setFestivals] = useState<FestivalItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,35 +33,41 @@ export const MuhurthamAndFestivals: React.FC<MuhurthamAndFestivalsProps> = ({
         const data = res.data;
         // 1. Upcoming Muhurthams from database
         if (Array.isArray(data.upcomingMuhurthams) && data.upcomingMuhurthams.length > 0) {
-          const mappedMuhurthams: MuhurthamItem[] = data.upcomingMuhurthams.map((m: any) => {
+          const seen = new Set<string>();
+          const mappedMuhurthams: MuhurthamItem[] = [];
+          for (const m of data.upcomingMuhurthams) {
             const startDate = m.starts_at ? new Date(m.starts_at) : new Date();
             const endDate = m.ends_at ? new Date(m.ends_at) : new Date(startDate.getTime() + 2 * 3600000);
             
-            const monthStr = startDate.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
-            const dayStr = String(startDate.getDate()).padStart(2, '0');
-            const weekdayStr = startDate.toLocaleDateString('en-US', { weekday: 'short' });
+            const monthStr = m.month || startDate.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
+            const dayStr = m.day || String(startDate.getDate()).padStart(2, '0');
+            const weekdayStr = m.weekday || startDate.toLocaleDateString('en-US', { weekday: 'short' });
             
             const formatTime = (d: Date) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-            const timeRange = `${formatTime(startDate)} – ${formatTime(endDate)}`;
+            const timeRange = m.time || `${formatTime(startDate)} – ${formatTime(endDate)}`;
 
-            const titleLower = (m.pooja_name || '').toLowerCase();
+            const key = `${monthStr}_${dayStr}_${timeRange}`.toLowerCase();
+            if (seen.has(key)) continue;
+            seen.add(key);
+
+            const titleLower = (m.title || m.pooja_name || '').toLowerCase();
             let iconType: 'gruha' | 'vratam' | 'samskara' = 'gruha';
             if (titleLower.includes('satyanarayana') || titleLower.includes('vratham')) iconType = 'vratam';
             else if (titleLower.includes('upanayanam') || titleLower.includes('samskara') || titleLower.includes('naming')) iconType = 'samskara';
 
-            return {
+            mappedMuhurthams.push({
               id: m.id,
               month: monthStr,
               day: dayStr,
               weekday: weekdayStr,
-              title: m.pooja_name || 'Vedic Ceremony',
+              title: m.title || m.pooja_name || 'Vedic Ceremony',
               iconType,
               timeRange,
-              details: `${m.lagnam ? m.lagnam + ' · ' : ''}${m.note || 'Shubha Muhurtham'}`,
-              badge: m.quality === 'best' ? 'Best' : m.quality === 'good' ? 'Good' : 'Auspicious'
-            };
-          });
-          setMuhurthams(mappedMuhurthams);
+              details: m.lagnam ? (m.lagnam.includes('·') ? m.lagnam : `${m.lagnam} lagnam · Shubha Muhurtham`) : (m.note || 'Shubha Muhurtham'),
+              badge: m.badge || (m.quality === 'best' ? 'Best' : 'Good')
+            });
+          }
+          setMuhurthams(mappedMuhurthams.slice(0, 4));
         }
 
         // 2. Festivals from database
@@ -67,9 +76,13 @@ export const MuhurthamAndFestivals: React.FC<MuhurthamAndFestivalsProps> = ({
             const startDate = f.starts_at ? new Date(f.starts_at) : new Date();
             const endDate = f.ends_at ? new Date(f.ends_at) : null;
             
+            const sigText = typeof f.significance === 'object' && f.significance !== null
+              ? (f.significance.en || f.significance.te || f.significance.description || 'Pooja')
+              : (typeof f.significance === 'string' && f.significance ? f.significance : 'Pooja');
+
             const dateRangeStr = endDate && endDate.getTime() !== startDate.getTime()
               ? `${startDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })} – ${endDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}`
-              : `${startDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })} · ${f.significance || 'Pooja'}`;
+              : `${startDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })} · ${sigText}`;
 
             const nameLower = (f.name || '').toLowerCase();
             let artType: 'mahalaya' | 'navaratri' | 'deepavali' = 'mahalaya';
@@ -81,7 +94,7 @@ export const MuhurthamAndFestivals: React.FC<MuhurthamAndFestivalsProps> = ({
               title: f.name || 'Sacred Festival',
               teluguTitle: f.name_te || '',
               dateRange: dateRangeStr,
-              tag: f.is_major ? 'Major Festival' : 'Pavitra Dinam',
+              tag: f.is_major ? t('festival_major_tag', 'Major Festival') : t('festival_sacred_tag', 'Pavitra Dinam'),
               artType
             };
           });
@@ -106,10 +119,10 @@ export const MuhurthamAndFestivals: React.FC<MuhurthamAndFestivalsProps> = ({
   }, []);
 
   const renderFestivalArt = (type: string, title?: string) => {
-    const t = (title || '').toLowerCase();
-    if (t.includes('navaratri') || t.includes('devi') || t.includes('durga')) return <NavaratriArt />;
-    if (t.includes('deepavali') || t.includes('diwali') || t.includes('lakshmi')) return <DeepavaliArt />;
-    if (t.includes('mahalaya') || t.includes('tarpanam') || t.includes('pitru')) return <MahalayaArt />;
+    const tLower = (title || '').toLowerCase();
+    if (tLower.includes('navaratri') || tLower.includes('devi') || tLower.includes('durga')) return <NavaratriArt />;
+    if (tLower.includes('deepavali') || tLower.includes('diwali') || tLower.includes('lakshmi')) return <DeepavaliArt />;
+    if (tLower.includes('mahalaya') || tLower.includes('tarpanam') || tLower.includes('pitru')) return <MahalayaArt />;
 
     switch (type) {
       case 'navaratri': return <NavaratriArt />;
@@ -131,8 +144,18 @@ export const MuhurthamAndFestivals: React.FC<MuhurthamAndFestivalsProps> = ({
       {/* Left Column: Upcoming good muhurthams */}
       <div className="muhurtham-col">
         <div className="col-head">
-          <h2 className="col-title">Upcoming good muhurthams</h2>
-          <button className="calendar-link">Calendar</button>
+          <h2 className="col-title">{t('muhurtham_title', 'Upcoming good muhurthams')}</h2>
+          <button 
+            className="calendar-link" 
+            onClick={() => {
+              if (onNavigatePanchangam) {
+                onNavigatePanchangam();
+              }
+            }}
+            title="Open Vedic Calendar & Panchangam"
+          >
+            {t('muhurtham_calendar_link', 'Calendar')}
+          </button>
         </div>
 
         <div className="muhurtham-list">
@@ -162,21 +185,21 @@ export const MuhurthamAndFestivals: React.FC<MuhurthamAndFestivalsProps> = ({
                 <span className={`status-pill ${m.badge.toLowerCase().replace(/\s+/g, '-')}`}>
                   {m.badge}
                 </span>
-                <span className="book-link">Book ›</span>
+                <span className="book-link">{t('muhurtham_book_btn', 'Book ›')}</span>
               </div>
             </div>
           ))}
         </div>
 
         <p className="footnote-text">
-          Auspicious dates for Hyderabad. Your Purohit confirms the final muhurtham.
+          {t('muhurtham_footnote', 'Auspicious dates for Hyderabad. Your Purohit confirms the final muhurtham.')}
         </p>
       </div>
 
       {/* Right Column: Festivals ahead */}
       <div className="festivals-col">
         <div className="col-head">
-          <h2 className="col-title">Festivals ahead</h2>
+          <h2 className="col-title">{t('festivals_title', 'Festivals ahead')}</h2>
         </div>
 
         <div className="festivals-grid">

@@ -14,4 +14,9 @@ router.post('/addresses', authMiddleware, authController.saveAddress);
 router.put('/addresses/:id/default', authMiddleware, authController.setDefaultAddress);
 router.delete('/addresses/:id', authMiddleware, authController.deleteAddress);
 
+// Family Member Management
+router.get('/family-members', authMiddleware, authController.getFamilyMembers);
+router.post('/family-members', authMiddleware, authController.saveFamilyMember);
+router.delete('/family-members/:id', authMiddleware, authController.deleteFamilyMember);
+
 module.exports = router;

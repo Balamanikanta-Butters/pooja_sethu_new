@@ -47,4 +47,7 @@ export type PanchangamData = {
   rutuvu?: string;
   ayanam?: string;
   kalam?: string;
+  yogam?: string;
+  karanam?: string;
+  paksham?: string;
 };

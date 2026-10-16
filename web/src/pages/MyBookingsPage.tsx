@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, MapPin, User, ChevronRight, CheckCircle2, XCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import { apiRequest } from '../utils/apiClient';
 import { showToast } from '../components/ToastNotification';
+import { useLanguage } from '../context/LanguageContext';
 
 interface BookingRecord {
   id: string;
@@ -36,6 +37,7 @@ export const MyBookingsPage: React.FC<MyBookingsPageProps> = ({
   onNavigatePoojas,
   userPhone
 }) => {
+  const { lang } = useLanguage();
   const [activeTab, setActiveTab] = useState<'Upcoming' | 'Completed' | 'Cancelled'>('Upcoming');
   const [bookings, setBookings] = useState<BookingRecord[]>([]);
   const [selectedBooking, setSelectedBooking] = useState<BookingRecord | null>(null);
@@ -166,18 +168,22 @@ export const MyBookingsPage: React.FC<MyBookingsPageProps> = ({
             cursor: 'pointer'
           }}
         >
-          ← Back to Home
+          {lang === 'te' ? '← హోమ్‌కు తిరిగి వెళ్లండి' : '← Back to Home'}
         </button>
         <div className="breadcrumb-bar" style={{ margin: 0 }}>
-          <button className="crumb-btn" onClick={onNavigateHome}>Home</button>
+          <button className="crumb-btn" onClick={onNavigateHome}>{lang === 'te' ? 'హోమ్' : 'Home'}</button>
           <span className="crumb-sep">/</span>
-          <span className="crumb-active">My bookings</span>
+          <span className="crumb-active">{lang === 'te' ? 'నా బుకింగ్స్' : 'My bookings'}</span>
         </div>
       </div>
 
       <div className="page-header">
-        <h1 className="page-title font-sans">My Bookings</h1>
-        <p className="page-desc">Track your sacred ceremonies, assigned Purohits, and muhurtham schedules.</p>
+        <h1 className="page-title font-sans">{lang === 'te' ? 'నా బుకింగ్స్' : 'My Bookings'}</h1>
+        <p className="page-desc">
+          {lang === 'te' 
+            ? 'మీ పూజలు, కేటాయించిన పురోహితులు మరియు ముహూర్త వివరాలు ఇక్కడ చూడవచ్చు.' 
+            : 'Track your sacred ceremonies, assigned Purohits, and muhurtham schedules.'}
+        </p>
       </div>
 
       {/* Filter Tabs */}
@@ -188,7 +194,9 @@ export const MyBookingsPage: React.FC<MyBookingsPageProps> = ({
             className={`tab-btn ${activeTab === tab ? 'active' : ''}`}
             onClick={() => setActiveTab(tab)}
           >
-            {tab}
+            {tab === 'Upcoming' ? (lang === 'te' ? 'రాబోయేవి' : 'Upcoming')
+              : tab === 'Completed' ? (lang === 'te' ? 'పూర్తయినవి' : 'Completed')
+              : (lang === 'te' ? 'రద్దయినవి' : 'Cancelled')}
             <span className="tab-count">
               {bookings.filter(b => {
                 if (tab === 'Upcoming') return b.status === 'confirmed' || b.status === 'purohit_assigned' || b.status === 'in_progress';

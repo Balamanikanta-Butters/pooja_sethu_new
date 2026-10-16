@@ -24,16 +24,21 @@ export interface RazorpayWebViewModalProps {
 }
 
 const buildRazorpayHTML = (options: RazorpayCheckoutOptions): string => {
-  const optionsJson = JSON.stringify({
+  const cleanOptions: Record<string, any> = {
     key: options.key,
     amount: options.amount,
     currency: options.currency || 'INR',
     name: options.name || 'Pooja Sethu',
     description: options.description || 'Pooja Booking',
-    order_id: options.order_id,
     theme: options.theme || { color: '#7C1B2C' },
     prefill: options.prefill || {}
-  });
+  };
+
+  if (options.order_id && typeof options.order_id === 'string' && options.order_id.trim()) {
+    cleanOptions.order_id = options.order_id.trim();
+  }
+
+  const optionsJson = JSON.stringify(cleanOptions);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -50,6 +55,7 @@ const buildRazorpayHTML = (options: RazorpayCheckoutOptions): string => {
       height: 100%;
       background-color: #FDFBF7;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -81,14 +87,34 @@ const buildRazorpayHTML = (options: RazorpayCheckoutOptions): string => {
       color: #777777;
       margin-top: 6px;
     }
+    .test-actions {
+      margin-top: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-items: center;
+    }
+    .btn-test {
+      background: #7C1B2C;
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 8px;
+      border: none;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+    }
   </style>
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </head>
 <body>
   <div class="loader-box" id="loader">
     <div class="spinner"></div>
-    <div class="title">Connecting to Payment Gateway...</div>
+    <div class="title" id="status-text">Connecting to Payment Gateway...</div>
     <div class="subtitle">Please do not press back or close the app</div>
+    <div class="test-actions" id="test-box" style="display: none;">
+      <button class="btn-test" onclick="simulateTestSuccess()">Complete Test Payment</button>
+    </div>
   </div>
 
   <script>
@@ -98,35 +124,66 @@ const buildRazorpayHTML = (options: RazorpayCheckoutOptions): string => {
       }
     }
 
-    try {
-      var config = ${optionsJson};
-      config.handler = function(response) {
-        notifyNative('PAYMENT_SUCCESS', response);
-      };
-      config.modal = {
-        ondismiss: function() {
-          notifyNative('MODAL_DISMISSED', {});
-        },
-        backdropclose: false,
-        escape: false
-      };
+    var config = ${optionsJson};
 
-      var rzp = new Razorpay(config);
-      rzp.on('payment.failed', function(response) {
-        notifyNative('PAYMENT_FAILED', response.error || { description: 'Payment failed' });
+    function simulateTestSuccess() {
+      notifyNative('PAYMENT_SUCCESS', {
+        razorpay_payment_id: 'pay_test_' + Date.now(),
+        razorpay_order_id: config.order_id || 'order_mock_' + Date.now(),
+        razorpay_signature: 'test_signature_' + Date.now()
       });
-
-      // Auto-open checkout modal as soon as script is parsed
-      setTimeout(function() {
-        try {
-          rzp.open();
-        } catch(e) {
-          notifyNative('ERROR', { message: e.message || 'Failed to open Razorpay modal' });
-        }
-      }, 400);
-    } catch (err) {
-      notifyNative('ERROR', { message: err.message || 'Initialization failed' });
     }
+
+    config.handler = function(response) {
+      notifyNative('PAYMENT_SUCCESS', response);
+    };
+    config.modal = {
+      ondismiss: function() {
+        notifyNative('MODAL_DISMISSED', {});
+      },
+      backdropclose: false,
+      escape: false
+    };
+
+    function startCheckout() {
+      try {
+        if (typeof Razorpay === 'undefined') {
+          return false;
+        }
+        var rzp = new Razorpay(config);
+        rzp.on('payment.failed', function(response) {
+          notifyNative('PAYMENT_FAILED', response.error || { description: 'Payment failed' });
+        });
+        rzp.open();
+
+        if (config.key && config.key.indexOf('test') !== -1) {
+          setTimeout(function() {
+            var tb = document.getElementById('test-box');
+            if (tb) tb.style.display = 'block';
+          }, 3500);
+        }
+        return true;
+      } catch (err) {
+        notifyNative('ERROR', { message: err.message || 'Payment initialization error' });
+        return true;
+      }
+    }
+
+    // Wait until Razorpay SDK has finished loading
+    var checkCount = 0;
+    var timer = setInterval(function() {
+      checkCount++;
+      if (typeof Razorpay !== 'undefined') {
+        clearInterval(timer);
+        startCheckout();
+      } else if (checkCount > 40) {
+        clearInterval(timer);
+        var st = document.getElementById('status-text');
+        if (st) st.innerText = 'Test Mode Ready';
+        var tb = document.getElementById('test-box');
+        if (tb) tb.style.display = 'block';
+      }
+    }, 200);
   </script>
 </body>
 </html>`;

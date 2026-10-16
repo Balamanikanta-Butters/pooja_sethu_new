@@ -1,5 +1,6 @@
 const db = require('../config/db');
 const jwt = require('jsonwebtoken');
+const notificationService = require('../services/notificationService');
 
 const JWT_SECRET = 'your-secret-key-for-jwt';
 
@@ -17,7 +18,12 @@ exports.sendOtp = async (req, res) => {
     const mockOtp = '123456';
     mockOtpStore[mobileNumber] = mockOtp;
     
-    console.log(`[MOCK OTP] Sent OTP ${mockOtp} to ${mobileNumber}`);
+    console.log(`[OTP DISPATCH] Sent OTP ${mockOtp} to ${mobileNumber}`);
+
+    // Asynchronously dispatch OTP via SMS service (mock or live provider)
+    notificationService.sendOtpSms({ phone: mobileNumber, otp: mockOtp }).catch(err => {
+        console.warn('[NotificationService] OTP SMS dispatch notice:', err.message);
+    });
     
     return res.status(200).json({ 
         success: true, 
@@ -34,8 +40,8 @@ exports.verifyOtp = async (req, res) => {
 
     const validOtp = mockOtpStore[mobileNumber] || '123456';
 
-    // Allow any 6-digit number for mock testing
-    if (otp.length === 6 && /^\d+$/.test(otp)) {
+    // Allow 4-digit or 6-digit number for mock testing
+    if ((otp.length === 6 || otp.length === 4) && /^\d+$/.test(otp)) {
         try {
             // Check if user exists in the database
             const userResult = await db.query('SELECT * FROM ps.app_user WHERE phone_e164 = $1', [mobileNumber]);
@@ -46,10 +52,19 @@ exports.verifyOtp = async (req, res) => {
                 // If user doesn't exist, create them
                 const insertResult = await db.query(
                     'INSERT INTO ps.app_user (phone_e164, name, created_at, updated_at) VALUES ($1, $2, NOW(), NOW()) RETURNING *',
-                    [mobileNumber, name || null]
+                    [mobileNumber, name && name.trim() ? name.trim() : null]
                 );
                 user = insertResult.rows[0];
                 isNewUser = true;
+            } else if (name && name.trim()) {
+                // Update name if entered during login
+                const updateResult = await db.query(
+                    'UPDATE ps.app_user SET name = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+                    [name.trim(), user.id]
+                );
+                if (updateResult.rows.length > 0) {
+                    user = updateResult.rows[0];
+                }
             }
 
             const token = jwt.sign({ userId: user.id, mobileNumber: user.phone_e164 }, JWT_SECRET, { expiresIn: '7d' });
@@ -140,19 +155,18 @@ exports.updateProfile = async (req, res) => {
         return res.status(400).json({ success: false, message: 'Mobile number is required' });
     }
 
-    // Map frontend sampradayam codes to DB UUIDs
-    const sampradayamMap = {
-        'smartha': '5872e56b-a237-489f-96be-078cb1f58f4e',
-        'madhva': '2c7dce01-d5d5-4716-b6ad-131112bf2e37',
-        'srivaishnava': 'cf656c6f-a2b0-4ddc-8f3d-3ac2c6f7a1aa',
-        'vaikhanasa': '9bcd1fc4-02b1-4782-abcf-713193368030',
-        'pancharatra': 'febf9905-b5c9-4a7c-83dc-318cb39fe2cd',
-        'samanya': 'b72d9511-ffcd-462a-b21c-ec1466fe40f1',
-        'unknown': 'f8adde3d-a7df-40d7-ace4-c9c75d16063c',
-        'veerashaiva': 'c5f19dd5-5f43-4830-a96a-8d552aa87eb3'
-    };
-
-    const sampradayamId = sampradayamMap[sampradayam] || null;
+    let sampradayamId = null;
+    if (sampradayam) {
+        try {
+            const sRes = await db.query(
+                `SELECT id FROM ps.sampradayam WHERE LOWER(code) = LOWER($1) OR id::text = $1 OR LOWER(name->>'en') = LOWER($1) LIMIT 1`,
+                [String(sampradayam).trim()]
+            );
+            if (sRes.rows.length > 0) {
+                sampradayamId = sRes.rows[0].id;
+            }
+        } catch (_) {}
+    }
 
     try {
         // 1. Update User Table
@@ -448,6 +462,69 @@ exports.deleteAddress = async (req, res) => {
         const { id } = req.params;
         if (id && !String(id).startsWith('addr-')) {
             await db.query('DELETE FROM ps.address WHERE id = $1 AND user_id = $2', [id, userId]);
+        }
+        return res.status(200).json({ success: true });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+exports.getFamilyMembers = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const result = await db.query(
+            'SELECT id, name, relation, gotram, janma_nakshatram, date_of_birth, is_deceased FROM ps.family_member WHERE user_id = $1 ORDER BY id ASC',
+            [userId]
+        );
+        return res.status(200).json({ success: true, familyMembers: result.rows });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+exports.saveFamilyMember = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const { id, name, relation, gotram, janma_nakshatram, date_of_birth, is_deceased } = req.body;
+        if (!name || !relation) {
+            return res.status(400).json({ success: false, message: 'Name and relation are required' });
+        }
+
+        let dob = date_of_birth ? new Date(date_of_birth) : null;
+        if (dob && isNaN(dob.getTime())) dob = null;
+
+        let memberRecord = null;
+        if (id && !String(id).startsWith('fam-')) {
+            const upd = await db.query(
+                `UPDATE ps.family_member
+                 SET name = $1, relation = $2, gotram = $3, janma_nakshatram = $4, date_of_birth = $5, is_deceased = $6
+                 WHERE id = $7 AND user_id = $8 RETURNING *`,
+                [name.trim(), relation.toLowerCase().trim(), gotram ? gotram.trim() : null, janma_nakshatram || null, dob, !!is_deceased, id, userId]
+            );
+            if (upd.rows.length > 0) memberRecord = upd.rows[0];
+        }
+
+        if (!memberRecord) {
+            const ins = await db.query(
+                `INSERT INTO ps.family_member (id, user_id, name, relation, gotram, janma_nakshatram, date_of_birth, is_deceased)
+                 VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+                [userId, name.trim(), relation.toLowerCase().trim(), gotram ? gotram.trim() : null, janma_nakshatram || null, dob, !!is_deceased]
+            );
+            memberRecord = ins.rows[0];
+        }
+
+        return res.status(200).json({ success: true, familyMember: memberRecord });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+exports.deleteFamilyMember = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const { id } = req.params;
+        if (id && !String(id).startsWith('fam-')) {
+            await db.query('DELETE FROM ps.family_member WHERE id = $1 AND user_id = $2', [id, userId]);
         }
         return res.status(200).json({ success: true });
     } catch (err) {

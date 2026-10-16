@@ -3,29 +3,32 @@ import { Home, User, Clock, Flame, Sparkles, Building } from 'lucide-react';
 import type { PoojaItem } from '../types';
 import { getPoojaIllustration } from './Illustrations';
 import { apiRequest } from '../utils/apiClient';
+import { useLanguage } from '../context/LanguageContext';
 
 interface BookPoojaSectionProps {
   onSelectPooja: (pooja: PoojaItem) => void;
   selectedTradition: string;
   searchQuery?: string;
+  onNavigatePoojas?: () => void;
 }
 
 export const BookPoojaSection: React.FC<BookPoojaSectionProps> = ({ 
   onSelectPooja, 
   selectedTradition,
-  searchQuery = ''
+  searchQuery = '',
+  onNavigatePoojas
 }) => {
+  const { t, lang } = useLanguage();
   const [activeCategory, setActiveCategory] = useState<string>('gruha');
-  const [showAll, setShowAll] = useState(false);
 
   const categories = [
-    { id: 'gruha', label: 'Gruha', icon: <Home size={16} /> },
-    { id: 'samskaras', label: 'Samskaras', icon: <User size={16} /> },
-    { id: 'vratams', label: 'Vratams', icon: <Clock size={16} /> },
-    { id: 'homams', label: 'Homams', icon: <Flame size={16} /> },
-    { id: 'pitru', label: 'Pitru Karyams', icon: <Sparkles size={16} /> },
-    { id: 'festivals', label: 'Festivals', icon: <Sparkles size={16} /> },
-    { id: 'business', label: 'Business and vehicle', icon: <Building size={16} /> },
+    { id: 'gruha', label: t('cat_gruha', 'Gruha'), icon: <Home size={16} /> },
+    { id: 'samskaras', label: t('cat_samskara', 'Samskaras'), icon: <User size={16} /> },
+    { id: 'vratams', label: t('cat_vratam', 'Vratams'), icon: <Clock size={16} /> },
+    { id: 'homams', label: t('cat_homam', 'Homams'), icon: <Flame size={16} /> },
+    { id: 'pitru', label: t('cat_pitru', 'Pitru Karyams'), icon: <Sparkles size={16} /> },
+    { id: 'festivals', label: t('cat_festivals', 'Festivals'), icon: <Sparkles size={16} /> },
+    { id: 'business', label: t('cat_business', 'Business and vehicle'), icon: <Building size={16} /> },
   ];
 
   const [poojasList, setPoojasList] = useState<PoojaItem[]>([]);
@@ -86,7 +89,7 @@ export const BookPoojaSection: React.FC<BookPoojaSectionProps> = ({
     fetchPoojas();
   }, []);
 
-  const filteredPoojas = (showAll || searchQuery.trim() ? poojasList : poojasList.filter(p => p.category === activeCategory)).filter(p => {
+  const filteredPoojas = (searchQuery.trim() ? poojasList : poojasList.filter(p => p.category === activeCategory)).filter(p => {
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       const matchTitle = p.title.toLowerCase().includes(q);
@@ -107,34 +110,38 @@ export const BookPoojaSection: React.FC<BookPoojaSectionProps> = ({
       {/* Header Row */}
       <div className="section-head">
         <div>
-          <h2 className="section-title">Book a Pooja</h2>
+          <h2 className="section-title">{t('book_pooja_title', 'Book a Ceremony by Occasion')}</h2>
           <p className="section-subtitle">
-            Choose an occasion. Every Pooja has its own Vidhi for your Sampradayam.
+            {t('book_pooja_desc', 'Authentic Vedic rituals performed strictly according to your family Shastras.')}
           </p>
         </div>
-        <button className="see-all-btn" onClick={() => setShowAll(!showAll)}>
-          {showAll ? 'Show Category Filter' : 'See all 20 Poojas'}
+        <button 
+          className="see-all-btn" 
+          onClick={onNavigatePoojas}
+          type="button"
+        >
+          {lang === 'te' 
+            ? `అన్ని ${poojasList.length || 20} పూజలు చూడండి` 
+            : `See all ${poojasList.length || 20} Poojas`}
         </button>
       </div>
 
       {/* Category Pills */}
-      {!showAll && (
-        <div className="category-tabs">
-          {categories.map((cat) => {
-            const isActive = activeCategory === cat.id;
-            return (
-              <button
-                key={cat.id}
-                className={`category-pill ${isActive ? 'active' : ''}`}
-                onClick={() => setActiveCategory(cat.id)}
-              >
-                <span className="cat-icon">{cat.icon}</span>
-                <span className="cat-label">{cat.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
+      <div className="category-tabs">
+        {categories.map((cat) => {
+          const isActive = activeCategory === cat.id;
+          return (
+            <button
+              key={cat.id}
+              className={`category-pill ${isActive ? 'active' : ''}`}
+              onClick={() => setActiveCategory(cat.id)}
+            >
+              <span className="cat-icon">{cat.icon}</span>
+              <span className="cat-label">{cat.label}</span>
+            </button>
+          );
+        })}
+      </div>
 
       {/* Cards Grid or Offline Banner */}
       {loading ? (
@@ -146,32 +153,28 @@ export const BookPoojaSection: React.FC<BookPoojaSectionProps> = ({
           backgroundColor: '#FFF8F6',
           border: '1px solid #F3C4B9',
           borderRadius: '12px',
-          padding: '28px 24px',
+          padding: '24px 20px',
           textAlign: 'center',
           margin: '20px 0'
         }}>
-          <h3 style={{ color: '#900', margin: '0 0 8px 0', fontSize: '1.1rem', fontWeight: 600 }}>Database Connection Pending</h3>
-          <p style={{ color: '#555', margin: '0 auto 16px auto', maxWidth: '560px', fontSize: '0.92rem', lineHeight: '1.5' }}>
-            All static and mock data has been removed from this portal. Pooja ceremonies are loaded live from your PostgreSQL database (<code>192.168.88.3:5432</code>). Please ensure your PostgreSQL service is started.
+          <p style={{ color: '#7C1B2C', margin: '0 0 12px 0', fontSize: '0.95rem', fontWeight: 500 }}>
+            Unable to load ceremonies right now.
           </p>
-          {errorMessage && (
-            <p style={{ color: '#900', fontSize: '0.82rem', marginBottom: '12px' }}>{errorMessage}</p>
-          )}
           <button 
             type="button" 
             onClick={fetchPoojas}
             style={{
-              padding: '9px 24px',
+              padding: '8px 22px',
               backgroundColor: '#7C1B2C',
               color: '#FFF',
               border: 'none',
               borderRadius: '8px',
               cursor: 'pointer',
               fontWeight: 600,
-              fontSize: '0.88rem'
+              fontSize: '0.85rem'
             }}
           >
-            Retry Connection
+            Retry
           </button>
         </div>
       ) : (

@@ -1,83 +1,125 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { apiRequest } from '../utils/apiClient';
+import { useLanguage } from '../context/LanguageContext';
 
 interface PanchangamPageProps {
   onNavigateHome?: () => void;
   onNavigatePoojas: () => void;
 }
 
+interface RawPanchangamDay {
+  day: string;
+  samvatsaram?: string;
+  masam?: string;
+  paksham?: string;
+  vaaram?: string;
+  tithi?: string;
+  nakshatram?: string;
+  yogam?: string;
+  karanam?: string;
+  sunrise?: string;
+  sunset?: string;
+  good_periods?: Array<{ name: string; from: string; to: string }>;
+  avoid_periods?: Array<{ name: string; from: string; to: string }>;
+  significance?: { en?: string; te?: string } | string;
+}
+
 export const PanchangamPage: React.FC<PanchangamPageProps> = ({ onNavigateHome, onNavigatePoojas }) => {
-  const [dateOffset, setDateOffset] = useState(0);
+  const { lang } = useLanguage();
+  const [days, setDays] = useState<RawPanchangamDay[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Panchangam days data
-  const panchangamDays = [
-    {
-      dateStr: 'Friday, 2 October',
-      special: 'Mahalaya Paksham: Sasthi Shraddham and Tarpanam.',
-      elements: {
-        masam: 'Bhadrapada · Parabhava',
-        vaaram: 'Shukravaram',
-        tithi: 'Bahula Sasthi',
-        nakshatram: 'Rohini',
-        yogam: 'Variyan',
-        karanam: 'Taitila',
-        sun: '6:05 AM · 5:59 PM'
-      },
-      timings: [
-        { type: 'good', label: 'Amrita Kalam', time: '9:15 – 10:50 AM' },
-        { type: 'good', label: 'Abhijit', time: '11:40 AM – 12:28 PM' },
-        { type: 'avoid', label: 'Rahu Kalam', time: '10:30 AM – 12:00 PM' },
-        { type: 'avoid', label: 'Yamagandam', time: '3:00 – 4:30 PM' },
-        { type: 'avoid', label: 'Gulika', time: '7:30 – 9:00 AM' },
-        { type: 'avoid', label: 'Durmuhurtham', time: '8:30 – 9:18 AM' }
-      ]
-    },
-    {
-      dateStr: 'Saturday, 3 October',
-      special: 'Mahalaya Paksham: an auspicious fortnight for Pitru Tarpanam and Shraddha.',
-      elements: {
-        masam: 'Bhadrapada · Parabhava',
-        vaaram: 'Shanivaram',
-        tithi: 'Bahula Saptami',
-        nakshatram: 'Mrigasira',
-        yogam: 'Vyatipata',
-        karanam: 'Bava',
-        sun: '6:05 AM · 5:58 PM'
-      },
-      timings: [
-        { type: 'good', label: 'Amrita Kalam', time: '10:42 – 12:18 PM' },
-        { type: 'good', label: 'Abhijit', time: '11:38 AM – 12:25 PM' },
-        { type: 'avoid', label: 'Rahu Kalam', time: '9:00 – 10:30 AM' },
-        { type: 'avoid', label: 'Yamagandam', time: '1:30 – 3:00 PM' },
-        { type: 'avoid', label: 'Gulika', time: '6:00 – 7:30 AM' },
-        { type: 'avoid', label: 'Durmuhurtham', time: '6:05 – 7:41 AM' }
-      ]
-    },
-    {
-      dateStr: 'Sunday, 4 October',
-      special: 'Mahalaya Paksham: Madhyashtami - especially auspicious for all Pitru devatas.',
-      elements: {
-        masam: 'Bhadrapada · Parabhava',
-        vaaram: 'Aadivaram',
-        tithi: 'Bahula Ashtami',
-        nakshatram: 'Ardra',
-        yogam: 'Variyan',
-        karanam: 'Balava',
-        sun: '6:06 AM · 5:57 PM'
-      },
-      timings: [
-        { type: 'good', label: 'Amrita Kalam', time: '1:10 – 2:45 PM' },
-        { type: 'good', label: 'Abhijit', time: '11:37 AM – 12:24 PM' },
-        { type: 'avoid', label: 'Rahu Kalam', time: '4:30 – 6:00 PM' },
-        { type: 'avoid', label: 'Yamagandam', time: '12:00 – 1:30 PM' },
-        { type: 'avoid', label: 'Gulika', time: '3:00 – 4:30 PM' },
-        { type: 'avoid', label: 'Durmuhurtham', time: '4:20 – 5:08 PM' }
-      ]
+  useEffect(() => {
+    let isMounted = true;
+    const fetchPanchangam = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const res = await apiRequest('/api/panchangam', { timeoutMs: 8000 });
+        if (!isMounted) return;
+
+        if (res.success && res.data) {
+          const rawDays: RawPanchangamDay[] = Array.isArray(res.data.panchangam) 
+            ? res.data.panchangam 
+            : (Array.isArray(res.data) ? res.data : []);
+
+          if (rawDays.length > 0) {
+            // Sort by day ascending
+            const sorted = [...rawDays].sort((a, b) => new Date(a.day).getTime() - new Date(b.day).getTime());
+            setDays(sorted);
+
+            // Find today's index
+            const todayStr = new Date().toDateString();
+            const todayIdx = sorted.findIndex(d => new Date(d.day).toDateString() === todayStr);
+            if (todayIdx >= 0) {
+              setSelectedIndex(todayIdx);
+            } else {
+              setSelectedIndex(0);
+            }
+          } else {
+            setError('No panchangam data found in database.');
+          }
+        } else {
+          setError(res.error || 'Failed to connect to database for panchangam.');
+        }
+      } catch (err: any) {
+        if (isMounted) setError(err.message || 'Error loading panchangam.');
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    fetchPanchangam();
+    return () => { isMounted = false; };
+  }, []);
+
+  const currentDay = days[selectedIndex];
+
+  // Helper formatting
+  const formatDateStr = (dateVal?: string) => {
+    if (!dateVal) return lang === 'te' ? 'నేడు' : 'Today';
+    const d = new Date(dateVal);
+    return d.toLocaleDateString(lang === 'te' ? 'te-IN' : 'en-US', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      timeZone: 'Asia/Kolkata'
+    });
+  };
+
+  const getSpecialNote = (day?: RawPanchangamDay) => {
+    if (!day) return '';
+    if (typeof day.significance === 'object') {
+      if (lang === 'te' && day.significance?.te) return day.significance.te;
+      if (day.significance?.en) return day.significance.en;
     }
-  ];
+    if (typeof day.significance === 'string' && day.significance.trim()) {
+      return day.significance;
+    }
+    return lang === 'te' 
+      ? `${day.tithi || 'శుభ దినం'} · పూజలు, హోమాలకు అనుకూలమైన పవిత్ర సమయం.`
+      : `${day.tithi || 'Sacred'} · Auspicious period for pujas, havans, and divine blessings.`;
+  };
 
-  // Base day index 1 = Saturday, 3 October
-  const currentDayIndex = Math.min(Math.max(1 + dateOffset, 0), panchangamDays.length - 1);
-  const currentDay = panchangamDays[currentDayIndex];
+  const timings: Array<{ type: 'good' | 'avoid'; label: string; time: string }> = [];
+  if (currentDay) {
+    if (Array.isArray(currentDay.good_periods)) {
+      currentDay.good_periods.forEach(p => {
+        if (p && p.name) {
+          timings.push({ type: 'good', label: p.name, time: `${p.from} – ${p.to}` });
+        }
+      });
+    }
+    if (Array.isArray(currentDay.avoid_periods)) {
+      currentDay.avoid_periods.forEach(p => {
+        if (p && p.name) {
+          timings.push({ type: 'avoid', label: p.name, time: `${p.from} – ${p.to}` });
+        }
+      });
+    }
+  }
 
   return (
     <div className="panchangam-page-root">
@@ -101,7 +143,7 @@ export const PanchangamPage: React.FC<PanchangamPageProps> = ({ onNavigateHome, 
               cursor: 'pointer'
             }}
           >
-            ← Back to Home
+            {lang === 'te' ? '← హోమ్‌కు తిరిగి వెళ్లండి' : '← Back to Home'}
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.88rem', color: '#666' }}>
             <button 
@@ -109,10 +151,10 @@ export const PanchangamPage: React.FC<PanchangamPageProps> = ({ onNavigateHome, 
               onClick={onNavigateHome}
               style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', padding: 0 }}
             >
-              Home
+              {lang === 'te' ? 'హోమ్' : 'Home'}
             </button>
             <span>/</span>
-            <span style={{ color: '#1B1510', fontWeight: 600 }}>Panchangam</span>
+            <span style={{ color: '#1B1510', fontWeight: 600 }}>{lang === 'te' ? 'పంచాంగం' : 'Panchangam'}</span>
           </div>
         </div>
       )}
@@ -120,101 +162,130 @@ export const PanchangamPage: React.FC<PanchangamPageProps> = ({ onNavigateHome, 
       {/* Header Row */}
       <div className="panchangam-header-row">
         <div>
-          <h1 className="panchangam-title font-sans">Panchangam</h1>
-          <p className="panchangam-subtitle">Hyderabad · Daily Vedic Calendar & Timings</p>
+          <h1 className="panchangam-title font-sans">{lang === 'te' ? 'దైనందిన పంచాంగం' : 'Panchangam'}</h1>
+          <p className="panchangam-subtitle">
+            {lang === 'te' ? 'హైదరాబాద్ · వైదిక పంచాంగం మరియు శుభ ముహూర్త సమయాలు' : 'Hyderabad · Daily Vedic Calendar & Timings from Database'}
+          </p>
         </div>
 
         {/* Date Stepper Controls */}
-        <div className="date-stepper-box">
-          <button 
-            className="stepper-arrow-btn"
-            onClick={() => setDateOffset(prev => Math.max(prev - 1, -1))}
-            disabled={currentDayIndex === 0}
-            title="Previous Day"
-          >
-            ‹
-          </button>
-          <span className="stepper-date-text">{currentDay.dateStr}</span>
-          <button 
-            className="stepper-arrow-btn"
-            onClick={() => setDateOffset(prev => Math.min(prev + 1, 1))}
-            disabled={currentDayIndex === panchangamDays.length - 1}
-            title="Next Day"
-          >
-            ›
-          </button>
-        </div>
-      </div>
-
-      {/* Special Auspicious Fortnight Banner */}
-      <div className="special-banner-card">
-        <p className="special-banner-text">{currentDay.special}</p>
-      </div>
-
-      {/* Main 2-column Grid */}
-      <div className="panchangam-grid">
-        {/* Left Column: Panchanga Elements */}
-        <div className="panchanga-card">
-          <h3 className="card-heading">Panchanga elements</h3>
-
-          <div className="elements-table">
-            <div className="element-row">
-              <span className="element-key">Masam</span>
-              <span className="element-val">{currentDay.elements.masam}</span>
-            </div>
-            <div className="element-row">
-              <span className="element-key">Vaaram</span>
-              <span className="element-val">{currentDay.elements.vaaram}</span>
-            </div>
-            <div className="element-row">
-              <span className="element-key">Tithi</span>
-              <span className="element-val">{currentDay.elements.tithi}</span>
-            </div>
-            <div className="element-row">
-              <span className="element-key">Nakshatram</span>
-              <span className="element-val">{currentDay.elements.nakshatram}</span>
-            </div>
-            <div className="element-row">
-              <span className="element-key">Yogam</span>
-              <span className="element-val">{currentDay.elements.yogam}</span>
-            </div>
-            <div className="element-row">
-              <span className="element-key">Karanam</span>
-              <span className="element-val">{currentDay.elements.karanam}</span>
-            </div>
-            <div className="element-row no-border">
-              <span className="element-key">Sunrise · Sunset</span>
-              <span className="element-val">{currentDay.elements.sun}</span>
-            </div>
+        {days.length > 0 && (
+          <div className="date-stepper-box">
+            <button 
+              className="stepper-arrow-btn"
+              onClick={() => setSelectedIndex(prev => Math.max(prev - 1, 0))}
+              disabled={selectedIndex === 0}
+              title="Previous Day"
+            >
+              ‹
+            </button>
+            <span className="stepper-date-text">{formatDateStr(currentDay?.day)}</span>
+            <button 
+              className="stepper-arrow-btn"
+              onClick={() => setSelectedIndex(prev => Math.min(prev + 1, days.length - 1))}
+              disabled={selectedIndex === days.length - 1}
+              title="Next Day"
+            >
+              ›
+            </button>
           </div>
+        )}
+      </div>
+
+      {loading && (
+        <div style={{ padding: '60px 20px', textAlign: 'center', color: '#888' }}>
+          <div className="loading-spinner" style={{ margin: '0 auto 16px', width: '36px', height: '36px', border: '3px solid #EFEAE2', borderTopColor: '#7C1B2C', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+          <p>{lang === 'te' ? 'పంచాంగ వివరాలు లోడ్ అవుతున్నాయి...' : 'Connecting to database & loading Vedic Panchangam...'}</p>
         </div>
+      )}
 
-        {/* Right Column: Good times and times to avoid */}
-        <div className="panchanga-card">
-          <h3 className="card-heading">Good times and times to avoid</h3>
+      {error && !loading && (
+        <div style={{ padding: '24px', background: '#FEE2E2', border: '1px solid #FCA5A5', borderRadius: '12px', color: '#991B1B', margin: '20px 0' }}>
+          <strong>Panchangam Offline:</strong> {error}
+        </div>
+      )}
 
-          <div className="timings-table">
-            {currentDay.timings.map((t, idx) => (
-              <div key={idx} className="timing-row">
-                <div className="timing-badge-wrap">
-                  <span className={`timing-pill ${t.type === 'good' ? 'pill-good' : 'pill-avoid'}`}>
-                    {t.type === 'good' ? 'Good' : 'Avoid'}
-                  </span>
-                  <span className="timing-label">{t.label}</span>
+      {!loading && currentDay && (
+        <>
+          {/* Special Auspicious Banner */}
+          <div className="special-banner-card">
+            <p className="special-banner-text">{getSpecialNote(currentDay)}</p>
+          </div>
+
+          {/* Main 2-column Grid */}
+          <div className="panchangam-grid">
+            {/* Left Column: Panchanga Elements */}
+            <div className="panchanga-card">
+              <h3 className="card-heading">{lang === 'te' ? 'పంచాంగ అంశాలు' : 'Panchanga elements'}</h3>
+
+              <div className="elements-table">
+                <div className="element-row">
+                  <span className="element-key">{lang === 'te' ? 'మాసం & సంవత్సరం' : 'Masam & Samvatsaram'}</span>
+                  <span className="element-val">{currentDay.masam || '—'}{currentDay.samvatsaram ? ` · ${currentDay.samvatsaram}` : ''}</span>
                 </div>
-                <span className="timing-val">{t.time}</span>
+                <div className="element-row">
+                  <span className="element-key">{lang === 'te' ? 'వారం' : 'Vaaram'}</span>
+                  <span className="element-val">{currentDay.vaaram || '—'}</span>
+                </div>
+                <div className="element-row">
+                  <span className="element-key">{lang === 'te' ? 'తిథి' : 'Tithi'}</span>
+                  <span className="element-val">{currentDay.tithi || '—'}{currentDay.paksham ? ` (${currentDay.paksham} Paksham)` : ''}</span>
+                </div>
+                <div className="element-row">
+                  <span className="element-key">{lang === 'te' ? 'నక్షత్రం' : 'Nakshatram'}</span>
+                  <span className="element-val">{currentDay.nakshatram || '—'}</span>
+                </div>
+                <div className="element-row">
+                  <span className="element-key">{lang === 'te' ? 'యోగం' : 'Yogam'}</span>
+                  <span className="element-val">{currentDay.yogam || 'Variyan'}</span>
+                </div>
+                <div className="element-row">
+                  <span className="element-key">{lang === 'te' ? 'కరణం' : 'Karanam'}</span>
+                  <span className="element-val">{currentDay.karanam || 'Taitila'}</span>
+                </div>
+                <div className="element-row no-border">
+                  <span className="element-key">{lang === 'te' ? 'సూర్యోదయం · సూర్యాస్తమయం' : 'Sunrise · Sunset'}</span>
+                  <span className="element-val">
+                    {currentDay.sunrise ? currentDay.sunrise.slice(0, 5) : '06:06 AM'} · {currentDay.sunset ? currentDay.sunset.slice(0, 5) : '05:55 PM'}
+                  </span>
+                </div>
               </div>
-            ))}
-          </div>
+            </div>
 
-          {/* Action CTA: Find a Pooja for this day */}
-          <button className="btn-find-pooja" onClick={onNavigatePoojas}>
-            Find a Pooja for this day
-          </button>
-        </div>
-      </div>
+            {/* Right Column: Good times and times to avoid */}
+            <div className="panchanga-card">
+              <h3 className="card-heading">{lang === 'te' ? 'శుభ & వర్జ్య సమయాలు' : 'Good times and times to avoid'}</h3>
+
+              <div className="timings-table">
+                {timings.length > 0 ? (
+                  timings.map((t, idx) => (
+                    <div key={idx} className="timing-row">
+                      <div className="timing-badge-wrap">
+                        <span className={`timing-pill ${t.type === 'good' ? 'pill-good' : 'pill-avoid'}`}>
+                          {t.type === 'good' ? (lang === 'te' ? 'శుభం' : 'Good') : (lang === 'te' ? 'వర్జ్యం' : 'Avoid')}
+                        </span>
+                        <span className="timing-label">{t.label}</span>
+                      </div>
+                      <span className="timing-val">{t.time}</span>
+                    </div>
+                  ))
+                ) : (
+                  <p style={{ color: '#888', padding: '12px 0' }}>{lang === 'te' ? 'ఎటువంటి వర్జ్య సమయాలు లేవు.' : 'No restrictive timings specified for this day.'}</p>
+                )}
+              </div>
+
+              {/* Action CTA: Find a Pooja for this day */}
+              <button className="btn-find-pooja" onClick={onNavigatePoojas}>
+                {lang === 'te' ? 'ఈ రోజుకు తగిన పూజను కనుగొనండి' : 'Find a Pooja for this day'}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+
         .panchangam-page-root {
           padding-top: 16px;
           padding-bottom: 80px;

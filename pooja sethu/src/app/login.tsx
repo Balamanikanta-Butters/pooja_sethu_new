@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { colors } from '../constants/colors';
@@ -27,6 +27,7 @@ export default function MobileLoginScreen() {
   const [otp, setOtp] = useState('');
   const [otpError, setOtpError] = useState('');
   const [otpTouched, setOtpTouched] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
   const [fetchedLocation, setFetchedLocation] = useState<string | null>(null);
 
   const finishLogin = () => {
@@ -97,14 +98,17 @@ export default function MobileLoginScreen() {
     setShowOtp(true);
   };
 
+  const isOtpValid = otp.length === 4 || otp.length === 6;
+
   const handleVerifyOtp = async () => {
     setOtpTouched(true);
     
-    if (otp.length !== 6) {
-      setOtpError('Enter a valid 6-digit OTP');
+    if (!isOtpValid) {
+      setOtpError('Enter a valid 4 or 6-digit OTP');
       return;
     }
     setOtpError('');
+    setIsVerifying(true);
 
     try {
       const data = await apiFetch(`${API_BASE_URL}/api/auth/verify-otp`, {
@@ -118,9 +122,10 @@ export default function MobileLoginScreen() {
           await saveToken(data.token);
         }
         if (data.user) {
+          const resolvedName = (data.user.name && data.user.name.trim()) || name.trim() || '';
           updateUserData({ 
             mobileNumber: mobileNumber,
-            name: data.user.name || '',
+            name: resolvedName,
             email: data.user.email || '',
             sampradayam: data.user.sampradayam || '',
             gotra: data.user.gotra || '',
@@ -150,6 +155,8 @@ export default function MobileLoginScreen() {
       } else {
         router.replace('/(tabs)');
       }
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -282,12 +289,12 @@ export default function MobileLoginScreen() {
                     const numericValue = text.replace(/[^0-9]/g, '');
                     setOtp(numericValue);
                     if (otpTouched) {
-                      setOtpError(numericValue.length === 6 ? '' : 'Enter a valid 6-digit OTP');
+                      setOtpError(numericValue.length === 4 || numericValue.length === 6 ? '' : 'Enter a valid 4 or 6-digit OTP');
                     }
                   }}
                   onBlur={() => {
                     setOtpTouched(true);
-                    setOtpError(otp.length === 6 ? '' : 'Enter a valid 6-digit OTP');
+                    setOtpError(otp.length === 4 || otp.length === 6 ? '' : 'Enter a valid 4 or 6-digit OTP');
                   }}
                 />
               </View>
@@ -320,17 +327,21 @@ export default function MobileLoginScreen() {
             <TouchableOpacity 
               style={[
                 styles.sendOtpButton,
-                (otp.length !== 6) && styles.sendOtpButtonDisabled,
-                { backgroundColor: '#D7CCC8' } // Lighter button in the image? Actually, let's keep consistent styles or match image.
+                !isOtpValid && styles.sendOtpButtonDisabled
               ]}
               onPress={handleVerifyOtp}
-              disabled={otp.length !== 6}
+              disabled={!isOtpValid || isVerifying}
             >
-              <Text style={[
-                styles.sendOtpButtonText,
-                { color: '#7C1B2C' },
-                (otp.length !== 6) && styles.sendOtpButtonTextDisabled
-              ]}>Verify and continue</Text>
+              {isVerifying ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={[
+                  styles.sendOtpButtonText,
+                  !isOtpValid && styles.sendOtpButtonTextDisabled
+                ]}>
+                  {t('verifyAndContinue')}
+                </Text>
+              )}
             </TouchableOpacity>
           )}
 

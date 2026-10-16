@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import type { PoojaItem } from '../types';
 import { getPoojaIllustration } from '../components/Illustrations';
 import { apiRequest } from '../utils/apiClient';
+import { useLanguage } from '../context/LanguageContext';
 
 interface AllPoojasPageProps {
   onSelectPooja: (pooja: PoojaItem) => void;
   onNavigateHome: () => void;
   initialCategory?: string;
+  initialTradition?: string;
   searchQuery?: string;
 }
 
@@ -14,20 +16,52 @@ export const AllPoojasPage: React.FC<AllPoojasPageProps> = ({
   onSelectPooja,
   onNavigateHome,
   initialCategory = 'all',
+  initialTradition = 'all',
   searchQuery = ''
 }) => {
-  const [selectedTradition, setSelectedTradition] = useState('all');
+  const { t } = useLanguage();
+  const [selectedTradition, setSelectedTradition] = useState(initialTradition || 'all');
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);
   const [sortBy, setSortBy] = useState('most-booked');
 
-  const traditions = [
+  const [traditionsList, setTraditionsList] = useState<{ id: string; label: string }[]>([
     { id: 'all', label: 'All traditions' },
-    { id: 'smartha', label: 'Smartha' },
     { id: 'madhva', label: 'Madhva' },
+    { id: 'pancharatra', label: 'Pancharatra' },
+    { id: 'samanya', label: 'Samanya (General)' },
+    { id: 'smartha', label: 'Smartha' },
+    { id: 'raghavendra', label: 'Sri Raghavendra Matha' },
     { id: 'srivaishnava', label: 'Sri Vaishnava' },
+    { id: 'thenkalai', label: 'Thenkalai' },
+    { id: 'uttaradi', label: 'Uttaradi Matha' },
+    { id: 'vadakalai', label: 'Vadakalai' },
     { id: 'vaikhanasa', label: 'Vaikhanasa' },
-    { id: 'samanya', label: 'Samanya / Not sure' },
-  ];
+    { id: 'veerashaiva', label: 'Veerashaiva' },
+    { id: 'vyasaraja', label: 'Vyasaraja Matha' }
+  ]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadTraditions = async () => {
+      try {
+        const res = await apiRequest('/api/services/sampradayams', { timeoutMs: 6000 });
+        if (isMounted && res.success) {
+          const list = Array.isArray(res.data) ? res.data : (res.raw?.data || []);
+          if (Array.isArray(list) && list.length > 0) {
+            const mapped = list
+              .filter((item: any) => item.code && item.name && item.code !== 'unknown')
+              .map((item: any) => ({
+                id: item.code.toLowerCase(),
+                label: item.name
+              }));
+            setTraditionsList([{ id: 'all', label: 'All traditions' }, ...mapped]);
+          }
+        }
+      } catch {}
+    };
+    loadTraditions();
+    return () => { isMounted = false; };
+  }, []);
 
   const [categoriesList, setCategoriesList] = useState<{ id: string; label: string }[]>([
     { id: 'all', label: 'All' },
@@ -126,6 +160,16 @@ export const AllPoojasPage: React.FC<AllPoojasPageProps> = ({
     fetchPoojas();
   }, []);
 
+  // Helper to match category id or code robustly (e.g. 'festival' vs 'festivals', 'homam' vs 'homams')
+  const isCategoryMatch = (itemCategory: string, selectedCat: string): boolean => {
+    if (!selectedCat || selectedCat === 'all') return true;
+    if (!itemCategory) return false;
+    const item = itemCategory.toLowerCase().trim();
+    const sel = selectedCat.toLowerCase().trim();
+    if (item === sel) return true;
+    return item.includes(sel) || sel.includes(item);
+  };
+
   // Filter by tradition and category
   const filtered = poojaItems
     .filter(p => {
@@ -136,11 +180,8 @@ export const AllPoojasPage: React.FC<AllPoojasPageProps> = ({
         const matchDesc = p.description.toLowerCase().includes(q);
         if (!matchTitle && !matchTelugu && !matchDesc) return false;
       }
-      if (selectedCategory !== 'all' && p.category !== selectedCategory) return false;
-      if (selectedTradition === 'smartha' && !p.traditionLabel.includes('Smartha') && !p.traditionLabel.includes('All')) return false;
-      if (selectedTradition === 'madhva' && !p.traditionLabel.includes('Madhva') && !p.traditionLabel.includes('All')) return false;
-      if (selectedTradition === 'srivaishnava' && !p.traditionLabel.includes('Sri Vaishnava') && !p.traditionLabel.includes('All')) return false;
-      if (selectedTradition === 'vaikhanasa' && !p.traditionLabel.includes('Vaikhanasa') && !p.traditionLabel.includes('All')) return false;
+      if (selectedCategory !== 'all' && !isCategoryMatch(p.category, selectedCategory)) return false;
+      // Tradition selection retains all poojas as per requirements
       return true;
     })
     .sort((a, b) => {
@@ -158,16 +199,12 @@ export const AllPoojasPage: React.FC<AllPoojasPageProps> = ({
     if (c.id === 'all') {
       count = poojaItems.length;
     } else {
-      count = poojaItems.filter(p => {
-        const cat = (p.category || '').toLowerCase();
-        const cid = c.id.toLowerCase();
-        return cat.includes(cid) || cid.includes(cat);
-      }).length;
+      count = poojaItems.filter(p => isCategoryMatch(p.category, c.id)).length;
     }
     return { ...c, count };
   });
 
-  const currentCategoryObj = categories.find(c => c.id === selectedCategory);
+  const currentCategoryObj = categories.find(c => isCategoryMatch(c.id, selectedCategory));
   const pageTitle = selectedCategory === 'all' 
     ? 'All Poojas' 
     : currentCategoryObj 
@@ -229,19 +266,20 @@ export const AllPoojasPage: React.FC<AllPoojasPageProps> = ({
       <div className="all-poojas-layout">
         {/* Left Sidebar Filter */}
         <aside className="filters-sidebar">
-          {/* Section 1: SAMPRADAYAM */}
+          {/* Section 1: Filter by Tradition */}
           <div className="filter-group">
-            <h3 className="filter-group-title">SAMPRADAYAM</h3>
+            <h3 className="filter-group-title">{t('all_poojas_filter_tradition', 'Filter by Tradition')}</h3>
             <div className="filter-options-list">
-              {traditions.map((t) => {
-                const isActive = selectedTradition === t.id;
+              {traditionsList.map((tItem) => {
+                const isActive = selectedTradition === tItem.id;
                 return (
                   <button
-                    key={t.id}
+                    key={tItem.id}
                     className={`filter-btn ${isActive ? 'active' : ''}`}
-                    onClick={() => setSelectedTradition(t.id)}
+                    onClick={() => setSelectedTradition(tItem.id)}
+                    type="button"
                   >
-                    <span>{t.label}</span>
+                    <span>{tItem.label}</span>
                   </button>
                 );
               })}
@@ -253,12 +291,19 @@ export const AllPoojasPage: React.FC<AllPoojasPageProps> = ({
             <h3 className="filter-group-title">CATEGORY</h3>
             <div className="filter-options-list">
               {categories.map((c) => {
-                const isActive = selectedCategory === c.id;
+                const isActive = selectedCategory === c.id || (selectedCategory !== 'all' && isCategoryMatch(c.id, selectedCategory));
                 return (
                   <button
                     key={c.id}
                     className={`filter-btn ${isActive ? 'active' : ''}`}
-                    onClick={() => setSelectedCategory(c.id)}
+                    onClick={() => {
+                      if (selectedCategory === c.id || (selectedCategory !== 'all' && isCategoryMatch(c.id, selectedCategory))) {
+                        setSelectedCategory('all');
+                      } else {
+                        setSelectedCategory(c.id);
+                      }
+                    }}
+                    type="button"
                   >
                     <span>{c.label}</span>
                     <span className="filter-count-badge">{c.count}</span>
@@ -294,29 +339,28 @@ export const AllPoojasPage: React.FC<AllPoojasPageProps> = ({
               backgroundColor: '#FFF8F6',
               border: '1px solid #F3C4B9',
               borderRadius: '12px',
-              padding: '32px 24px',
+              padding: '28px 24px',
               textAlign: 'center',
               margin: '20px 0'
             }}>
-              <h3 style={{ color: '#900', margin: '0 0 8px 0', fontSize: '1.15rem', fontWeight: 600 }}>Database Connection Pending</h3>
-              <p style={{ color: '#555', margin: '0 auto 16px auto', maxWidth: '560px', fontSize: '0.92rem', lineHeight: '1.5' }}>
-                All static and mock data has been removed. Ceremonies are queried directly from PostgreSQL at <code>192.168.88.3:5432</code>. Please start your PostgreSQL server to view live ceremonies.
+              <p style={{ color: '#7C1B2C', margin: '0 0 12px 0', fontSize: '0.95rem', fontWeight: 500 }}>
+                Unable to load ceremonies right now.
               </p>
               <button 
                 type="button" 
                 onClick={fetchPoojas}
                 style={{
-                  padding: '9px 24px',
+                  padding: '8px 22px',
                   backgroundColor: '#7C1B2C',
                   color: '#FFF',
                   border: 'none',
                   borderRadius: '8px',
                   cursor: 'pointer',
                   fontWeight: 600,
-                  fontSize: '0.88rem'
+                  fontSize: '0.85rem'
                 }}
               >
-                Retry Connection
+                Retry
               </button>
             </div>
           ) : (
@@ -348,6 +392,20 @@ export const AllPoojasPage: React.FC<AllPoojasPageProps> = ({
                     <span className="card-dakshina">
                       Dakshina <strong>₹{pooja.minPrice.toLocaleString('en-IN')} – ₹{pooja.maxPrice.toLocaleString('en-IN')}</strong>
                     </span>
+                  </div>
+
+                  {/* Action Button */}
+                  <div style={{ marginTop: '12px' }}>
+                    <button
+                      type="button"
+                      className="card-book-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectPooja(pooja);
+                      }}
+                    >
+                      Book Ceremony →
+                    </button>
                   </div>
                 </div>
               </div>
@@ -591,6 +649,26 @@ export const AllPoojasPage: React.FC<AllPoojasPageProps> = ({
         }
         .card-dakshina strong {
           font-weight: 700;
+        }
+        .card-book-btn {
+          width: 100%;
+          padding: 8px 16px;
+          background: #FFF8F6;
+          border: 1px solid var(--primary-maroon);
+          color: var(--primary-maroon);
+          font-weight: 700;
+          font-size: 0.88rem;
+          border-radius: var(--radius-md);
+          cursor: pointer;
+          transition: all 0.2s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+        }
+        .card-book-btn:hover {
+          background: var(--primary-maroon);
+          color: #FFFFFF;
         }
         @media (max-width: 1100px) {
           .poojas-catalog-grid {

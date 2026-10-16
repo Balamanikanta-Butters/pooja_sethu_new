@@ -38,22 +38,22 @@ export const FullPanchangamModal: React.FC<FullPanchangamModalProps> = ({ isOpen
           <div className="anga-card">
             <span className="anga-name">Tithi</span>
             <span className="anga-value">{data.tithi}</span>
-            <span className="anga-sub">Till 08:45 PM, then Ashtami</span>
+            <span className="anga-sub">{data.paksham ? `${data.paksham} Paksham` : 'Vedic Lunar Day'}</span>
           </div>
           <div className="anga-card">
             <span className="anga-name">Nakshatram</span>
             <span className="anga-value">{data.nakshatram}</span>
-            <span className="anga-sub">Till 11:20 PM, then Arudra</span>
+            <span className="anga-sub">Sacred Lunar Mansion</span>
           </div>
           <div className="anga-card">
             <span className="anga-name">Masam & Paksham</span>
             <span className="anga-value">{data.masam}</span>
-            <span className="anga-sub">Krishna Paksha (Bahula)</span>
+            <span className="anga-sub">{data.paksham ? `${data.paksham} Paksham` : 'Auspicious Month'}</span>
           </div>
           <div className="anga-card">
             <span className="anga-name">Yoga & Karana</span>
-            <span className="anga-value">Siddhi & Vishti</span>
-            <span className="anga-sub">Bhadra Karana</span>
+            <span className="anga-value">{data.yogam || 'Variyan'} & {data.karanam || 'Taitila'}</span>
+            <span className="anga-sub">Auspicious Conjunction</span>
           </div>
         </div>
 

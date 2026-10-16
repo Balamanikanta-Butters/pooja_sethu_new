@@ -1,48 +1,168 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { ZeroFeeTicketArt, BhojanaluMealArt, HouseIllustration } from './Illustrations';
+import { 
+  ZeroFeeTicketArt, 
+  BhojanaluMealArt, 
+  HouseIllustration, 
+  MahalayaArt, 
+  NavaratriArt, 
+  DeepavaliArt,
+  SatyanarayanaIllustration,
+  HomamIllustration
+} from './Illustrations';
+import { useLanguage } from '../context/LanguageContext';
 
 interface HeroCarouselProps {
   onExplorePoojas: () => void;
   onSelectMuhurtham: () => void;
+  banners?: Array<{
+    id: string;
+    slot?: string;
+    title?: string;
+    type?: string;
+    target_pooja_name?: string;
+  }>;
 }
 
-export const HeroCarousel: React.FC<HeroCarouselProps> = ({ onExplorePoojas, onSelectMuhurtham }) => {
+export const HeroCarousel: React.FC<HeroCarouselProps> = ({ onExplorePoojas, onSelectMuhurtham, banners = [] }) => {
+  const { lang } = useLanguage();
   const [currentSlide, setCurrentSlide] = useState(0);
 
-  const slides = [
+  // Helper to determine specific illustration and theme per banner
+  const getBannerVisual = (title: string = '') => {
+    const t = title.toLowerCase();
+    if (t.includes('mahalaya') || t.includes('amavasya') || t.includes('pitru') || t.includes('tarpanam')) {
+      return {
+        art: (
+          <div className="carousel-circle-frame mahalaya-frame">
+            <MahalayaArt className="carousel-art-cover" />
+          </div>
+        ),
+        bgColor: '#261C2C',
+        tag: lang === 'te' ? 'వైదిక పర్వదినం' : 'VEDIC FESTIVAL & PARVAM',
+        title: lang === 'te' ? 'మహాలయ అమావాస్య · పితృ తర్పణం' : 'Mahalaya Amavasya • Pitru Tarpanam'
+      };
+    }
+    if (t.includes('navaratri') || t.includes('devi') || t.includes('durga') || t.includes('dasara')) {
+      return {
+        art: (
+          <div className="carousel-circle-frame navaratri-frame">
+            <NavaratriArt className="carousel-art-cover" />
+          </div>
+        ),
+        bgColor: '#5A1924',
+        tag: lang === 'te' ? 'నవరాత్రి విశేషం' : 'DEVI NAVARATRI MAHOTSAVAM',
+        title: lang === 'te' ? 'శరన్నవరాత్రి దేవి పూజలు' : 'Devi Navaratri Poojas'
+      };
+    }
+    if (t.includes('deepavali') || t.includes('diwali') || t.includes('lakshmi')) {
+      return {
+        art: (
+          <div className="carousel-circle-frame deepavali-frame">
+            <DeepavaliArt className="carousel-art-cover" />
+          </div>
+        ),
+        bgColor: '#341542',
+        tag: lang === 'te' ? 'దీపావళి పర్వదినం' : 'DEEPAVALI UTSAVAM',
+        title: lang === 'te' ? 'దీపావళి లక్ష్మీ కుబేర పూజ' : 'Deepavali Lakshmi Pooja'
+      };
+    }
+    if (t.includes('satyanarayana') || t.includes('vratham')) {
+      return {
+        art: (
+          <div className="carousel-circle-frame satya-frame">
+            <SatyanarayanaIllustration className="carousel-art-cover" />
+          </div>
+        ),
+        bgColor: '#754B0B',
+        tag: lang === 'te' ? 'వ్రత విధానం' : 'AUSPICIOUS VRATHAM',
+        title: lang === 'te' ? 'శ్రీ సత్యనారాయణ స్వామి వ్రతం' : 'Sri Satyanarayana Swamy Vratham'
+      };
+    }
+    if (t.includes('homam') || t.includes('ganapathi') || t.includes('chandi') || t.includes('sudarshana')) {
+      return {
+        art: (
+          <div className="carousel-circle-frame homam-frame">
+            <HomamIllustration className="carousel-art-cover" />
+          </div>
+        ),
+        bgColor: '#6B1B15',
+        tag: lang === 'te' ? 'హోమ కార్యం' : 'VEDIC HOMA VIDHI',
+        title: title
+      };
+    }
+    if (t.includes('fee') || t.includes('offer')) {
+      return {
+        art: <ZeroFeeTicketArt className="carousel-art" />,
+        bgColor: '#164E78',
+        tag: lang === 'te' ? 'ప్రారంభ ఆఫర్' : 'LAUNCH OFFER',
+        title: lang === 'te' ? 'మొదటి బుకింగ్‌కు ఎటువంటి బుకింగ్ రుసుము లేదు' : 'First booking with no booking fee'
+      };
+    }
+    return {
+      art: (
+        <div className="carousel-circle-frame house-frame">
+          <HouseIllustration className="carousel-art-cover" />
+        </div>
+      ),
+      bgColor: '#4C1D24',
+      tag: lang === 'te' ? 'వైదిక పూజ' : 'VEDIC CEREMONY',
+      title: title || 'Auspicious Vedic Ceremony'
+    };
+  };
+
+  // Base curated slides
+  const baseSlides = [
     {
-      id: 'slide-0',
-      tag: 'LAUNCH OFFER',
-      title: 'First booking with no booking fee',
-      ctaText: 'Explore Poojas ›',
+      id: 'slide-offer',
+      tag: lang === 'te' ? 'ప్రారంభ ఆఫర్' : 'LAUNCH OFFER',
+      title: lang === 'te' ? 'మొదటి బుకింగ్‌కు ఎటువంటి బుకింగ్ రుసుము లేదు' : 'First booking with no booking fee',
+      ctaText: lang === 'te' ? 'పూజలను చూడండి ›' : 'Explore Poojas ›',
       bgColor: '#164E78',
       action: onExplorePoojas,
       art: <ZeroFeeTicketArt className="carousel-art" />
     },
     {
-      id: 'slide-1',
-      tag: 'COMPLETE PACKAGE',
-      title: 'Purohit, Samagri and Bhojanalu, one booking',
-      ctaText: 'See how ›',
+      id: 'slide-package',
+      tag: lang === 'te' ? 'సంపూర్ణ ప్యాకేజీ' : 'COMPLETE PACKAGE',
+      title: lang === 'te' ? 'పురోహితులు, సామాగ్రి & భోజనాలు ఒక్క బుకింగ్‌లోనే' : 'Purohit, Samagri and Bhojanalu, one booking',
+      ctaText: lang === 'te' ? 'వివరాలు చూడండి ›' : 'See how ›',
       bgColor: '#26532B',
       action: onExplorePoojas,
       art: <BhojanaluMealArt className="carousel-art" />
     },
     {
-      id: 'slide-2',
-      tag: 'MUHURTHAMS OPEN',
-      title: 'Gruhapravesam on 22 and 25 Oct',
-      ctaText: 'Pick a date ›',
+      id: 'slide-gruha',
+      tag: lang === 'te' ? 'ముహూర్తాలు సిద్ధం' : 'MUHURTHAMS OPEN',
+      title: lang === 'te' ? 'అక్టోబర్ 22 మరియు 25న గృహప్రవేశం ముహూర్తాలు' : 'Gruhapravesam on 22 and 25 Oct',
+      ctaText: lang === 'te' ? 'తేదీని ఎంచుకోండి ›' : 'Pick a date ›',
       bgColor: '#75550C',
       action: onSelectMuhurtham,
       art: (
-        <div className="carousel-house-circle">
-          <HouseIllustration className="carousel-art-house" />
+        <div className="carousel-circle-frame house-frame">
+          <HouseIllustration className="carousel-art-cover" />
         </div>
       )
     }
   ];
+
+  // Dynamic slides from database ps.home_banner with distinct, matching artwork & palettes
+  const dynamicSlides = banners
+    .filter(b => b.title && b.type !== 'panchangam_auto' && !b.title.toLowerCase().includes('no booking fee'))
+    .map((b, idx) => {
+      const visual = getBannerVisual(b.title);
+      return {
+        id: b.id || `db-banner-${idx}`,
+        tag: visual.tag,
+        title: visual.title,
+        ctaText: lang === 'te' ? 'పూజ బుక్ చేసుకోండి ›' : 'Book Pooja ›',
+        bgColor: visual.bgColor,
+        action: onExplorePoojas,
+        art: visual.art
+      };
+    });
+
+  const slides = dynamicSlides.length > 0 ? [...dynamicSlides, ...baseSlides] : baseSlides;
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -160,21 +280,52 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({ onExplorePoojas, onS
           height: auto;
           filter: drop-shadow(0 10px 20px rgba(0,0,0,0.18));
         }
-        .carousel-house-circle {
-          width: 220px;
-          height: 220px;
+        .carousel-house-circle,
+        .carousel-circle-frame {
+          width: 230px;
+          height: 230px;
           border-radius: 50%;
           overflow: hidden;
           background: #C49129;
           display: flex;
           align-items: center;
           justify-content: center;
-          box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+          box-shadow: 0 10px 28px rgba(0,0,0,0.28);
+          border: 4px solid rgba(255, 255, 255, 0.22);
+          transition: transform 0.3s ease;
         }
-        .carousel-art-house {
-          width: 130%;
-          height: 130%;
+        .carousel-circle-frame:hover {
+          transform: scale(1.03);
+        }
+        .carousel-art-house,
+        .carousel-art-cover {
+          width: 140%;
+          height: 140%;
           object-fit: cover;
+        }
+        .mahalaya-frame {
+          background: #151D2A;
+          border-color: rgba(147, 197, 253, 0.35);
+        }
+        .navaratri-frame {
+          background: #3B0D13;
+          border-color: rgba(252, 211, 77, 0.4);
+        }
+        .deepavali-frame {
+          background: #200E2C;
+          border-color: rgba(251, 191, 36, 0.45);
+        }
+        .satya-frame {
+          background: #8C5311;
+          border-color: rgba(254, 240, 138, 0.4);
+        }
+        .homam-frame {
+          background: #5C1D06;
+          border-color: rgba(249, 115, 22, 0.45);
+        }
+        .house-frame {
+          background: #C49129;
+          border-color: rgba(254, 240, 138, 0.35);
         }
         .carousel-arrow {
           position: absolute;

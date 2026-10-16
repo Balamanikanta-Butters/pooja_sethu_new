@@ -27,7 +27,9 @@ exports.getAllPoojas = async (req, res) => {
                 c.name->>'en' AS category,
                 (SELECT MIN(vv.dakshina_min) FROM ps.pooja_vidhi pv JOIN ps.vidhi_version vv ON pv.current_version_id = vv.id WHERE pv.pooja_id = p.id) as min_price,
                 (SELECT MAX(vv.dakshina_max) FROM ps.pooja_vidhi pv JOIN ps.vidhi_version vv ON pv.current_version_id = vv.id WHERE pv.pooja_id = p.id) as max_price,
-                (SELECT MAX(vv.duration_minutes) FROM ps.pooja_vidhi pv JOIN ps.vidhi_version vv ON pv.current_version_id = vv.id WHERE pv.pooja_id = p.id) as duration
+                (SELECT MAX(vv.duration_minutes) FROM ps.pooja_vidhi pv JOIN ps.vidhi_version vv ON pv.current_version_id = vv.id WHERE pv.pooja_id = p.id) as duration,
+                (SELECT string_agg(DISTINCT s.code, ',') FROM ps.pooja_vidhi pv JOIN ps.sampradayam s ON pv.sampradayam_id = s.id WHERE pv.pooja_id = p.id) as sampradayam_codes,
+                (SELECT string_agg(DISTINCT s.name->>'en', ', ') FROM ps.pooja_vidhi pv JOIN ps.sampradayam s ON pv.sampradayam_id = s.id WHERE pv.pooja_id = p.id) as sampradayam_names
             FROM ps.pooja p
             LEFT JOIN ps.pooja_category c ON p.category_id = c.id
             WHERE p.status = 'active'
@@ -60,7 +62,8 @@ exports.getAllPoojas = async (req, res) => {
                 category: row.category,
                 price: priceText,
                 duration: durationText,
-                sampradayam: 'All Sampradayams', // Assuming it's available for all unless joined
+                sampradayam: row.sampradayam_names || 'All Sampradayams',
+                sampradayam_codes: row.sampradayam_codes ? row.sampradayam_codes.split(',') : ['all'],
             };
         });
 
@@ -434,7 +437,10 @@ exports.getMuhurthams = async (req, res) => {
             `);
         }
 
-        const formatted = result.rows.map(m => {
+        const seenSlots = new Set();
+        const formatted = [];
+
+        for (const m of result.rows) {
             const start = new Date(m.starts_at);
             const end = new Date(m.ends_at);
             const dateStr = start.toLocaleDateString('en-US', {
@@ -456,7 +462,13 @@ exports.getMuhurthams = async (req, res) => {
                 hour12: true
             });
 
-            return {
+            const uniqueKey = `${dateStr}_${startTimeStr}_${endTimeStr}`.toLowerCase();
+            if (seenSlots.has(uniqueKey)) {
+                continue;
+            }
+            seenSlots.add(uniqueKey);
+
+            formatted.push({
                 id: m.id,
                 poojaId: m.pooja_id,
                 date: dateStr,
@@ -468,8 +480,8 @@ exports.getMuhurthams = async (req, res) => {
                 starts_at: m.starts_at,
                 ends_at: m.ends_at,
                 lagnam: m.lagnam
-            };
-        });
+            });
+        }
 
         return res.status(200).json({ success: true, data: formatted });
     } catch (err) {
@@ -527,5 +539,40 @@ exports.getPackageOptions = async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ success: false, message: 'Server error while fetching package options' });
+    }
+};
+
+exports.getCateringMenu = async (req, res) => {
+    try {
+        const menusRes = await db.query(`
+            SELECT id, name->>'en' as name, name->>'te' as name_te, price_per_plate, min_guests, diet 
+            FROM ps.caterer_menu 
+            WHERE status = 'active' AND diet = 'satvik'
+            ORDER BY price_per_plate ASC
+        `);
+
+        const itemsRes = await db.query(`
+            SELECT cm.name->>'en' as menu_type, fi.name->>'en' as dish_name, fc.name->>'en' as category
+            FROM ps.caterer_menu_item cmi
+            JOIN ps.caterer_menu cm ON cmi.caterer_menu_id = cm.id
+            JOIN ps.food_item fi ON cmi.food_item_id = fi.id
+            LEFT JOIN ps.food_category fc ON fi.category_id = fc.id
+            WHERE cm.status = 'active'
+            ORDER BY cm.name->>'en', fc.name->>'en', fi.name->>'en'
+        `);
+
+        const menusWithDishes = menusRes.rows.map(m => {
+            const dishes = itemsRes.rows.filter(it => it.menu_type === m.name);
+            return {
+                ...m,
+                price: Number(m.price_per_plate),
+                dishes: dishes.map(d => d.dish_name)
+            };
+        });
+
+        res.status(200).json({ success: true, menus: menusWithDishes });
+    } catch (err) {
+        console.error('Error fetching catering menu:', err);
+        res.status(500).json({ success: false, message: 'Server error while fetching catering menu' });
     }
 };

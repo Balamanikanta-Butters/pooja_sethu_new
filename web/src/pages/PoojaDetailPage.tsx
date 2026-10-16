@@ -4,6 +4,7 @@ import { getPoojaIllustration } from '../components/Illustrations';
 import { HowItWorks } from '../components/HowItWorks';
 import { apiRequest } from '../utils/apiClient';
 import { showToast } from '../components/ToastNotification';
+import { useLanguage } from '../context/LanguageContext';
 
 interface PoojaDetailPageProps {
   pooja: PoojaItem;
@@ -26,6 +27,7 @@ export const PoojaDetailPage: React.FC<PoojaDetailPageProps> = ({
   onNavigatePoojas,
   onStartBooking
 }) => {
+  const { lang } = useLanguage();
   const [selectedTradition, setSelectedTradition] = useState('Smartha');
   const [selectedMuhurtham, setSelectedMuhurtham] = useState<string | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -110,6 +112,7 @@ export const PoojaDetailPage: React.FC<PoojaDetailPageProps> = ({
   ]);
 
   const traditions = ['Smartha', 'Madhva', 'Sri Vaishnava', 'Vaikhanasa', 'Not sure'];
+  const [showAllSamagri, setShowAllSamagri] = useState(false);
 
   // 1. Fetch live Pooja Details from PostgreSQL database (/api/services/poojas/:id/details)
   useEffect(() => {
@@ -183,15 +186,24 @@ export const PoojaDetailPage: React.FC<PoojaDetailPageProps> = ({
         if (!isMounted) return;
 
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {
-          const mapped: MuhurthamOption[] = res.data.map((m: any) => ({
-            id: m.id,
-            date: m.date || 'Sun, 25 Oct',
-            time: m.time || '7:12 AM – 9:04 AM',
-            tag: m.tag || 'Auspicious',
-            tagColor: m.tag === 'Best' ? 'green' : m.tag === 'Good' ? 'blue' : 'orange'
-          }));
-          setMuhurthamOptions(mapped);
-          if (!selectedMuhurtham) {
+          const seen = new Set<string>();
+          const mapped: MuhurthamOption[] = [];
+          for (const m of res.data) {
+            const date = m.date || 'Sun, 25 Oct';
+            const time = m.time || '7:12 AM – 9:04 AM';
+            const key = `${date}_${time}`.trim().toLowerCase();
+            if (seen.has(key)) continue;
+            seen.add(key);
+            mapped.push({
+              id: m.id,
+              date,
+              time,
+              tag: m.tag || 'Auspicious',
+              tagColor: m.tag === 'Best' ? 'green' : m.tag === 'Good' ? 'blue' : 'orange'
+            });
+          }
+          setMuhurthamOptions(mapped.slice(0, 4));
+          if (!selectedMuhurtham && mapped.length > 0) {
             setSelectedMuhurtham(`${mapped[0].date} · ${mapped[0].time}`);
           }
         }
@@ -241,13 +253,13 @@ export const PoojaDetailPage: React.FC<PoojaDetailPageProps> = ({
             cursor: 'pointer'
           }}
         >
-          ← Back to Poojas
+          {lang === 'te' ? '← పూజల జాబితాకు' : '← Back to Poojas'}
         </button>
         <nav className="detail-breadcrumb" style={{ margin: 0 }}>
-          <button className="breadcrumb-link" onClick={onNavigateHome}>Home</button>
+          <button className="breadcrumb-link" onClick={onNavigateHome}>{lang === 'te' ? 'హోమ్' : 'Home'}</button>
           <span className="breadcrumb-sep">›</span>
           <button className="breadcrumb-link" onClick={onNavigatePoojas}>
-            {categoryNameMap[pooja.category] || 'Poojas'}
+            {categoryNameMap[pooja.category] || (lang === 'te' ? 'పూజలు' : 'Poojas')}
           </button>
           <span className="breadcrumb-sep">›</span>
           <span className="breadcrumb-current">{livePooja.title}</span>
@@ -285,7 +297,9 @@ export const PoojaDetailPage: React.FC<PoojaDetailPageProps> = ({
 
           {/* Section: Ritual Steps from Database */}
           <div className="detail-section-card">
-            <h3 className="section-title">Ritual Vidhi Steps · {vidhiSteps.length} Steps</h3>
+            <h3 className="section-title">
+              {lang === 'te' ? 'వైదిక పూజా విధానం' : 'Ritual Vidhi Steps'} · {vidhiSteps.length} {lang === 'te' ? 'దశలు' : 'Steps'}
+            </h3>
             <div className="ritual-steps-list">
               {vidhiSteps.map((step, idx) => (
                 <div key={idx} className="ritual-step-item">
@@ -301,23 +315,43 @@ export const PoojaDetailPage: React.FC<PoojaDetailPageProps> = ({
           {/* Section: Pooja Samagri from Database */}
           <div className="detail-section-card">
             <div className="samagri-card-header">
-              <h3 className="section-title">Pooja Samagri · {samagriItems.length} items</h3>
-              <span className="samagri-included-pill">Included in package kit</span>
+              <h3 className="section-title">
+                {lang === 'te' ? 'పూజా సామాగ్రి' : 'Pooja Samagri'} · {samagriItems.length} {lang === 'te' ? 'వస్తువులు' : 'items'}
+              </h3>
+              <span className="samagri-included-pill">
+                {lang === 'te' ? 'కిట్‌లో చేర్చబడినవి' : 'Included in package kit'}
+              </span>
             </div>
 
             <div className="samagri-tags-grid">
-              {samagriItems.map((item, idx) => (
+              {(showAllSamagri ? samagriItems : samagriItems.slice(0, 8)).map((item, idx) => (
                 <div key={idx} className="samagri-tag-pill">
                   <span className="samagri-check">✔</span>
                   <span className="samagri-name">{item}</span>
                 </div>
               ))}
             </div>
+
+            {samagriItems.length > 8 && (
+              <div style={{ textAlign: 'center', marginTop: '16px' }}>
+                <button
+                  type="button"
+                  className="samagri-toggle-btn"
+                  onClick={() => setShowAllSamagri(!showAllSamagri)}
+                >
+                  {showAllSamagri 
+                    ? (lang === 'te' ? 'తక్కువ వస్తువులు చూడండి ▲' : 'See less ▲')
+                    : (lang === 'te' ? `మరిన్ని చూడండి (${samagriItems.length - 8} మరిన్ని వస్తువులు) ▼` : `See more (${samagriItems.length - 8} more items) ▼`)}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Section: What the family arranges from Database */}
           <div className="detail-section-card">
-            <h3 className="section-title">What the family arranges</h3>
+            <h3 className="section-title">
+              {lang === 'te' ? 'ఇంటి వద్ద సిద్ధం చేసుకోవలసినవి' : 'What the family arranges'}
+            </h3>
             <ul className="family-arranges-list">
               {familyArranges.map((task, idx) => (
                 <li key={idx}>{task}</li>
@@ -327,7 +361,9 @@ export const PoojaDetailPage: React.FC<PoojaDetailPageProps> = ({
 
           {/* Section: Questions families ask */}
           <div className="detail-section-card">
-            <h3 className="section-title">Frequently Asked Questions</h3>
+            <h3 className="section-title">
+              {lang === 'te' ? 'తరచుగా అడిగే వైదిక ప్రశ్నలు' : 'Frequently Asked Questions'}
+            </h3>
             <div className="faqs-list">
               {faqs.map((faq, index) => {
                 const isOpen = openFaq === index;
@@ -356,12 +392,12 @@ export const PoojaDetailPage: React.FC<PoojaDetailPageProps> = ({
         {/* Right Sticky Sidebar: Book this Pooja */}
         <div className="detail-sidebar-col">
           <div className="booking-card-sticky">
-            <h2 className="booking-card-title">Book this Pooja</h2>
-            <p className="booking-card-subtitle">Vidhi and Samagri differ by tradition.</p>
+            <h2 className="booking-card-title">{lang === 'te' ? 'పూజను బుక్ చేయండి' : 'Book this Pooja'}</h2>
+            <p className="booking-card-subtitle">{lang === 'te' ? 'విధి మరియు సామాగ్రి సంప్రదాయం ప్రకారం మారుతాయి.' : 'Vidhi and Samagri differ by tradition.'}</p>
 
             {/* Sampradayam Selector */}
             <div className="booking-group">
-              <label className="booking-group-label">YOUR SAMPRADAYAM</label>
+              <label className="booking-group-label">{lang === 'te' ? 'మీ సంప్రదాయం' : 'YOUR SAMPRADAYAM'}</label>
               <div className="tradition-pills-wrap">
                 {traditions.map((trad) => {
                   const isActive = selectedTradition === trad;
@@ -382,8 +418,8 @@ export const PoojaDetailPage: React.FC<PoojaDetailPageProps> = ({
             {/* Suggested Muhurtham Options from Database */}
             <div className="booking-group">
               <div className="muhurtham-label-row">
-                <label className="booking-group-label">SUGGESTED MUHURTHAM</label>
-                <span className="muhurtham-badge">AUSPICIOUS</span>
+                <label className="booking-group-label">{lang === 'te' ? 'శుభ ముహూర్తాలు' : 'SUGGESTED MUHURTHAM'}</label>
+                <span className="muhurtham-badge">{lang === 'te' ? 'శుభ సమయం' : 'AUSPICIOUS'}</span>
               </div>
 
               <div className="muhurtham-options-list">
@@ -421,11 +457,11 @@ export const PoojaDetailPage: React.FC<PoojaDetailPageProps> = ({
             {/* Summary Details */}
             <div className="booking-details-rows">
               <div className="detail-row">
-                <span className="detail-label">Dakshina estimate</span>
+                <span className="detail-label">{lang === 'te' ? 'అంచనా దక్షిణ' : 'Dakshina estimate'}</span>
                 <span className="detail-val">{livePooja.priceText}</span>
               </div>
               <div className="detail-row">
-                <span className="detail-label">Duration</span>
+                <span className="detail-label">{lang === 'te' ? 'సమయం' : 'Duration'}</span>
                 <span className="detail-val">{livePooja.duration}</span>
               </div>
             </div>
@@ -435,7 +471,7 @@ export const PoojaDetailPage: React.FC<PoojaDetailPageProps> = ({
               type="button"
               className="btn-continue-booking"
               onClick={() => {
-                const targetSlot = selectedMuhurtham || `${muhurthamOptions[0].date} · ${muhurthamOptions[0].time}`;
+                const targetSlot = selectedMuhurtham || (muhurthamOptions.length > 0 ? `${muhurthamOptions[0].date} · ${muhurthamOptions[0].time}` : 'Sun, 25 Oct · 7:12 AM – 9:04 AM');
                 onStartBooking(
                   {
                     ...pooja,
@@ -448,11 +484,13 @@ export const PoojaDetailPage: React.FC<PoojaDetailPageProps> = ({
                 );
               }}
             >
-              Continue to booking
+              {lang === 'te' ? 'బుకింగ్‌కు వెళ్లండి' : 'Continue to booking'}
             </button>
 
             <p className="sidebar-reassurance">
-              No payment now · You can review the complete Vidhi, select verified Purohits, and add Bhojanalu next.
+              {lang === 'te'
+                ? 'ఇప్పుడే చెల్లింపు అవసరం లేదు · మీరు పురోహితులను, సామాగ్రిని మరియు భోజనాలను తదుపరి దశలో ఎంచుకోవచ్చు.'
+                : 'No payment now · You can review the complete Vidhi, select verified Purohits, and add Bhojanalu next.'}
             </p>
           </div>
         </div>
@@ -688,6 +726,26 @@ export const PoojaDetailPage: React.FC<PoojaDetailPageProps> = ({
           font-size: 0.92rem;
           color: #1a1a1a;
           font-weight: 500;
+        }
+
+        .samagri-toggle-btn {
+          background-color: #FDF9F3;
+          border: 1px solid #D9CEB2;
+          color: #7C1B2C;
+          font-weight: 600;
+          font-size: 0.88rem;
+          padding: 8px 24px;
+          border-radius: 20px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .samagri-toggle-btn:hover {
+          background-color: #7C1B2C;
+          border-color: #7C1B2C;
+          color: #FFFFFF;
+          transform: translateY(-1px);
         }
 
         .family-arranges-list {

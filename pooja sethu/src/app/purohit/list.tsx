@@ -115,7 +115,13 @@ export default function PurohitListScreen() {
         </TouchableOpacity>
         <View>
           <Text style={styles.headerTitle}>{t('choosePurohit')}</Text>
-          <Text style={styles.headerSubtitle}>{params.selectedMuhurtham || `${params.customDate || ''} ${params.customTime || ''}`.trim() || 'Date & Time not selected'}</Text>
+          <Text style={styles.headerSubtitle}>
+            {params.selectedMuhurthamText && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(params.selectedMuhurthamText))
+              ? String(params.selectedMuhurthamText)
+              : params.selectedMuhurtham && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(params.selectedMuhurtham))
+              ? String(params.selectedMuhurtham)
+              : `${params.customDate || ''} ${params.customTime || ''}`.trim() || 'Date & Time not selected'}
+          </Text>
         </View>
       </View>
 

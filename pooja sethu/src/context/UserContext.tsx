@@ -130,6 +130,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
               return {
                 ...prev,
                 ...data.user,
+                name: (data.user.name && data.user.name.trim()) || prev.name || '',
                 address: defaultAddr?.line1 || data.user.address || prev.address || '',
                 addressLine2: defaultAddr?.line2 || data.user.addressLine2 || prev.addressLine2 || '',
                 landmark: defaultAddr?.landmark || data.user.landmark || prev.landmark || '',
@@ -221,7 +222,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
     const id = 'addr-' + Date.now();
     const addrWithId: SavedAddress = { ...newAddr, id };
     setUserData(prev => {
-      const list = prev.savedAddresses && prev.savedAddresses.length > 0 ? prev.savedAddresses : initialDefaultAddresses;
+      const list = prev.savedAddresses && prev.savedAddresses.length > 0 ? prev.savedAddresses : [];
       const updatedList = [...list, addrWithId];
       return {
         ...prev,
@@ -252,7 +253,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
 
   const deleteSavedAddress = async (id: string) => {
     setUserData(prev => {
-      const list = prev.savedAddresses && prev.savedAddresses.length > 0 ? prev.savedAddresses : initialDefaultAddresses;
+      const list = prev.savedAddresses && prev.savedAddresses.length > 0 ? prev.savedAddresses : [];
       const updatedList = list.filter(item => item.id !== id);
       return {
         ...prev,
@@ -274,7 +275,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
 
   const selectSavedAddress = async (id: string) => {
     setUserData(prev => {
-      const list = prev.savedAddresses && prev.savedAddresses.length > 0 ? prev.savedAddresses : initialDefaultAddresses;
+      const list = prev.savedAddresses && prev.savedAddresses.length > 0 ? prev.savedAddresses : [];
       const updatedList = list.map(item => ({
         ...item,
         is_default: item.id === id,

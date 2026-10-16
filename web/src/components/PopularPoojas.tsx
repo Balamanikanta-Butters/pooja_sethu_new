@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import type { PoojaItem } from '../types';
 import { getPoojaIllustration } from './Illustrations';
 import { apiRequest } from '../utils/apiClient';
+import { useLanguage } from '../context/LanguageContext';
 
 interface PopularPoojasProps {
   onSelectPooja: (pooja: PoojaItem) => void;
 }
 
 export const PopularPoojas: React.FC<PopularPoojasProps> = ({ onSelectPooja }) => {
+  const { lang } = useLanguage();
   const [popularList, setPopularList] = useState<PoojaItem[]>([]);
 
   useEffect(() => {
@@ -72,7 +74,9 @@ export const PopularPoojas: React.FC<PopularPoojasProps> = ({ onSelectPooja }) =
 
   return (
     <section className="popular-poojas-section">
-      <h2 className="section-title">Popular Poojas</h2>
+      <h2 className="section-title">
+        {lang === 'te' ? 'హైదరాబాద్‌లో అత్యధికంగా బుక్ అయ్యే పూజలు' : 'Popular Poojas'}
+      </h2>
 
       <div className="popular-grid">
         {popularList.map((pooja) => (
@@ -86,7 +90,7 @@ export const PopularPoojas: React.FC<PopularPoojasProps> = ({ onSelectPooja }) =
               <div className="popular-footer">
                 <span className="popular-duration">{pooja.duration}</span>
                 <span className="popular-price">
-                  from <strong>₹{pooja.price.toLocaleString('en-IN')}</strong>
+                  {lang === 'te' ? 'ప్రారంభం ' : 'from '}<strong>₹{pooja.price.toLocaleString('en-IN')}</strong>
                 </span>
               </div>
             </div>

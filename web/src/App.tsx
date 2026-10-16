@@ -20,11 +20,12 @@ import { MyBookingsPage } from './pages/MyBookingsPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { ToastContainer } from './components/ToastNotification';
 import { apiRequest } from './utils/apiClient';
+import { useLanguage } from './context/LanguageContext';
 import type { PoojaItem, PanchangamData } from './types';
 
 export const App: React.FC = () => {
+  const { lang, setLang } = useLanguage();
   const [activeTab, setActiveTab] = useState('Home');
-  const [lang, setLang] = useState<'en' | 'te'>('en');
   const [selectedTradition, setSelectedTradition] = useState('all');
   const [catalogCategory, setCatalogCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -42,6 +43,7 @@ export const App: React.FC = () => {
 
   // User state
   const [user, setUser] = useState<any>(null);
+  const [homeBanners, setHomeBanners] = useState<any[]>([]);
 
   // Panchangam data
   const [panchangamData, setPanchangamData] = useState<PanchangamData>({
@@ -88,22 +90,27 @@ export const App: React.FC = () => {
         const homeRes = await apiRequest('/api/home', { timeoutMs: 8000 });
         if (!isMounted) return;
         const homeData = homeRes.raw || homeRes.data;
-        if (homeRes.success && homeData?.todaysPanchangam) {
-          const p = homeData.todaysPanchangam;
-          setPanchangamData(prev => ({
-            ...prev,
-            tithi: p.tithi ? `${p.paksham || 'Shukla'} ${p.tithi}` : prev.tithi,
-            nakshatram: p.nakshatram || prev.nakshatram,
-            masam: p.masam || prev.masam,
-            rutuvu: p.rutuvu || prev.rutuvu,
-            ayanam: p.ayanam || prev.ayanam,
-            rahuKalam: p.avoid_periods?.find((ap: any) => ap.name?.toLowerCase().includes('rahu')) 
-              ? `${p.avoid_periods.find((ap: any) => ap.name?.toLowerCase().includes('rahu')).from} – ${p.avoid_periods.find((ap: any) => ap.name?.toLowerCase().includes('rahu')).to}`
-              : prev.rahuKalam,
-            yamagandam: p.avoid_periods?.find((ap: any) => ap.name?.toLowerCase().includes('yama')) 
-              ? `${p.avoid_periods.find((ap: any) => ap.name?.toLowerCase().includes('yama')).from} – ${p.avoid_periods.find((ap: any) => ap.name?.toLowerCase().includes('yama')).to}`
-              : prev.yamagandam
-          }));
+        if (homeRes.success) {
+          if (Array.isArray(homeData?.banners) && homeData.banners.length > 0) {
+            setHomeBanners(homeData.banners);
+          }
+          if (homeData?.todaysPanchangam) {
+            const p = homeData.todaysPanchangam;
+            setPanchangamData(prev => ({
+              ...prev,
+              tithi: p.tithi ? `${p.paksham || 'Shukla'} ${p.tithi}` : prev.tithi,
+              nakshatram: p.nakshatram || prev.nakshatram,
+              masam: p.masam || prev.masam,
+              rutuvu: p.rutuvu || prev.rutuvu,
+              ayanam: p.ayanam || prev.ayanam,
+              rahuKalam: p.avoid_periods?.find((ap: any) => ap.name?.toLowerCase().includes('rahu')) 
+                ? `${p.avoid_periods.find((ap: any) => ap.name?.toLowerCase().includes('rahu')).from} – ${p.avoid_periods.find((ap: any) => ap.name?.toLowerCase().includes('rahu')).to}`
+                : prev.rahuKalam,
+              yamagandam: p.avoid_periods?.find((ap: any) => ap.name?.toLowerCase().includes('yama')) 
+                ? `${p.avoid_periods.find((ap: any) => ap.name?.toLowerCase().includes('yama')).from} – ${p.avoid_periods.find((ap: any) => ap.name?.toLowerCase().includes('yama')).to}`
+                : prev.yamagandam
+            }));
+          }
         }
       } catch {
         // Silently preserve initial panchangam state
@@ -294,6 +301,7 @@ export const App: React.FC = () => {
               setActiveTab('Home');
             }}
             initialCategory={activeTab === 'Homams' ? 'homams' : catalogCategory}
+            initialTradition={selectedTradition}
             searchQuery={searchQuery}
           />
         ) : (
@@ -302,6 +310,7 @@ export const App: React.FC = () => {
             <section className="hero-dual-row">
               <div className="hero-carousel-col">
                 <HeroCarousel
+                  banners={homeBanners}
                   onExplorePoojas={() => {
                     setCurrentView('default');
                     setActiveTab('Poojas');
@@ -311,7 +320,11 @@ export const App: React.FC = () => {
               </div>
               <div className="hero-panchangam-col">
                 <PanchangamCard
-                  onOpenFullPanchangam={() => setIsPanchangamOpen(true)}
+                  onOpenFullPanchangam={() => {
+                    setCurrentView('default');
+                    setActiveTab('Panchangam');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
                 />
               </div>
             </section>
@@ -319,7 +332,12 @@ export const App: React.FC = () => {
             {/* Sampradayanusaram Filter Bar */}
             <SampradayaBanner
               selectedTradition={selectedTradition}
-              onSelectTradition={setSelectedTradition}
+              onSelectTradition={(traditionId) => {
+                setSelectedTradition(traditionId);
+                setCurrentView('default');
+                setActiveTab('Poojas');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
             />
 
             {/* Book a Pooja Section */}
@@ -328,12 +346,22 @@ export const App: React.FC = () => {
                 onSelectPooja={handleOpenPoojaDetail}
                 selectedTradition={selectedTradition}
                 searchQuery={searchQuery}
+                onNavigatePoojas={() => {
+                  setCurrentView('default');
+                  setActiveTab('Poojas');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
               />
             </div>
 
             {/* Muhurthams & Festivals Ahead */}
             <div id="muhurtham-section">
               <MuhurthamAndFestivals
+                onNavigatePanchangam={() => {
+                  setCurrentView('default');
+                  setActiveTab('Panchangam');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
                 onSelectMuhurtham={(m) => {
                   handleOpenPoojaDetail({
                     id: m.id,

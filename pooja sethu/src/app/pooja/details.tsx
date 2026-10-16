@@ -210,7 +210,7 @@ export default function PoojaDetailsScreen() {
           ) : (
             <View style={styles.list}>
               {vidhiData.vidhiSteps.length > 0 ? (
-                vidhiData.vidhiSteps.map((item, index) => (
+                vidhiData.vidhiSteps.map((item: any, index: number) => (
                   <View key={index} style={styles.listItem}>
                     <View style={styles.bullet} />
                     <Text style={styles.listItemText}>{item}</Text>
@@ -249,7 +249,7 @@ export default function PoojaDetailsScreen() {
                   {(samagriExpanded
                     ? vidhiData.samagriItems
                     : vidhiData.samagriItems.slice(0, SAMAGRI_PREVIEW_COUNT)
-                  ).map((item, index) => (
+                  ).map((item: any, index: number) => (
                     <View
                       key={index}
                       style={[
@@ -315,7 +315,7 @@ export default function PoojaDetailsScreen() {
           ) : (
             <View style={styles.list}>
               {vidhiData.familyArranges.length > 0 ? (
-                vidhiData.familyArranges.map((item, index) => (
+                vidhiData.familyArranges.map((item: any, index: number) => (
                   <View key={index} style={styles.listItem}>
                     <Ionicons
                       name="checkmark-circle-outline"

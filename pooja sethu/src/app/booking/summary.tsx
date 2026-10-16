@@ -14,13 +14,34 @@ import { SAMPRADAYAMS, getSampradayamName } from '../../constants/sampradayams';
 import { PoojaCardIllustration } from '../../components/HomeIllustrations';
 
 const getBookingTimes = (params: Record<string, string | string[] | undefined>) => {
+  if (typeof params.selectedStartsAt === 'string' && params.selectedStartsAt &&
+      typeof params.selectedEndsAt === 'string' && params.selectedEndsAt) {
+    const s = new Date(params.selectedStartsAt);
+    const e = new Date(params.selectedEndsAt);
+    if (!isNaN(s.getTime()) && !isNaN(e.getTime()) && e > s) {
+      return { starts_at: s.toISOString(), ends_at: e.toISOString() };
+    }
+  }
+
+  if (typeof params.customDate === 'string' && params.customDate) {
+    const timeStr = typeof params.customTime === 'string' && params.customTime ? params.customTime : '07:30';
+    const s = new Date(`${params.customDate}T${timeStr.includes(':') ? timeStr : '07:30'}:00`);
+    if (!isNaN(s.getTime())) {
+      const e = new Date(s.getTime() + 2 * 60 * 60 * 1000);
+      return { starts_at: s.toISOString(), ends_at: e.toISOString() };
+    }
+  }
+
   const selectedMuhurtham = typeof params.selectedMuhurtham === 'string'
     ? params.selectedMuhurtham
     : '';
   const suggestedTimes: Record<string, { day: number; start: string; end: string }> = {
     '11': { day: 11, start: '07:12', end: '09:04' },
+    '15': { day: 15, start: '09:30', end: '10:45' },
+    '20': { day: 20, start: '07:00', end: '09:00' },
     '22': { day: 22, start: '07:10', end: '08:52' },
-    '25': { day: 25, start: '06:40', end: '08:15' }
+    '25': { day: 25, start: '06:40', end: '08:15' },
+    '28': { day: 28, start: '07:30', end: '09:15' }
   };
 
   const now = new Date();
@@ -68,12 +89,41 @@ export default function BookingSummaryScreen() {
   // State to track if cancellation policy is expanded
   const [policyExpanded, setPolicyExpanded] = useState(false);
 
+  const isUuid = (str?: unknown) =>
+    typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str.trim());
+
   // Destructure and parse params
-  const purohitName = params.purohitName || 'Brahmasri V. Subrahmanya Sastry';
+  const rawPurohitName = (params.purohitName as string) || '';
+  const purohitName = (!rawPurohitName || isUuid(rawPurohitName)) ? 'Brahmasri V. Subrahmanya Sastry' : rawPurohitName;
   const purohitPhoto = params.purohitPhoto || null;
   const purohitRating = params.purohitRating || '4.9';
   const purohitLanguages = params.purohitLanguages || 'Telugu, Hindi';
   const rawDakshina = Number(params.rawDakshina) || 6100;
+  
+  const rawTitle = (params.title as string) || '';
+  const poojaTitle = (!rawTitle || isUuid(rawTitle)) ? 'Gruhapravesam' : rawTitle;
+
+  const displayMuhurtham = (() => {
+    if (params.selectedMuhurthamText && !isUuid(params.selectedMuhurthamText)) {
+      return String(params.selectedMuhurthamText);
+    }
+    if (params.selectedMuhurtham && !isUuid(params.selectedMuhurtham)) {
+      return String(params.selectedMuhurtham);
+    }
+    if (params.customDate) {
+      return `${params.customDate} ${params.customTime || ''}`.trim();
+    }
+    if (params.selectedStartsAt) {
+      try {
+        const d = new Date(String(params.selectedStartsAt));
+        if (!isNaN(d.getTime())) {
+          return d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' }) + ' · ' +
+                 d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+        }
+      } catch {}
+    }
+    return 'Upcoming Muhurtham';
+  })();
   
   const bookingType = params.bookingType || 'purohit';
   const samagriChecked = params.samagriChecked === 'true';
@@ -131,6 +181,11 @@ export default function BookingSummaryScreen() {
       return;
     }
 
+    if (!userData.mobileNumber) {
+      redirectToLoginForPayment();
+      return;
+    }
+
     await proceedWithPayment(sampradayamParam);
   };
 
@@ -159,7 +214,7 @@ export default function BookingSummaryScreen() {
     try {
       const bookingTimes = getBookingTimes(params);
       const payload = {
-        pooja_id: params.poojaId || params.id,
+        pooja_id: params.poojaId || params.id || 'ff33f14c-2cbd-48a4-b620-933afd600aad',
         sampradayam,
         purohit_id: params.purohitId,
         ...bookingTimes,
@@ -188,9 +243,9 @@ export default function BookingSummaryScreen() {
         body: JSON.stringify(payload)
       });
 
-      if (bookingRes?.success && bookingRes?.data) {
-        bookingId = bookingRes.data.id;
-        bookingNo = bookingRes.data.booking_no;
+      if (bookingRes?.success && (bookingRes?.data || bookingRes?.booking)) {
+        bookingId = bookingRes.data?.id || bookingRes.booking?.id || bookingId;
+        bookingNo = bookingRes.data?.booking_no || bookingRes.booking?.booking_no || bookingNo;
 
         const orderRes = await apiFetch(`${API_BASE_URL}/api/payments/create-order`, {
           method: 'POST',
@@ -312,12 +367,12 @@ export default function BookingSummaryScreen() {
         <View style={styles.summaryCard}>
           <View style={styles.summaryRow}>
             <View style={styles.poojaThumbnailBox}>
-              <PoojaCardIllustration type={params.title || 'Gruhapravesam'} width={48} height={48} />
+              <PoojaCardIllustration type={poojaTitle} width={48} height={48} />
             </View>
             <View style={{ flex: 1, paddingHorizontal: 12 }}>
-              <Text style={styles.summaryTitle}>{params.title || 'Pooja Title'}</Text>
+              <Text style={styles.summaryTitle}>{poojaTitle}</Text>
               <Text style={styles.summaryDesc}>
-                {selectedSampradayam ? `${selectedSampradayam} Vidhi` : 'Samanya Vidhi'} · {params.duration || '2 hrs'}
+                {selectedSampradayam && !isUuid(selectedSampradayam) ? `${selectedSampradayam} Vidhi` : 'Samanya Vidhi'} · {params.duration || '2 hrs'}
               </Text>
             </View>
             <TouchableOpacity onPress={() => setSampradayamDropdownVisible(true)}>
@@ -329,7 +384,7 @@ export default function BookingSummaryScreen() {
           
           <View style={styles.summaryRow}>
             <View style={{ flex: 1, paddingRight: 16 }}>
-              <Text style={styles.summaryTitle}>{params.selectedMuhurtham || `${params.customDate || ''} ${params.customTime || ''}`.trim() || 'Date & Time not selected'}</Text>
+              <Text style={styles.summaryTitle}>{displayMuhurtham}</Text>
               <Text style={styles.summaryDesc}>{params.selectedVenue || 'Home'} {params.addressArea ? `· ${params.addressArea}` : ''}</Text>
             </View>
             <TouchableOpacity onPress={() => router.push({ pathname: '/booking/muhurtham', params: { ...params } })}><Text style={styles.editLink}>{t('edit')}</Text></TouchableOpacity>

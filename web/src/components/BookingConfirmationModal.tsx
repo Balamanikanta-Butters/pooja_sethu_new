@@ -66,7 +66,12 @@ export const BookingConfirmationModal: React.FC<BookingConfirmationModalProps> =
 
         <div className="status-notice">
           <ShieldCheck size={18} className="shield-icon" />
-          <span>Payment verified. Our Shastri will call you shortly with pre-pooja vidhi instructions.</span>
+          <div>
+            <strong>Payment & Booking Confirmed:</strong>
+            <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', lineHeight: '1.4' }}>
+              Your Samagri kit will be delivered between <strong>16:00 – 19:00 on the evening prior</strong>. Our Acharya desk will unlock Purohit direct contact 24 hours before your ceremony.
+            </p>
+          </div>
         </div>
 
         <button className="done-btn" onClick={onClose}>

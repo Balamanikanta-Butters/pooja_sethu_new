@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import type { PanchangamData } from '../types';
 import { apiRequest } from '../utils/apiClient';
+import { useLanguage } from '../context/LanguageContext';
 
 interface PanchangamCardProps {
   onOpenFullPanchangam: () => void;
 }
 
 export const PanchangamCard: React.FC<PanchangamCardProps> = ({ onOpenFullPanchangam }) => {
+  const { t, lang } = useLanguage();
   const [data, setData] = useState<PanchangamData | null>(null);
   const [loading, setLoading] = useState(true);
   const [dbOffline, setDbOffline] = useState(false);
@@ -17,22 +19,41 @@ export const PanchangamCard: React.FC<PanchangamCardProps> = ({ onOpenFullPancha
       try {
         const res = await apiRequest('/api/panchangam/today', { timeoutMs: 8000 });
         if (!isMounted) return;
-        if (res.success && res.data && res.data.panchangam) {
-          const p = res.data.panchangam;
+        if (res.success && res.data && (res.data.panchangam || res.data.today || res.data)) {
+          const p = res.data.panchangam || res.data.today || res.data;
+          const findPeriod = (list: any[], name: string) => {
+            if (!Array.isArray(list)) return null;
+            const match = list.find((item: any) => item?.name?.toLowerCase().includes(name.toLowerCase()));
+            return match ? `${match.from} – ${match.to}` : null;
+          };
+
+          let formattedDate = lang === 'te' ? 'నేడు · హైదరాబాద్' : 'Today · Hyderabad';
+          if (p.day) {
+            const d = new Date(p.day);
+            formattedDate = `${d.toLocaleDateString(lang === 'te' ? 'te-IN' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Kolkata' })} · ${lang === 'te' ? 'హైదరాబాద్' : 'Hyderabad'}`;
+          }
+
+          const specialNote = (typeof p.significance === 'object' && p.significance?.en)
+            ? (lang === 'te' && p.significance?.te ? p.significance.te : p.significance.en)
+            : (typeof p.significance === 'string' ? p.significance : (p.festivals || (lang === 'te' ? 'శుభ ముహూర్త దినం మరియు అర్చన.' : 'Auspicious muhurtham day for sacred ceremonies and archana.')));
+
           setData({
-            dateStr: p.formatted_date ? `${p.formatted_date} · Hyderabad` : 'Today · Hyderabad',
+            dateStr: formattedDate,
             city: 'Hyderabad',
-            specialNote: p.festivals ? `Festivals: ${p.festivals}` : 'Auspicious muhurtham day for sacred ceremonies and archana.',
-            tithi: p.tithi || 'Shukla Paksha',
-            nakshatram: p.nakshatra || 'Rohini',
-            masam: p.masam || 'Ashwayuja',
-            sunriseSunset: p.sunrise && p.sunset ? `${p.sunrise} · ${p.sunset}` : '6:08 AM · 5:55 PM',
-            amritaKalam: p.amrita_kalam || '10:15 – 11:45 AM',
-            abhijit: p.abhijit_muhurtham || '11:40 AM – 12:28 PM',
-            rahuKalam: p.rahu_kalam || '1:30 – 3:00 PM',
-            yamagandam: p.yamagandam || '6:00 – 7:30 AM',
-            durmuhurtham: p.durmuhurtham || '10:00 – 10:48 AM',
-            varjyam: p.varjyam || '3:30 – 5:00 PM'
+            specialNote: specialNote,
+            tithi: p.tithi ? `${p.tithi}${p.paksham ? ' (' + p.paksham + ')' : ''}` : 'Shukla Paksha',
+            nakshatram: p.nakshatram || p.nakshatra || 'Rohini',
+            masam: p.masam ? `${p.masam}${p.samvatsaram ? ' · ' + p.samvatsaram : ''}` : 'Ashwayuja',
+            sunriseSunset: p.sunrise && p.sunset ? `${p.sunrise.slice(0, 5)} · ${p.sunset.slice(0, 5)}` : '06:08 AM · 05:55 PM',
+            amritaKalam: findPeriod(p.good_periods, 'amrita') || p.amrita_kalam || '10:15 – 11:45 AM',
+            abhijit: findPeriod(p.good_periods, 'abhijit') || p.abhijit_muhurtham || '11:40 AM – 12:28 PM',
+            rahuKalam: findPeriod(p.avoid_periods, 'rahu') || p.rahu_kalam || '01:30 – 03:00 PM',
+            yamagandam: findPeriod(p.avoid_periods, 'yama') || p.yamagandam || '06:00 – 07:30 AM',
+            durmuhurtham: findPeriod(p.avoid_periods, 'durmuhurtham') || p.durmuhurtham || '10:00 – 10:48 AM',
+            varjyam: findPeriod(p.avoid_periods, 'varjyam') || p.varjyam || '03:30 – 05:00 PM',
+            yogam: p.yogam || 'Variyan',
+            karanam: p.karanam || 'Taitila',
+            paksham: p.paksham || 'Shukla'
           });
         } else {
           setDbOffline(true);
@@ -46,12 +67,12 @@ export const PanchangamCard: React.FC<PanchangamCardProps> = ({ onOpenFullPancha
 
     loadPanchangam();
     return () => { isMounted = false; };
-  }, []);
+  }, [lang]);
 
   if (loading) {
     return (
       <div className="panchangam-card" style={{ padding: '32px 24px', textAlign: 'center', color: '#888' }}>
-        <p>Connecting to database & loading today's Panchangam...</p>
+        <p>{t('common_loading', "Connecting to database & loading today's Panchangam...")}</p>
       </div>
     );
   }
@@ -59,10 +80,10 @@ export const PanchangamCard: React.FC<PanchangamCardProps> = ({ onOpenFullPancha
   if (dbOffline || !data) {
     return (
       <div className="panchangam-card" style={{ padding: '28px 24px', textAlign: 'center', border: '1px solid #E2D9C8' }}>
-        <span className="today-pill" style={{ marginBottom: '10px' }}>TODAY</span>
-        <h2 className="panchangam-title font-serif" style={{ margin: '8px 0' }}>Today's Panchangam</h2>
+        <span className="today-pill" style={{ marginBottom: '10px' }}>{lang === 'te' ? 'నేడు' : 'TODAY'}</span>
+        <h2 className="panchangam-title font-serif" style={{ margin: '8px 0' }}>{t('panchangam_title', "Today's Panchangam")}</h2>
         <p style={{ color: '#666', fontSize: '0.9rem', maxWidth: '480px', margin: '0 auto 12px auto' }}>
-          Database service is currently offline. When PostgreSQL is started at <code>192.168.88.3:5432</code>, live Vedic Panchangam coordinates (Tithi, Nakshatram, Rahu Kalam) will automatically populate.
+          {lang === 'te' ? 'డేటాబేస్ సేవ ప్రస్తుతం ఆఫ్‌లైన్‌లో ఉంది. వేదిక పంచాంగ వివరాలు త్వరలో లోడ్ అవుతాయి.' : 'Database service is currently offline. When PostgreSQL is started, live Vedic Panchangam coordinates will automatically populate.'}
         </p>
       </div>
     );
@@ -73,11 +94,11 @@ export const PanchangamCard: React.FC<PanchangamCardProps> = ({ onOpenFullPancha
       {/* Top Meta & Today Pill */}
       <div className="panchangam-header">
         <span className="panchangam-meta">{data.dateStr}</span>
-        <span className="today-pill">TODAY</span>
+        <span className="today-pill">{lang === 'te' ? 'నేడు' : 'TODAY'}</span>
       </div>
 
       {/* Card Title */}
-      <h2 className="panchangam-title font-serif">Today's Panchangam</h2>
+      <h2 className="panchangam-title font-serif">{t('panchangam_title', "Today's Panchangam")}</h2>
 
       {/* Special Auspicious Note */}
       <p className="panchangam-note">{data.specialNote}</p>
@@ -85,19 +106,19 @@ export const PanchangamCard: React.FC<PanchangamCardProps> = ({ onOpenFullPancha
       {/* Grid of Core Details */}
       <div className="panchangam-grid">
         <div className="grid-item">
-          <span className="label">Tithi</span>
+          <span className="label">{t('panchangam_tithi', 'Tithi')}</span>
           <span className="val">{data.tithi}</span>
         </div>
         <div className="grid-item">
-          <span className="label">Nakshatram</span>
+          <span className="label">{t('panchangam_nakshatram', 'Nakshatram')}</span>
           <span className="val">{data.nakshatram}</span>
         </div>
         <div className="grid-item">
-          <span className="label">Masam</span>
+          <span className="label">{t('panchangam_masam', 'Masam')}</span>
           <span className="val">{data.masam}</span>
         </div>
         <div className="grid-item">
-          <span className="label">Sunrise · Sunset</span>
+          <span className="label">{lang === 'te' ? 'సూర్యోదయం · సూర్యాస్తమయం' : 'Sunrise · Sunset'}</span>
           <span className="val">{data.sunriseSunset}</span>
         </div>
       </div>
@@ -107,11 +128,11 @@ export const PanchangamCard: React.FC<PanchangamCardProps> = ({ onOpenFullPancha
         {/* Row 1: Good Times */}
         <div className="timing-row">
           <div className="timing-box">
-            <span className="timing-tag green">Amrita Kalam</span>
+            <span className="timing-tag green">{lang === 'te' ? 'అమృత కాలం' : 'Amrita Kalam'}</span>
             <span className="timing-time">{data.amritaKalam}</span>
           </div>
           <div className="timing-box">
-            <span className="timing-tag green">Abhijit</span>
+            <span className="timing-tag green">{lang === 'te' ? 'అభిజిత్ ముహూర్తం' : 'Abhijit'}</span>
             <span className="timing-time">{data.abhijit}</span>
           </div>
         </div>
@@ -119,11 +140,11 @@ export const PanchangamCard: React.FC<PanchangamCardProps> = ({ onOpenFullPancha
         {/* Row 2: Inauspicious Times */}
         <div className="timing-row">
           <div className="timing-box">
-            <span className="timing-tag rose">Rahu Kalam</span>
+            <span className="timing-tag rose">{t('panchangam_rahu', 'Rahu Kalam')}</span>
             <span className="timing-time">{data.rahuKalam}</span>
           </div>
           <div className="timing-box">
-            <span className="timing-tag rose">Yamagandam</span>
+            <span className="timing-tag rose">{t('panchangam_yama', 'Yamagandam')}</span>
             <span className="timing-time">{data.yamagandam}</span>
           </div>
         </div>
@@ -131,7 +152,7 @@ export const PanchangamCard: React.FC<PanchangamCardProps> = ({ onOpenFullPancha
 
       {/* Full Panchangam Button */}
       <button className="full-panchangam-btn" onClick={onOpenFullPanchangam}>
-        Full Panchangam
+        {lang === 'te' ? 'పూర్తి పంచాంగం' : 'Full Panchangam'}
       </button>
 
       <style>{`

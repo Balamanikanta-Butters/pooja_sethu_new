@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { apiRequest } from '../utils/apiClient';
+import { useLanguage } from '../context/LanguageContext';
 
 interface SampradayaBannerProps {
   selectedTradition: string;
@@ -9,13 +11,40 @@ export const SampradayaBanner: React.FC<SampradayaBannerProps> = ({
   selectedTradition,
   onSelectTradition
 }) => {
-  const traditions = [
+  const { t, lang } = useLanguage();
+  const [traditions, setTraditions] = useState([
     { id: 'smartha', label: 'Smartha' },
     { id: 'madhva', label: 'Madhva' },
     { id: 'srivaishnava', label: 'Sri Vaishnava' },
     { id: 'vaikhanasa', label: 'Vaikhanasa' },
+    { id: 'raghavendra', label: 'Sri Raghavendra Matha' },
+    { id: 'vyasaraja', label: 'Vyasaraja Matha' },
+    { id: 'uttaradi', label: 'Uttaradi Matha' },
     { id: 'all', label: 'Not sure' }
-  ];
+  ]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadTraditions = async () => {
+      try {
+        const res = await apiRequest('/api/services/sampradayams', { timeoutMs: 6000 });
+        if (isMounted && res.success) {
+          const list = Array.isArray(res.data) ? res.data : (res.raw?.data || []);
+          if (Array.isArray(list) && list.length > 0) {
+            const mapped = list
+              .filter((item: any) => item.code && item.name && item.code !== 'unknown')
+              .map((item: any) => ({
+                id: item.code.toLowerCase(),
+                label: item.name
+              }));
+            setTraditions([...mapped, { id: 'all', label: t('sampradaya_not_sure', 'Not sure') }]);
+          }
+        }
+      } catch {}
+    };
+    loadTraditions();
+    return () => { isMounted = false; };
+  }, [lang]);
 
   return (
     <section className="sampradaya-wrapper">
@@ -27,10 +56,11 @@ export const SampradayaBanner: React.FC<SampradayaBannerProps> = ({
           </div>
           <div>
             <h3 className="sampradaya-title">
-              Sampradayanusaram <span className="telugu-inline font-telugu">· సంప్రదాయానుసారం</span>
+              {t('sampradaya_title', 'Sampradayanusaram')}{' '}
+              <span className="telugu-inline font-telugu">· {t('sampradaya_telugu', 'సంప్రదాయానుసారం')}</span>
             </h3>
             <p className="sampradaya-desc">
-              Book by your family's tradition. We show only Poojas and Purohits that follow it.
+              {t('sampradaya_desc', "Book by your family's tradition. We show only Poojas and Purohits that follow it.")}
             </p>
           </div>
         </div>
