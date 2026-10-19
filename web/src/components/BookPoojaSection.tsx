@@ -34,12 +34,10 @@ export const BookPoojaSection: React.FC<BookPoojaSectionProps> = ({
   const [poojasList, setPoojasList] = useState<PoojaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [dbOffline, setDbOffline] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const fetchPoojas = async () => {
     setLoading(true);
     setDbOffline(false);
-    setErrorMessage(null);
 
     try {
       const res = await apiRequest('/api/services/poojas', { timeoutMs: 8000, retries: 1 });
@@ -75,11 +73,9 @@ export const BookPoojaSection: React.FC<BookPoojaSectionProps> = ({
         setPoojasList(liveMerged);
       } else {
         setDbOffline(res.isDbOffline || true);
-        setErrorMessage(res.error || 'Database connection could not be established.');
       }
-    } catch (err: any) {
+    } catch {
       setDbOffline(true);
-      setErrorMessage(err.message || 'Unable to fetch ceremonies.');
     } finally {
       setLoading(false);
     }
@@ -122,6 +118,8 @@ export const BookPoojaSection: React.FC<BookPoojaSectionProps> = ({
         >
           {lang === 'te' 
             ? `అన్ని ${poojasList.length || 20} పూజలు చూడండి` 
+            : lang === 'hi'
+            ? `सभी ${poojasList.length || 20} पूजाएँ देखें`
             : `See all ${poojasList.length || 20} Poojas`}
         </button>
       </div>
@@ -200,7 +198,7 @@ export const BookPoojaSection: React.FC<BookPoojaSectionProps> = ({
               <div className="pooja-card-footer">
                 <span className="pooja-duration">{pooja.duration}</span>
                 <span className="pooja-price">
-                  from <strong>₹{pooja.price.toLocaleString('en-IN')}</strong>
+                  {lang === 'te' ? 'ప్రారంభం ' : lang === 'hi' ? 'प्रारंभिक ' : 'from '}<strong>₹{pooja.price.toLocaleString('en-IN')}</strong>
                 </span>
               </div>
             </div>

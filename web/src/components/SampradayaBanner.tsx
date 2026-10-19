@@ -57,7 +57,9 @@ export const SampradayaBanner: React.FC<SampradayaBannerProps> = ({
           <div>
             <h3 className="sampradaya-title">
               {t('sampradaya_title', 'Sampradayanusaram')}{' '}
-              <span className="telugu-inline font-telugu">· {t('sampradaya_telugu', 'సంప్రదాయానుసారం')}</span>
+              <span className="telugu-inline font-telugu">
+                · {lang === 'te' ? 'సంప్రదాయానుసారం' : lang === 'hi' ? 'संप्रदायानुसार' : 'సంప్రదాయానుసారం'}
+              </span>
             </h3>
             <p className="sampradaya-desc">
               {t('sampradaya_desc', "Book by your family's tradition. We show only Poojas and Purohits that follow it.")}

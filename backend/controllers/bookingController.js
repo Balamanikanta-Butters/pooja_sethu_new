@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const notificationService = require('../services/notificationService');
 
 const bookingError = (statusCode, message) => {
   const error = new Error(message);
@@ -176,6 +177,9 @@ exports.createBooking = async (req, res) => {
       else diet = 'satvik';
     }
 
+    const isPayLater = req.body.payment_mode === 'pay_later';
+    const initialStatus = isPayLater ? 'confirmed' : 'draft';
+
     const bookingResult = await client.query(
       `INSERT INTO booking (
          booking_no, user_id, pooja_vidhi_id, vidhi_version_id, sampradayam_id,
@@ -185,7 +189,7 @@ exports.createBooking = async (req, res) => {
          booked_for_name, booked_for_phone
        ) VALUES (
          'BK-' || extract(epoch from now())::int, $1, $2, $3, $4,
-         $5, $6, $7, $8, $9, $10, $11, 'draft',
+         $5, $6, $7, $8, $9, $10, $11, $23,
          $12, $13, $14, $15, $16, $17, $18, $19, $20,
          $21, $22
        ) RETURNING id, booking_no`,
@@ -196,7 +200,7 @@ exports.createBooking = async (req, res) => {
         Number(dakshina_amount) || 0, Number(samagri_amount) || 0, Number(food_amount) || 0,
         Number(addon_amount) || 0, Number(platform_fee) || 0, Number(tax_amount) || 0,
         Number(discount_amount) || 0, Number(total_payable) || 0, diet,
-        booked_for_name || null, booked_for_phone || null
+        booked_for_name || null, booked_for_phone || null, initialStatus
       ]
     );
 
@@ -213,6 +217,39 @@ exports.createBooking = async (req, res) => {
     }
 
     await client.query('COMMIT');
+
+    // If Pay Later, dispatch confirmation notification immediately
+    if (isPayLater) {
+      try {
+        const detailsRes = await pool.query(`
+          SELECT
+            b.booking_no, b.starts_at, p.name->>'en' as pooja_name,
+            pur.name as purohit_name, u.phone_e164 as customer_phone
+          FROM ps.booking b
+          LEFT JOIN ps.pooja_vidhi pv ON b.pooja_vidhi_id = pv.id
+          LEFT JOIN ps.pooja p ON pv.pooja_id = p.id
+          LEFT JOIN ps.booking_assignment ba ON b.id = ba.booking_id
+          LEFT JOIN ps.purohit pur ON ba.purohit_id = pur.id
+          LEFT JOIN ps.app_user u ON b.user_id = u.id
+          WHERE b.id = $1
+        `, [bookingId]);
+        if (detailsRes.rows.length > 0) {
+          const row = detailsRes.rows[0];
+          const phone = row.customer_phone || booked_for_phone;
+          if (phone) {
+            notificationService.sendBookingConfirmation({
+              phone,
+              bookingNo: row.booking_no,
+              poojaName: row.pooja_name || 'Ceremony',
+              startsAt: row.starts_at,
+              purohitName: row.purohit_name || 'Vedic Purohit'
+            }).catch(e => console.warn('Pay later notification notice:', e.message));
+          }
+        }
+      } catch (notifErr) {
+        console.warn('Pay later notification dispatch notice:', notifErr.message);
+      }
+    }
     return res.json({
       success: true,
       message: 'Booking created successfully',
@@ -279,7 +316,6 @@ exports.getMyBookings = async (req, res) => {
     client.release();
   }
 };
-
 exports.cancelBooking = async (req, res) => {
   const { id } = req.params;
   const client = await pool.connect();
@@ -334,4 +370,118 @@ exports.submitConcern = async (req, res) => {
     message: 'Your concern has been received by our Acharya Desk. We will review and reach out within 2 hours.',
     ticketId: `TKT-${Math.floor(100000 + Math.random() * 900000)}`
   });
+};
+
+exports.updateBookingStatus = async (req, res) => {
+  const { id } = req.params;
+  const { status, next } = req.body;
+  const client = await pool.connect();
+
+  try {
+    await client.query('SET search_path TO ps, public');
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+    // 1. Fetch current booking
+    const bookingRes = isUuid
+      ? await client.query('SELECT * FROM booking WHERE id = $1', [id])
+      : await client.query('SELECT * FROM booking WHERE booking_no = $1', [id]);
+
+    if (bookingRes.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    const booking = bookingRes.rows[0];
+    const fromStatus = booking.status;
+
+    // Ordered sequence of booking lifecycle statuses
+    const progression = ['confirmed', 'kit_dispatched', 'purohit_assigned', 'in_progress', 'completed'];
+
+    let targetStatus = status;
+    if (!targetStatus || next) {
+      const currIdx = progression.indexOf(fromStatus);
+      if (currIdx === -1) {
+        targetStatus = 'confirmed';
+      } else if (currIdx < progression.length - 1) {
+        targetStatus = progression[currIdx + 1];
+      } else {
+        targetStatus = progression[0]; // loop back or restart
+      }
+    }
+
+    // 2. Update booking status
+    const updateRes = await client.query(
+      'UPDATE booking SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+      [targetStatus, booking.id]
+    );
+
+    // 3. Log to booking_status_history
+    try {
+      await client.query(`
+        INSERT INTO booking_status_history (booking_id, from_status, to_status, actor_type, actor_id, reason)
+        VALUES ($1, $2, $3, 'customer', $4, $5)
+      `, [booking.id, fromStatus, targetStatus, booking.user_id, 'manual_status_progression']);
+    } catch (historyErr) {
+      console.warn('Booking status history logging notice:', historyErr.message);
+    }
+
+    // 4. Send notification on status progression
+    const statusLabels = {
+      confirmed: 'Booking Confirmed with Purohit',
+      kit_dispatched: 'Samagri Kit Delivered at Venue',
+      purohit_assigned: 'Purohit Contact Unlocked & On The Way',
+      in_progress: 'Ceremony In Progress',
+      completed: 'Ceremony Completed with Vedic Blessings'
+    };
+
+    try {
+      const detailsRes = await client.query(`
+        SELECT
+          b.booking_no, b.starts_at, p.name->>'en' as pooja_name,
+          pur.name as purohit_name, u.phone_e164 as customer_phone
+        FROM ps.booking b
+        LEFT JOIN ps.pooja_vidhi pv ON b.pooja_vidhi_id = pv.id
+        LEFT JOIN ps.pooja p ON pv.pooja_id = p.id
+        LEFT JOIN ps.booking_assignment ba ON b.id = ba.booking_id
+        LEFT JOIN ps.purohit pur ON ba.purohit_id = pur.id
+        LEFT JOIN ps.app_user u ON b.user_id = u.id
+        WHERE b.id = $1
+      `, [booking.id]);
+
+      if (detailsRes.rows.length > 0) {
+        const row = detailsRes.rows[0];
+        const phone = row.customer_phone || booking.booked_for_phone;
+        if (phone && notificationService.sendStatusUpdateNotification) {
+          notificationService.sendStatusUpdateNotification({
+            userId: booking.user_id,
+            phone,
+            bookingId: booking.id,
+            bookingNo: row.booking_no,
+            poojaName: row.pooja_name || 'Ceremony',
+            status: targetStatus,
+            statusText: statusLabels[targetStatus] || targetStatus
+          }).catch(e => console.warn('Status notification notice:', e.message));
+        }
+      }
+    } catch (notifErr) {
+      console.warn('Status change notification notice:', notifErr.message);
+    }
+
+    const nextIdx = progression.indexOf(targetStatus);
+    const stepNumber = nextIdx !== -1 ? nextIdx + 1 : 1;
+
+    return res.status(200).json({
+      success: true,
+      message: `Booking status updated to ${statusLabels[targetStatus] || targetStatus}`,
+      booking: updateRes.rows[0],
+      status: targetStatus,
+      statusLabel: statusLabels[targetStatus] || targetStatus,
+      stepNumber,
+      fromStatus
+    });
+  } catch (err) {
+    console.error('Error updating booking status:', err);
+    return res.status(500).json({ success: false, message: 'Failed to update booking status', error: err.message });
+  } finally {
+    client.release();
+  }
 };

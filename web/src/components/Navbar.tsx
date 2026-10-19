@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { Search, User as UserIcon, LogOut } from 'lucide-react';
+import type { Language } from '../context/LanguageContext';
 
 interface NavbarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
-  lang: 'en' | 'te';
-  setLang: (lang: 'en' | 'te') => void;
+  lang: Language;
+  setLang: (lang: Language) => void;
   onOpenAuth: () => void;
   onOpenPanchangam: () => void;
   user: any;
@@ -45,31 +46,31 @@ export const Navbar: React.FC<NavbarProps> = ({
             className={`nav-item ${activeTab === 'Home' ? 'active' : ''}`}
             onClick={() => setActiveTab('Home')}
           >
-            {lang === 'en' ? 'Home' : 'హోమ్'}
+            {lang === 'te' ? 'హోమ్' : lang === 'hi' ? 'होम' : 'Home'}
           </button>
           <button 
             className={`nav-item ${activeTab === 'Poojas' ? 'active' : ''}`}
             onClick={() => setActiveTab('Poojas')}
           >
-            {lang === 'en' ? 'Poojas' : 'పూజలు'}
+            {lang === 'te' ? 'పూజలు' : lang === 'hi' ? 'पूजाएँ' : 'Poojas'}
           </button>
           <button 
             className={`nav-item ${activeTab === 'Homams' ? 'active' : ''}`}
             onClick={() => setActiveTab('Homams')}
           >
-            {lang === 'en' ? 'Homams' : 'హోమాలు'}
+            {lang === 'te' ? 'హోమాలు' : lang === 'hi' ? 'हवन' : 'Homams'}
           </button>
           <button 
             className={`nav-item ${activeTab === 'Panchangam' ? 'active' : ''}`}
             onClick={onOpenPanchangam}
           >
-            {lang === 'en' ? 'Panchangam' : 'పంచాంగం'}
+            {lang === 'te' ? 'పంచాంగం' : lang === 'hi' ? 'पंचांग' : 'Panchangam'}
           </button>
           <button 
             className={`nav-item ${activeTab === 'My bookings' ? 'active' : ''}`}
             onClick={() => setActiveTab('My bookings')}
           >
-            {lang === 'en' ? 'My bookings' : 'నా బుకింగ్స్'}
+            {lang === 'te' ? 'నా బుకింగ్స్' : lang === 'hi' ? 'मेरी बुकिंग' : 'My bookings'}
           </button>
           <button 
             className={`nav-item ${activeTab === 'Profile' ? 'active' : ''}`}
@@ -81,7 +82,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               }
             }}
           >
-            {lang === 'en' ? 'Profile' : 'ప్రొఫైల్'}
+            {lang === 'te' ? 'ప్రొఫైల్' : lang === 'hi' ? 'प्रोफ़ाइल' : 'Profile'}
           </button>
         </nav>
 
@@ -90,7 +91,13 @@ export const Navbar: React.FC<NavbarProps> = ({
           <Search size={17} className="search-icon" />
           <input
             type="text"
-            placeholder={lang === 'en' ? "Search Gruhapravesam, Homam..." : "పూజ లేదా హోమం కోసం వెతకండి..."}
+            placeholder={
+              lang === 'te'
+                ? "పూజ లేదా హోమం కోసం వెతకండి..."
+                : lang === 'hi'
+                ? "गृहप्रवेश, हवन, पूजा खोजें..."
+                : "Search Gruhapravesam, Homam..."
+            }
             value={searchQuery}
             onChange={handleSearchChange}
           />
@@ -101,14 +108,23 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button 
             className={`lang-btn ${lang === 'en' ? 'active' : ''}`}
             onClick={() => setLang('en')}
+            title="English"
           >
             EN
           </button>
           <button 
             className={`lang-btn ${lang === 'te' ? 'active' : ''}`}
             onClick={() => setLang('te')}
+            title="తెలుగు"
           >
             తె
+          </button>
+          <button
+            className={`lang-btn ${lang === 'hi' ? 'active' : ''}`}
+            onClick={() => setLang('hi')}
+            title="हिन्दी"
+          >
+            हिं
           </button>
         </div>
 
@@ -137,7 +153,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         ) : (
           <button className="sign-in-btn" onClick={onOpenAuth}>
-            {lang === 'en' ? 'Sign in' : 'లాగిన్'}
+            {lang === 'te' ? 'లాగిన్' : lang === 'hi' ? 'लॉग इन' : 'Sign in'}
           </button>
         )}
       </div>

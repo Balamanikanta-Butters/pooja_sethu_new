@@ -26,18 +26,20 @@ export const Footer: React.FC<FooterProps> = ({
           <p className="footer-tagline">
             {lang === 'te' 
               ? 'మీ కుటుంబ సంప్రదాయానికి నమ్మకమైన వారధి. వేద పండితులు, శుభ ముహూర్తం, సమగ్ర పూజా నిర్వహణ.'
+              : lang === 'hi'
+              ? 'आपकी पारिवारिक परंपरा एवं संस्कारों का विश्वसनीय सेतु। प्रमाणित वैदिक पुरोहित, शुभ मुहूर्त और संपूर्ण पूजन व्यवस्था।'
               : 'The bridge between your family and tradition. Verified Purohits, the right muhurtham, everything arranged.'}
           </p>
         </div>
 
         {/* Column 2: Poojas */}
         <div className="footer-col">
-          <h4 className="footer-col-title">{lang === 'te' ? 'పూజలు' : 'Poojas'}</h4>
+          <h4 className="footer-col-title">{lang === 'te' ? 'పూజలు' : lang === 'hi' ? 'पूजाएँ' : 'Poojas'}</h4>
           <ul className="footer-links">
-            <li><button onClick={() => onNavClick('Poojas', 'gruha')}>{lang === 'te' ? 'గృహ ప్రవేశం' : 'Gruha'}</button></li>
-            <li><button onClick={() => onNavClick('Poojas', 'samskaras')}>{lang === 'te' ? 'సంస్కారాలు' : 'Samskaras'}</button></li>
-            <li><button onClick={() => onNavClick('Homams', 'homams')}>{lang === 'te' ? 'హోమాలు' : 'Homams'}</button></li>
-            <li><button onClick={() => onNavClick('Poojas', 'festivals')}>{lang === 'te' ? 'పండుగ పూజలు' : 'Festivals'}</button></li>
+            <li><button onClick={() => onNavClick('Poojas', 'gruha')}>{lang === 'te' ? 'గృహ ప్రవేశం' : lang === 'hi' ? 'गृह प्रवेश' : 'Gruha'}</button></li>
+            <li><button onClick={() => onNavClick('Poojas', 'samskaras')}>{lang === 'te' ? 'సంస్కారాలు' : lang === 'hi' ? 'संस्कार' : 'Samskaras'}</button></li>
+            <li><button onClick={() => onNavClick('Homams', 'homams')}>{lang === 'te' ? 'హోమాలు' : lang === 'hi' ? 'हवन' : 'Homams'}</button></li>
+            <li><button onClick={() => onNavClick('Poojas', 'festivals')}>{lang === 'te' ? 'పండుగ పూజలు' : lang === 'hi' ? 'त्योहार' : 'Festivals'}</button></li>
           </ul>
         </div>
 
@@ -45,20 +47,20 @@ export const Footer: React.FC<FooterProps> = ({
         <div className="footer-col">
           <h4 className="footer-col-title">Pooja Sethu</h4>
           <ul className="footer-links">
-            <li><button onClick={onOpenPanchangam}>{lang === 'te' ? 'పంచాంగం' : 'Panchangam'}</button></li>
-            <li><button onClick={() => onNavClick('My bookings')}>{lang === 'te' ? 'నా బుకింగ్స్' : 'My bookings'}</button></li>
-            <li><button onClick={() => onOpenPolicy('purohit_join')}>{lang === 'te' ? 'పురోహితుల నమోదు' : 'Purohits: join us'}</button></li>
-            <li><button onClick={() => onOpenPolicy('support')}>{lang === 'te' ? 'సహాయం & మద్దతు' : 'Help and support'}</button></li>
+            <li><button onClick={onOpenPanchangam}>{lang === 'te' ? 'పంచాంగం' : lang === 'hi' ? 'पंचांग' : 'Panchangam'}</button></li>
+            <li><button onClick={() => onNavClick('My bookings')}>{lang === 'te' ? 'నా బుకింగ్స్' : lang === 'hi' ? 'मेरी बुकिंग' : 'My bookings'}</button></li>
+            <li><button onClick={() => onOpenPolicy('purohit_join')}>{lang === 'te' ? 'పురోహితుల నమోదు' : lang === 'hi' ? 'पुरोहित पंजीकरण' : 'Purohits: join us'}</button></li>
+            <li><button onClick={() => onOpenPolicy('support')}>{lang === 'te' ? 'సహాయం & మద్దతు' : lang === 'hi' ? 'सहायता एवं संपर्क' : 'Help and support'}</button></li>
           </ul>
         </div>
 
         {/* Column 4: Policies */}
         <div className="footer-col">
-          <h4 className="footer-col-title">{lang === 'te' ? 'నియమాలు' : 'Policies'}</h4>
+          <h4 className="footer-col-title">{lang === 'te' ? 'నియమాలు' : lang === 'hi' ? 'नीतियाँ एवं नियम' : 'Policies'}</h4>
           <ul className="footer-links">
-            <li><button onClick={() => onOpenPolicy('terms')}>{lang === 'te' ? 'వినియోగ నిబంధనలు' : 'Terms of use'}</button></li>
-            <li><button onClick={() => onOpenPolicy('privacy')}>{lang === 'te' ? 'గోప్యతా విధానం' : 'Privacy policy'}</button></li>
-            <li><button onClick={() => onOpenPolicy('cancellation')}>{lang === 'te' ? 'రద్దు విధానం' : 'Cancellation policy'}</button></li>
+            <li><button onClick={() => onOpenPolicy('terms')}>{lang === 'te' ? 'వినియోగ నిబంధనలు' : lang === 'hi' ? 'उपयोग के नियम' : 'Terms of use'}</button></li>
+            <li><button onClick={() => onOpenPolicy('privacy')}>{lang === 'te' ? 'గోప్యతా విధానం' : lang === 'hi' ? 'गोपनीयता नीति' : 'Privacy policy'}</button></li>
+            <li><button onClick={() => onOpenPolicy('cancellation')}>{lang === 'te' ? 'రద్దు విధానం' : lang === 'hi' ? 'रद्दीकरण नीति' : 'Cancellation policy'}</button></li>
           </ul>
         </div>
       </div>
@@ -66,7 +68,13 @@ export const Footer: React.FC<FooterProps> = ({
       {/* Bottom Copyright Bar */}
       <div className="container">
         <div className="footer-bottom">
-          <p>{lang === 'te' ? '© 2026 పూజా సేతు · సర్వ హక్కులు ప్రత్యేకించబడ్డాయి · ప్రామాణిక వేద పురోహిత సేవలు' : '© 2026 Pooja Sethu · All rights reserved · Traditional Vedic Purohit Services'}</p>
+          <p>
+            {lang === 'te'
+              ? '© 2026 పూజా సేతు · సర్వ హక్కులు ప్రత్యేకించబడ్డాయి · ప్రామాణిక వేద పురోహిత సేవలు'
+              : lang === 'hi'
+              ? '© 2026 पूजा सेतु · सर्वाधिकार सुरक्षित · प्रामाणिक वैदिक पुरोहित सेवाएँ'
+              : '© 2026 Pooja Sethu · All rights reserved · Traditional Vedic Purohit Services'}
+          </p>
         </div>
       </div>
 

@@ -152,6 +152,13 @@ export default function BookingSummaryScreen() {
   const gst = isPurohitOnly ? 0 : Math.round(coordinationFee * (gstPct / 100));
   const grandTotal = isPurohitOnly ? rawDakshina : (packagePrice + coordinationFee + gst);
 
+  // For Complete Package, advance payment is 1/4 of the total amount
+  const advanceAmount = !isPurohitOnly ? Math.round(grandTotal / 4) : grandTotal;
+  const remainingAmount = !isPurohitOnly ? (grandTotal - advanceAmount) : 0;
+
+  // For Purohit Only: 1 = Pay Now, 2 = Pay Later
+  const [purohitPaymentOption, setPurohitPaymentOption] = useState<'pay_now' | 'pay_later'>('pay_now');
+
   const [isLoading, setIsLoading] = useState(false);
   const [paymentError, setPaymentError] = useState('');
   const initialSampradayam = typeof params.sampradayam === 'string' && params.sampradayam.trim()
@@ -209,10 +216,11 @@ export default function BookingSummaryScreen() {
     let bookingNo = 'PS-26-' + Math.floor(10000 + Math.random() * 90000);
     let keyId = 'rzp_test_TlpNdLGDOhtL2O';
     let orderId = '';
-    let payableAmount = Math.round(grandTotal * 100);
+    let payableAmount = Math.round((!isPurohitOnly ? advanceAmount : grandTotal) * 100);
 
     try {
       const bookingTimes = getBookingTimes(params);
+      const isPayLater = isPurohitOnly && purohitPaymentOption === 'pay_later';
       const payload = {
         pooja_id: params.poojaId || params.id || 'ff33f14c-2cbd-48a4-b620-933afd600aad',
         sampradayam,
@@ -224,6 +232,7 @@ export default function BookingSummaryScreen() {
         pincode: params.pincode || userData.pincode || '',
         guests: guests,
         mode: bookingType === 'purohit' ? 'purohit_only' : 'package',
+        payment_mode: isPayLater ? 'pay_later' : 'pay_now',
         dakshina_amount: rawDakshina,
         samagri_amount: isPurohitOnly ? 0 : (samagriChecked ? samagriPrice : 0),
         food_amount: isPurohitOnly ? 0 : (bhojanaluChecked ? bhojanaluPrice * guests : 0),
@@ -247,10 +256,32 @@ export default function BookingSummaryScreen() {
         bookingId = bookingRes.data?.id || bookingRes.booking?.id || bookingId;
         bookingNo = bookingRes.data?.booking_no || bookingRes.booking?.booking_no || bookingNo;
 
+        // If user chose Pay Later for Purohit Only, complete immediately without Razorpay
+        if (isPayLater) {
+          setIsLoading(false);
+          router.replace({
+            pathname: '/booking/success',
+            params: {
+              ...params,
+              bookingId,
+              bookingNo,
+              booking_no: bookingNo,
+              poojaTitle: poojaTitle,
+              title: poojaTitle,
+              displayMuhurtham,
+              selectedMuhurtham: displayMuhurtham,
+              purohitName,
+              totalAmount: grandTotal,
+              paymentMode: 'pay_later'
+            }
+          });
+          return;
+        }
+
         const orderRes = await apiFetch(`${API_BASE_URL}/api/payments/create-order`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ bookingId })
+          body: JSON.stringify({ bookingId, isAdvance: !isPurohitOnly })
         });
 
         if (orderRes?.success) {
@@ -268,7 +299,7 @@ export default function BookingSummaryScreen() {
       amount: payableAmount,
       currency: 'INR',
       name: 'Pooja Sethu',
-      description: `${params.title || 'Pooja'} Booking`,
+      description: `${params.title || 'Pooja'} ${!isPurohitOnly ? 'Advance Payment (1/4)' : 'Booking'}`,
       order_id: orderId,
       theme: { color: '#7C1B2C' },
       prefill: {
@@ -328,10 +359,13 @@ export default function BookingSummaryScreen() {
         pathname: '/booking/success',
         params: {
           ...params,
+          bookingId: bookingId,
+          bookingNo: bookingNo,
           booking_no: bookingNo,
           purohitName,
-          title: params.title || 'Gruhapravesam',
-          selectedMuhurtham: params.selectedMuhurtham || `${params.customDate || ''} ${params.customTime || ''}`.trim() || 'Sun, 25 Oct · 6:40 – 8:15 AM',
+          title: poojaTitle,
+          poojaTitle: poojaTitle,
+          selectedMuhurtham: displayMuhurtham,
         }
       });
     }
@@ -465,6 +499,71 @@ export default function BookingSummaryScreen() {
           <Text style={styles.heldSafelyText}>
             {t('heldSafely')}
           </Text>
+
+          {/* For Complete Package: Advance 1/4th notice & breakdown */}
+          {!isPurohitOnly && (
+            <View style={{ marginTop: 12, padding: 12, backgroundColor: '#FFFDF9', borderRadius: 8, borderWidth: 1, borderColor: '#F5DEB3' }}>
+              <View style={[styles.billRow, { marginBottom: 6 }]}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#7C1B2C' }}>Advance Payable Now (1/4)</Text>
+                <Text style={{ fontSize: 16, fontWeight: '800', color: '#7C1B2C' }}>₹{advanceAmount.toLocaleString('en-IN')}</Text>
+              </View>
+              <View style={styles.billRow}>
+                <Text style={{ fontSize: 13, color: '#666666' }}>Balance Due at Ceremony (3/4)</Text>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: '#444444' }}>₹{remainingAmount.toLocaleString('en-IN')}</Text>
+              </View>
+              <Text style={{ fontSize: 11, color: '#888888', marginTop: 6 }}>
+                * 1/4th advance booking deposit required to lock your Purohit and prepare Samagri kit & catering.
+              </Text>
+            </View>
+          )}
+
+          {/* For Purohit Only: 2 Options (1. Pay Now, 2. Pay Later) */}
+          {isPurohitOnly && (
+            <View style={{ marginTop: 16 }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: '#1B1510', marginBottom: 10 }}>Select Payment Option:</Text>
+
+              {/* Option 1: Pay Now */}
+              <TouchableOpacity
+                style={[
+                  styles.paymentOptionCard,
+                  purohitPaymentOption === 'pay_now' && styles.paymentOptionCardSelected
+                ]}
+                onPress={() => setPurohitPaymentOption('pay_now')}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                  <View style={[styles.optionRadio, purohitPaymentOption === 'pay_now' && styles.optionRadioSelected]}>
+                    {purohitPaymentOption === 'pay_now' && <View style={styles.optionRadioInner} />}
+                  </View>
+                  <View style={{ marginLeft: 10, flex: 1 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#222' }}>1. Pay Now</Text>
+                    <Text style={{ fontSize: 12, color: '#666' }}>Pay online securely via UPI / Cards / NetBanking</Text>
+                  </View>
+                </View>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#7C1B2C' }}>₹{grandTotal.toLocaleString('en-IN')}</Text>
+              </TouchableOpacity>
+
+              {/* Option 2: Pay Later */}
+              <TouchableOpacity
+                style={[
+                  styles.paymentOptionCard,
+                  purohitPaymentOption === 'pay_later' && styles.paymentOptionCardSelected,
+                  { marginTop: 8 }
+                ]}
+                onPress={() => setPurohitPaymentOption('pay_later')}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                  <View style={[styles.optionRadio, purohitPaymentOption === 'pay_later' && styles.optionRadioSelected]}>
+                    {purohitPaymentOption === 'pay_later' && <View style={styles.optionRadioInner} />}
+                  </View>
+                  <View style={{ marginLeft: 10, flex: 1 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#222' }}>2. Pay Later</Text>
+                    <Text style={{ fontSize: 12, color: '#666' }}>Pay Dakshina directly to Purohit at ceremony</Text>
+                  </View>
+                </View>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: '#15803D' }}>At Venue</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
 
@@ -554,7 +653,13 @@ export default function BookingSummaryScreen() {
           {isLoading ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.payButtonText}>{t('pay')} ₹{grandTotal.toLocaleString('en-IN')}</Text>
+            <Text style={styles.payButtonText}>
+              {isPurohitOnly
+                ? (purohitPaymentOption === 'pay_now'
+                    ? `Pay Now · ₹${grandTotal.toLocaleString('en-IN')}`
+                    : `Confirm Booking (Pay Later)`)
+                : `Pay Advance (1/4) · ₹${advanceAmount.toLocaleString('en-IN')}`}
+            </Text>
           )}
         </TouchableOpacity>
         <Text style={styles.securedText}>{t('securedPayment')}</Text>
@@ -1042,5 +1147,37 @@ const styles = StyleSheet.create({
   inputError: {
     borderColor: '#C0392B',
     backgroundColor: '#FFF5F5',
+  },
+  paymentOptionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 14,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#E5E0D8',
+    backgroundColor: '#FFFFFF',
+  },
+  paymentOptionCardSelected: {
+    borderColor: '#7C1B2C',
+    backgroundColor: '#FDF8F5',
+  },
+  optionRadio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#C4B5A5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  optionRadioSelected: {
+    borderColor: '#7C1B2C',
+  },
+  optionRadioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#7C1B2C',
   },
 });

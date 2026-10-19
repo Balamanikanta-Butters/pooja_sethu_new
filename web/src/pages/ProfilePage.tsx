@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { apiRequest } from '../utils/apiClient';
 import { showToast } from '../components/ToastNotification';
+import { useLanguage } from '../context/LanguageContext';
 
 export interface SavedAddress {
   id: string;
@@ -63,7 +64,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [email, setEmail] = useState(user?.email || '');
   const [sampradayam, setSampradayam] = useState(user?.sampradayam || 'smartha');
   const [gotra, setGotra] = useState(user?.gotra || 'Kashyapa');
-  const [preferredLang, setPreferredLang] = useState<'English' | 'Telugu' | 'Hindi'>('English');
+  const { lang, setLang } = useLanguage();
+  const preferredLang: 'English' | 'Telugu' | 'Hindi' = lang === 'te' ? 'Telugu' : lang === 'hi' ? 'Hindi' : 'English';
+  const handleSelectAppLang = (l: 'English' | 'Telugu' | 'Hindi') => {
+    if (l === 'English') setLang('en');
+    else if (l === 'Telugu') setLang('te');
+    else if (l === 'Hindi') setLang('hi');
+  };
 
   // Addresses State
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
@@ -541,7 +548,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     <button
                       key={l}
                       className={`lang-pill-btn ${preferredLang === l ? 'active' : ''}`}
-                      onClick={() => setPreferredLang(l)}
+                      onClick={() => handleSelectAppLang(l)}
                     >
                       {l}
                     </button>

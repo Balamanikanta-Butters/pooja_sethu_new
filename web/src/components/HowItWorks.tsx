@@ -7,30 +7,30 @@ export const HowItWorks: React.FC = () => {
   const steps = [
     {
       num: '1',
-      title: lang === 'te' ? 'పూజను ఎంచుకోండి' : 'Choose your Pooja',
-      desc: lang === 'te' ? 'మీ కుటుంబ సంప్రదాయానికి తగిన పూజను ఎంచుకోండి. విధి, సామాగ్రి మరియు దక్షిణ వివరాలు ముందే చూడండి.' : 'Pick an occasion and your Sampradayam. See the Vidhi, Samagri and dakshina upfront.'
+      title: lang === 'te' ? 'పూజను ఎంచుకోండి' : lang === 'hi' ? 'पूजा का चयन करें' : 'Choose your Pooja',
+      desc: lang === 'te' ? 'మీ కుటుంబ సంప్రదాయానికి తగిన పూజను ఎంచుకోండి. విధి, సామాగ్రి మరియు దక్షిణ వివరాలు ముందే చూడండి.' : lang === 'hi' ? 'अपनी पारिवारिक परंपरा अनुसार पूजा चुनें। विधि, सामग्री और दक्षिणा का पूर्ण विवरण पहले से देखें।' : 'Pick an occasion and your Sampradayam. See the Vidhi, Samagri and dakshina upfront.'
     },
     {
       num: '2',
-      title: lang === 'te' ? 'శుభ ముహూర్తం నిర్ణయించండి' : 'Pick the muhurtham',
-      desc: lang === 'te' ? 'పంచాంగం సూచించిన శుభ ముహూర్తాన్ని లేదా మీ కుటుంబ పురోహితులు నిర్ణయించిన సమయాన్ని ఎంచుకోండి.' : 'Choose a suggested good time for your city, or one your family already has.'
+      title: lang === 'te' ? 'శుభ ముహూర్తం నిర్ణయించండి' : lang === 'hi' ? 'शुभ मुहूर्त चुनें' : 'Pick the muhurtham',
+      desc: lang === 'te' ? 'పంచాంగం సూచించిన శుభ ముహూర్తాన్ని లేదా మీ కుటుంబ పురోహితులు నిర్ణయించిన సమయాన్ని ఎంచుకోండి.' : lang === 'hi' ? 'पंचांग द्वारा सुझाया गया शुभ समय अथवा अपने पारिवारिक पुरोहित द्वारा निश्चित समय चुनें।' : 'Choose a suggested good time for your city, or one your family already has.'
     },
     {
       num: '3',
-      title: lang === 'te' ? 'వేద పండితులను ఎంపిక చేయండి' : 'Select a Purohit',
-      desc: lang === 'te' ? 'వేద శాఖ, అనుభవం మరియు భక్తుల సమీక్షలతో కూడిన ధ్రువీకరించబడిన పురోహితులను ఎంచుకోండి.' : 'Verified Purohits of your tradition, with Veda Shakha, languages and reviews.'
+      title: lang === 'te' ? 'వేద పండితులను ఎంపిక చేయండి' : lang === 'hi' ? 'वैदिक पुरोहित का चयन करें' : 'Select a Purohit',
+      desc: lang === 'te' ? 'వేద శాఖ, అనుభవం మరియు భక్తుల సమీక్షలతో కూడిన ధ్రువీకరించబడిన పురోహితులను ఎంచుకోండి.' : lang === 'hi' ? 'वेद शाखा, अनुभव एवं भक्तों की समीक्षाओं से युक्त प्रमाणित पुरोहित चुनें।' : 'Verified Purohits of your tradition, with Veda Shakha, languages and reviews.'
     },
     {
       num: '4',
-      title: lang === 'te' ? 'సంపూర్ణ నిర్వహణ మా బాధ్యత' : 'We handle the rest',
-      desc: lang === 'te' ? 'పూజా సామాగ్రి కిట్ మరియు సాత్విక భోజనాల పూర్తి ప్యాకేజీని సురక్షితంగా బుక్ చేసుకోండి.' : 'Book the complete package: Samagri kit, Bhojanalu and decoration, paid safely.'
+      title: lang === 'te' ? 'సంపూర్ణ నిర్వహణ మా బాధ్యత' : lang === 'hi' ? 'बाकी व्यवस्था हमारी' : 'We handle the rest',
+      desc: lang === 'te' ? 'పూజా సామాగ్రి కిట్ మరియు సాత్విక భోజనాల పూర్తి ప్యాకేజీని సురక్షితంగా బుక్ చేసుకోండి.' : lang === 'hi' ? 'पूजन सामग्री किट एवं सात्विक भोजन का सम्पूर्ण पैकेज सुरक्षित रूप से बुक करें।' : 'Book the complete package: Samagri kit, Bhojanalu and decoration, paid safely.'
     }
   ];
 
   return (
     <section className="how-it-works-section">
       <h2 className="section-title">
-        {lang === 'te' ? 'పూజా సేతు ఎలా పనిచేస్తుంది?' : 'How Pooja Sethu works'}
+        {lang === 'te' ? 'పూజా సేతు ఎలా పనిచేస్తుంది?' : lang === 'hi' ? 'पूजा सेतु कैसे कार्य करता है?' : 'How Pooja Sethu works'}
       </h2>
 
       <div className="steps-grid">

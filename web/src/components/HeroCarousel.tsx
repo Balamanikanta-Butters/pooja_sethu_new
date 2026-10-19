@@ -39,8 +39,8 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({ onExplorePoojas, onS
           </div>
         ),
         bgColor: '#261C2C',
-        tag: lang === 'te' ? 'వైదిక పర్వదినం' : 'VEDIC FESTIVAL & PARVAM',
-        title: lang === 'te' ? 'మహాలయ అమావాస్య · పితృ తర్పణం' : 'Mahalaya Amavasya • Pitru Tarpanam'
+        tag: lang === 'te' ? 'వైదిక పర్వదినం' : lang === 'hi' ? 'वैदिक पर्व एवं उत्सव' : 'VEDIC FESTIVAL & PARVAM',
+        title: lang === 'te' ? 'మహాలయ అమావాస్య · పితృ తర్పణం' : lang === 'hi' ? 'महालय अमावस्या • पितृ तर्पण' : 'Mahalaya Amavasya • Pitru Tarpanam'
       };
     }
     if (t.includes('navaratri') || t.includes('devi') || t.includes('durga') || t.includes('dasara')) {
@@ -51,8 +51,8 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({ onExplorePoojas, onS
           </div>
         ),
         bgColor: '#5A1924',
-        tag: lang === 'te' ? 'నవరాత్రి విశేషం' : 'DEVI NAVARATRI MAHOTSAVAM',
-        title: lang === 'te' ? 'శరన్నవరాత్రి దేవి పూజలు' : 'Devi Navaratri Poojas'
+        tag: lang === 'te' ? 'నవరాత్రి విశేషం' : lang === 'hi' ? 'शारदीय नवरात्रि महोत्सव' : 'DEVI NAVARATRI MAHOTSAVAM',
+        title: lang === 'te' ? 'శరన్నవరాత్రి దేవి పూజలు' : lang === 'hi' ? 'शारदीय नवरात्रि देवी पूजा' : 'Devi Navaratri Poojas'
       };
     }
     if (t.includes('deepavali') || t.includes('diwali') || t.includes('lakshmi')) {
@@ -63,8 +63,8 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({ onExplorePoojas, onS
           </div>
         ),
         bgColor: '#341542',
-        tag: lang === 'te' ? 'దీపావళి పర్వదినం' : 'DEEPAVALI UTSAVAM',
-        title: lang === 'te' ? 'దీపావళి లక్ష్మీ కుబేర పూజ' : 'Deepavali Lakshmi Pooja'
+        tag: lang === 'te' ? 'దీపావళి పర్వదినం' : lang === 'hi' ? 'दीपावली महोत्सव' : 'DEEPAVALI UTSAVAM',
+        title: lang === 'te' ? 'దీపావళి లక్ష్మీ కుబేర పూజ' : lang === 'hi' ? 'दीपावली लक्ष्मी कुबेर पूजा' : 'Deepavali Lakshmi Pooja'
       };
     }
     if (t.includes('satyanarayana') || t.includes('vratham')) {
@@ -75,8 +75,8 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({ onExplorePoojas, onS
           </div>
         ),
         bgColor: '#754B0B',
-        tag: lang === 'te' ? 'వ్రత విధానం' : 'AUSPICIOUS VRATHAM',
-        title: lang === 'te' ? 'శ్రీ సత్యనారాయణ స్వామి వ్రతం' : 'Sri Satyanarayana Swamy Vratham'
+        tag: lang === 'te' ? 'వ్రత విధానం' : lang === 'hi' ? 'शुभ व्रत अनुष्ठान' : 'AUSPICIOUS VRATHAM',
+        title: lang === 'te' ? 'శ్రీ సత్యనారాయణ స్వామి వ్రతం' : lang === 'hi' ? 'श्री सत्यनारायण स्वामी व्रत' : 'Sri Satyanarayana Swamy Vratham'
       };
     }
     if (t.includes('homam') || t.includes('ganapathi') || t.includes('chandi') || t.includes('sudarshana')) {
@@ -87,7 +87,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({ onExplorePoojas, onS
           </div>
         ),
         bgColor: '#6B1B15',
-        tag: lang === 'te' ? 'హోమ కార్యం' : 'VEDIC HOMA VIDHI',
+        tag: lang === 'te' ? 'హోమ కార్యం' : lang === 'hi' ? 'वैदिक हवन विधि' : 'VEDIC HOMA VIDHI',
         title: title
       };
     }
@@ -95,8 +95,8 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({ onExplorePoojas, onS
       return {
         art: <ZeroFeeTicketArt className="carousel-art" />,
         bgColor: '#164E78',
-        tag: lang === 'te' ? 'ప్రారంభ ఆఫర్' : 'LAUNCH OFFER',
-        title: lang === 'te' ? 'మొదటి బుకింగ్‌కు ఎటువంటి బుకింగ్ రుసుము లేదు' : 'First booking with no booking fee'
+        tag: lang === 'te' ? 'ప్రారంభ ఆఫర్' : lang === 'hi' ? 'लॉन्च ऑफर' : 'LAUNCH OFFER',
+        title: lang === 'te' ? 'మొదటి బుకింగ్‌కు ఎటువంటి బుకింగ్ రుసుము లేదు' : lang === 'hi' ? 'प्रथम बुकिंग पर शून्य सुविधा शुल्क' : 'First booking with no booking fee'
       };
     }
     return {
@@ -106,8 +106,8 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({ onExplorePoojas, onS
         </div>
       ),
       bgColor: '#4C1D24',
-      tag: lang === 'te' ? 'వైదిక పూజ' : 'VEDIC CEREMONY',
-      title: title || 'Auspicious Vedic Ceremony'
+      tag: lang === 'te' ? 'వైదిక పూజ' : lang === 'hi' ? 'वैदिक अनुष्ठान' : 'VEDIC CEREMONY',
+      title: title || (lang === 'te' ? 'శుభ వైదిక పూజ' : lang === 'hi' ? 'शुभ वैदिक पूजा' : 'Auspicious Vedic Ceremony')
     };
   };
 
@@ -115,27 +115,27 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({ onExplorePoojas, onS
   const baseSlides = [
     {
       id: 'slide-offer',
-      tag: lang === 'te' ? 'ప్రారంభ ఆఫర్' : 'LAUNCH OFFER',
-      title: lang === 'te' ? 'మొదటి బుకింగ్‌కు ఎటువంటి బుకింగ్ రుసుము లేదు' : 'First booking with no booking fee',
-      ctaText: lang === 'te' ? 'పూజలను చూడండి ›' : 'Explore Poojas ›',
+      tag: lang === 'te' ? 'ప్రారంభ ఆఫర్' : lang === 'hi' ? 'लॉन्च ऑफर' : 'LAUNCH OFFER',
+      title: lang === 'te' ? 'మొదటి బుకింగ్‌కు ఎటువంటి బుకింగ్ రుసుము లేదు' : lang === 'hi' ? 'प्रथम बुकिंग पर शून्य सुविधा शुल्क' : 'First booking with no booking fee',
+      ctaText: lang === 'te' ? 'పూజలను చూడండి ›' : lang === 'hi' ? 'पूजाएँ देखें ›' : 'Explore Poojas ›',
       bgColor: '#164E78',
       action: onExplorePoojas,
       art: <ZeroFeeTicketArt className="carousel-art" />
     },
     {
       id: 'slide-package',
-      tag: lang === 'te' ? 'సంపూర్ణ ప్యాకేజీ' : 'COMPLETE PACKAGE',
-      title: lang === 'te' ? 'పురోహితులు, సామాగ్రి & భోజనాలు ఒక్క బుకింగ్‌లోనే' : 'Purohit, Samagri and Bhojanalu, one booking',
-      ctaText: lang === 'te' ? 'వివరాలు చూడండి ›' : 'See how ›',
+      tag: lang === 'te' ? 'సంపూర్ణ ప్యాకేజీ' : lang === 'hi' ? 'सम्पूर्ण पैकेज' : 'COMPLETE PACKAGE',
+      title: lang === 'te' ? 'పురోహితులు, సామాగ్రి & భోజనాలు ఒక్క బుకింగ్‌లోనే' : lang === 'hi' ? 'पुरोहित, पूजन सामग्री एवं सात्विक भोजन, एक ही बुकिंग में' : 'Purohit, Samagri and Bhojanalu, one booking',
+      ctaText: lang === 'te' ? 'వివరాలు చూడండి ›' : lang === 'hi' ? 'विवरण देखें ›' : 'See how ›',
       bgColor: '#26532B',
       action: onExplorePoojas,
       art: <BhojanaluMealArt className="carousel-art" />
     },
     {
       id: 'slide-gruha',
-      tag: lang === 'te' ? 'ముహూర్తాలు సిద్ధం' : 'MUHURTHAMS OPEN',
-      title: lang === 'te' ? 'అక్టోబర్ 22 మరియు 25న గృహప్రవేశం ముహూర్తాలు' : 'Gruhapravesam on 22 and 25 Oct',
-      ctaText: lang === 'te' ? 'తేదీని ఎంచుకోండి ›' : 'Pick a date ›',
+      tag: lang === 'te' ? 'ముహూర్తాలు సిద్ధం' : lang === 'hi' ? 'शुभ मुहूर्त उपलब्ध' : 'MUHURTHAMS OPEN',
+      title: lang === 'te' ? 'అక్టోబర్ 22 మరియు 25న గృహప్రవేశం ముహూర్తాలు' : lang === 'hi' ? '22 एवं 25 अक्टूबर को गृहप्रवेश के शुभ मुहूर्त' : 'Gruhapravesam on 22 and 25 Oct',
+      ctaText: lang === 'te' ? 'తేదీని ఎంచుకోండి ›' : lang === 'hi' ? 'तिथि चुनें ›' : 'Pick a date ›',
       bgColor: '#75550C',
       action: onSelectMuhurtham,
       art: (
@@ -155,7 +155,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({ onExplorePoojas, onS
         id: b.id || `db-banner-${idx}`,
         tag: visual.tag,
         title: visual.title,
-        ctaText: lang === 'te' ? 'పూజ బుక్ చేసుకోండి ›' : 'Book Pooja ›',
+        ctaText: lang === 'te' ? 'పూజ బుక్ చేసుకోండి ›' : lang === 'hi' ? 'पूजा बुक करें ›' : 'Book Pooja ›',
         bgColor: visual.bgColor,
         action: onExplorePoojas,
         art: visual.art

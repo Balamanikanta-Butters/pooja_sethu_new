@@ -21,7 +21,7 @@ interface RawPanchangamDay {
   sunset?: string;
   good_periods?: Array<{ name: string; from: string; to: string }>;
   avoid_periods?: Array<{ name: string; from: string; to: string }>;
-  significance?: { en?: string; te?: string } | string;
+  significance?: { en?: string; te?: string; hi?: string } | string;
 }
 
 export const PanchangamPage: React.FC<PanchangamPageProps> = ({ onNavigateHome, onNavigatePoojas }) => {
@@ -79,9 +79,10 @@ export const PanchangamPage: React.FC<PanchangamPageProps> = ({ onNavigateHome, 
 
   // Helper formatting
   const formatDateStr = (dateVal?: string) => {
-    if (!dateVal) return lang === 'te' ? 'నేడు' : 'Today';
+    if (!dateVal) return lang === 'te' ? 'నేడు' : lang === 'hi' ? 'आज' : 'Today';
     const d = new Date(dateVal);
-    return d.toLocaleDateString(lang === 'te' ? 'te-IN' : 'en-US', {
+    const locale = lang === 'te' ? 'te-IN' : lang === 'hi' ? 'hi-IN' : 'en-US';
+    return d.toLocaleDateString(locale, {
       weekday: 'long',
       day: 'numeric',
       month: 'long',
@@ -93,6 +94,7 @@ export const PanchangamPage: React.FC<PanchangamPageProps> = ({ onNavigateHome, 
     if (!day) return '';
     if (typeof day.significance === 'object') {
       if (lang === 'te' && day.significance?.te) return day.significance.te;
+      if (lang === 'hi' && day.significance?.hi) return day.significance.hi;
       if (day.significance?.en) return day.significance.en;
     }
     if (typeof day.significance === 'string' && day.significance.trim()) {
@@ -100,6 +102,8 @@ export const PanchangamPage: React.FC<PanchangamPageProps> = ({ onNavigateHome, 
     }
     return lang === 'te' 
       ? `${day.tithi || 'శుభ దినం'} · పూజలు, హోమాలకు అనుకూలమైన పవిత్ర సమయం.`
+      : lang === 'hi'
+      ? `${day.tithi || 'शुभ दिवस'} · पूजा, हवन एवं मंगल कार्यों के लिए अत्यंत शुभ समय।`
       : `${day.tithi || 'Sacred'} · Auspicious period for pujas, havans, and divine blessings.`;
   };
 
@@ -143,7 +147,7 @@ export const PanchangamPage: React.FC<PanchangamPageProps> = ({ onNavigateHome, 
               cursor: 'pointer'
             }}
           >
-            {lang === 'te' ? '← హోమ్‌కు తిరిగి వెళ్లండి' : '← Back to Home'}
+            {lang === 'te' ? '← హోమ్‌కు తిరిగి వెళ్లండి' : lang === 'hi' ? '← होम पर वापस जाएँ' : '← Back to Home'}
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.88rem', color: '#666' }}>
             <button 
@@ -151,10 +155,10 @@ export const PanchangamPage: React.FC<PanchangamPageProps> = ({ onNavigateHome, 
               onClick={onNavigateHome}
               style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', padding: 0 }}
             >
-              {lang === 'te' ? 'హోమ్' : 'Home'}
+              {lang === 'te' ? 'హోమ్' : lang === 'hi' ? 'होम' : 'Home'}
             </button>
             <span>/</span>
-            <span style={{ color: '#1B1510', fontWeight: 600 }}>{lang === 'te' ? 'పంచాంగం' : 'Panchangam'}</span>
+            <span style={{ color: '#1B1510', fontWeight: 600 }}>{lang === 'te' ? 'పంచాంగం' : lang === 'hi' ? 'पंचांग' : 'Panchangam'}</span>
           </div>
         </div>
       )}
@@ -162,9 +166,15 @@ export const PanchangamPage: React.FC<PanchangamPageProps> = ({ onNavigateHome, 
       {/* Header Row */}
       <div className="panchangam-header-row">
         <div>
-          <h1 className="panchangam-title font-sans">{lang === 'te' ? 'దైనందిన పంచాంగం' : 'Panchangam'}</h1>
+          <h1 className="panchangam-title font-sans">
+            {lang === 'te' ? 'దైనందిన పంచాంగం' : lang === 'hi' ? 'दैनिक वैदिक पंचांग' : 'Panchangam'}
+          </h1>
           <p className="panchangam-subtitle">
-            {lang === 'te' ? 'హైదరాబాద్ · వైదిక పంచాంగం మరియు శుభ ముహూర్త సమయాలు' : 'Hyderabad · Daily Vedic Calendar & Timings from Database'}
+            {lang === 'te'
+              ? 'హైదరాబాద్ · వైదిక పంచాంగం మరియు శుభ ముహూర్త సమయాలు'
+              : lang === 'hi'
+              ? 'हैदराबाद · दैनिक वैदिक पंचांग एवं शुभ मुहूर्त समय'
+              : 'Hyderabad · Daily Vedic Calendar & Timings from Database'}
           </p>
         </div>
 
@@ -195,7 +205,7 @@ export const PanchangamPage: React.FC<PanchangamPageProps> = ({ onNavigateHome, 
       {loading && (
         <div style={{ padding: '60px 20px', textAlign: 'center', color: '#888' }}>
           <div className="loading-spinner" style={{ margin: '0 auto 16px', width: '36px', height: '36px', border: '3px solid #EFEAE2', borderTopColor: '#7C1B2C', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-          <p>{lang === 'te' ? 'పంచాంగ వివరాలు లోడ్ అవుతున్నాయి...' : 'Connecting to database & loading Vedic Panchangam...'}</p>
+          <p>{lang === 'te' ? 'పంచాంగ వివరాలు లోడ్ అవుతున్నాయి...' : lang === 'hi' ? 'पंचांग विवरण लोड हो रहे हैं...' : 'Connecting to database & loading Vedic Panchangam...'}</p>
         </div>
       )}
 
@@ -216,35 +226,35 @@ export const PanchangamPage: React.FC<PanchangamPageProps> = ({ onNavigateHome, 
           <div className="panchangam-grid">
             {/* Left Column: Panchanga Elements */}
             <div className="panchanga-card">
-              <h3 className="card-heading">{lang === 'te' ? 'పంచాంగ అంశాలు' : 'Panchanga elements'}</h3>
+              <h3 className="card-heading">{lang === 'te' ? 'పంచాంగ అంశాలు' : lang === 'hi' ? 'पंचांग तत्व' : 'Panchanga elements'}</h3>
 
               <div className="elements-table">
                 <div className="element-row">
-                  <span className="element-key">{lang === 'te' ? 'మాసం & సంవత్సరం' : 'Masam & Samvatsaram'}</span>
+                  <span className="element-key">{lang === 'te' ? 'మాసం & సంవత్సరం' : lang === 'hi' ? 'मास एवं संवत्सर' : 'Masam & Samvatsaram'}</span>
                   <span className="element-val">{currentDay.masam || '—'}{currentDay.samvatsaram ? ` · ${currentDay.samvatsaram}` : ''}</span>
                 </div>
                 <div className="element-row">
-                  <span className="element-key">{lang === 'te' ? 'వారం' : 'Vaaram'}</span>
+                  <span className="element-key">{lang === 'te' ? 'వారం' : lang === 'hi' ? 'वार' : 'Vaaram'}</span>
                   <span className="element-val">{currentDay.vaaram || '—'}</span>
                 </div>
                 <div className="element-row">
-                  <span className="element-key">{lang === 'te' ? 'తిథి' : 'Tithi'}</span>
+                  <span className="element-key">{lang === 'te' ? 'తిథి' : lang === 'hi' ? 'तिथि' : 'Tithi'}</span>
                   <span className="element-val">{currentDay.tithi || '—'}{currentDay.paksham ? ` (${currentDay.paksham} Paksham)` : ''}</span>
                 </div>
                 <div className="element-row">
-                  <span className="element-key">{lang === 'te' ? 'నక్షత్రం' : 'Nakshatram'}</span>
+                  <span className="element-key">{lang === 'te' ? 'నక్షత్రం' : lang === 'hi' ? 'नक्षत्र' : 'Nakshatram'}</span>
                   <span className="element-val">{currentDay.nakshatram || '—'}</span>
                 </div>
                 <div className="element-row">
-                  <span className="element-key">{lang === 'te' ? 'యోగం' : 'Yogam'}</span>
+                  <span className="element-key">{lang === 'te' ? 'యోగం' : lang === 'hi' ? 'योग' : 'Yogam'}</span>
                   <span className="element-val">{currentDay.yogam || 'Variyan'}</span>
                 </div>
                 <div className="element-row">
-                  <span className="element-key">{lang === 'te' ? 'కరణం' : 'Karanam'}</span>
+                  <span className="element-key">{lang === 'te' ? 'కరణం' : lang === 'hi' ? 'करण' : 'Karanam'}</span>
                   <span className="element-val">{currentDay.karanam || 'Taitila'}</span>
                 </div>
                 <div className="element-row no-border">
-                  <span className="element-key">{lang === 'te' ? 'సూర్యోదయం · సూర్యాస్తమయం' : 'Sunrise · Sunset'}</span>
+                  <span className="element-key">{lang === 'te' ? 'సూర్యోదయం · సూర్యాస్తమయం' : lang === 'hi' ? 'सूर्योदय · सूर्यास्त' : 'Sunrise · Sunset'}</span>
                   <span className="element-val">
                     {currentDay.sunrise ? currentDay.sunrise.slice(0, 5) : '06:06 AM'} · {currentDay.sunset ? currentDay.sunset.slice(0, 5) : '05:55 PM'}
                   </span>
@@ -254,7 +264,7 @@ export const PanchangamPage: React.FC<PanchangamPageProps> = ({ onNavigateHome, 
 
             {/* Right Column: Good times and times to avoid */}
             <div className="panchanga-card">
-              <h3 className="card-heading">{lang === 'te' ? 'శుభ & వర్జ్య సమయాలు' : 'Good times and times to avoid'}</h3>
+              <h3 className="card-heading">{lang === 'te' ? 'శుభ & వర్జ్య సమయాలు' : lang === 'hi' ? 'शुभ एवं वर्ज्य समय' : 'Good times and times to avoid'}</h3>
 
               <div className="timings-table">
                 {timings.length > 0 ? (
@@ -262,7 +272,9 @@ export const PanchangamPage: React.FC<PanchangamPageProps> = ({ onNavigateHome, 
                     <div key={idx} className="timing-row">
                       <div className="timing-badge-wrap">
                         <span className={`timing-pill ${t.type === 'good' ? 'pill-good' : 'pill-avoid'}`}>
-                          {t.type === 'good' ? (lang === 'te' ? 'శుభం' : 'Good') : (lang === 'te' ? 'వర్జ్యం' : 'Avoid')}
+                          {t.type === 'good'
+                            ? (lang === 'te' ? 'శుభం' : lang === 'hi' ? 'शुभ' : 'Good')
+                            : (lang === 'te' ? 'వర్జ్యం' : lang === 'hi' ? 'वर्ज्य' : 'Avoid')}
                         </span>
                         <span className="timing-label">{t.label}</span>
                       </div>
@@ -270,13 +282,19 @@ export const PanchangamPage: React.FC<PanchangamPageProps> = ({ onNavigateHome, 
                     </div>
                   ))
                 ) : (
-                  <p style={{ color: '#888', padding: '12px 0' }}>{lang === 'te' ? 'ఎటువంటి వర్జ్య సమయాలు లేవు.' : 'No restrictive timings specified for this day.'}</p>
+                  <p style={{ color: '#888', padding: '12px 0' }}>
+                    {lang === 'te'
+                      ? 'ఎటువంటి వర్జ్య సమయాలు లేవు.'
+                      : lang === 'hi'
+                      ? 'इस दिन के लिए कोई विशेष वर्ज्य समय नहीं है।'
+                      : 'No restrictive timings specified for this day.'}
+                  </p>
                 )}
               </div>
 
               {/* Action CTA: Find a Pooja for this day */}
               <button className="btn-find-pooja" onClick={onNavigatePoojas}>
-                {lang === 'te' ? 'ఈ రోజుకు తగిన పూజను కనుగొనండి' : 'Find a Pooja for this day'}
+                {lang === 'te' ? 'ఈ రోజుకు తగిన పూజను కనుగొనండి' : lang === 'hi' ? 'इस दिन के लिए पूजा चुनें' : 'Find a Pooja for this day'}
               </button>
             </div>
           </div>

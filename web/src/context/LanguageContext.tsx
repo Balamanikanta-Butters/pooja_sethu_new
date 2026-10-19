@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, type ReactNode } from 'react';
 
-export type Language = 'en' | 'te';
+export type Language = 'en' | 'te' | 'hi';
 
 interface LanguageContextType {
   lang: Language;
@@ -290,6 +290,147 @@ const translations: Record<Language, Record<string, string>> = {
     common_edit: 'సవరించండి',
     common_success: 'విజయవంతమైంది',
     common_error: 'లోపం'
+  },
+  hi: {
+    // Nav
+    nav_home: 'होम',
+    nav_poojas: 'पूजाएँ',
+    nav_homams: 'हवन / होम',
+    nav_panchangam: 'पंचांग',
+    nav_bookings: 'मेरी बुकिंग',
+    nav_profile: 'प्रोफ़ाइल',
+    nav_signin: 'लॉग इन',
+    nav_search_placeholder: 'गृहप्रवेश, हवन, सत्यनारायण पूजा खोजें...',
+    nav_city: 'हैदराबाद',
+
+    // Hero
+    hero_title: 'आपके घर पर प्रामाणिक वैदिक पूजा अनुष्ठान',
+    hero_subtitle: 'अपने संप्रदाय के प्रमाणित वैदिक पुरोहितों और पवित्र पूजन सामग्री के साथ शुभ मुहूर्त में अनुष्ठान करवाएं।',
+    hero_book_cta: 'पूजा बुक करें',
+    hero_explore_muhurthams: 'शुभ मुहूर्त देखें',
+    hero_verified_badge: '100% प्रमाणित वैदिक पुरोहित',
+
+    // Panchangam Card
+    panchangam_title: 'आज का पंचांग',
+    panchangam_city_badge: 'हैदराबाद',
+    panchangam_full_view: 'सम्पूर्ण पंचांग देखें ›',
+    panchangam_tithi: 'तिथि',
+    panchangam_nakshatram: 'नक्षत्र',
+    panchangam_masam: 'मास',
+    panchangam_rutuvu: 'ऋतु',
+    panchangam_ayanam: 'अयन',
+    panchangam_kalam: 'शुभ काल',
+    panchangam_rahu: 'राहु काल',
+    panchangam_yama: 'यमगंड',
+    panchangam_durmuhurtham: 'दुर्मुहूर्त',
+    panchangam_varjyam: 'वर्ज्य',
+
+    // Sampradayam Banner
+    sampradaya_title: 'संप्रदायानुसार',
+    sampradaya_telugu: 'సంప్రదాయానుసారం',
+    sampradaya_desc: 'अपनी पारिवारिक परंपरा के अनुसार बुक करें। हम केवल उसी संप्रदाय की पूजाएँ और पुरोहित दिखाएंगे।',
+    sampradaya_all: 'सभी संप्रदाय',
+    sampradaya_smartha: 'स्मार्त',
+    sampradaya_madhva: 'माध्व',
+    sampradaya_srivaishnava: 'श्री वैष्णव',
+    sampradaya_vaikhanasa: 'वैखानस',
+    sampradaya_pancharatra: 'पांचरात्र',
+    sampradaya_raghavendra: 'श्री राघवेंद्र मठ',
+    sampradaya_vyasaraja: 'व्यासराज मठ',
+    sampradaya_uttaradi: 'उत्तरादि मठ',
+    sampradaya_veerashaiva: 'वीरशैव',
+    sampradaya_not_sure: 'निश्चित नहीं / सभी',
+
+    // Book Pooja Section
+    book_pooja_title: 'अवसरानुसार वैदिक पूजा बुक करें',
+    book_pooja_desc: 'आपके पारिवारिक शास्त्रों एवं वैदिक विधि से संपन्न होने वाले प्रामाणिक अनुष्ठान।',
+    cat_all: 'सभी पूजाएँ',
+    cat_gruha: 'गृह प्रवेश',
+    cat_samskara: 'संस्कार',
+    cat_vratam: 'व्रत',
+    cat_homam: 'हवन / होम',
+    cat_pitru: 'पितृ कार्य',
+    cat_festivals: 'त्योहार पूजा',
+    cat_business: 'व्यापार एवं वाहन',
+    pooja_duration: 'समय',
+    pooja_starting_from: 'प्रारंभिक दक्षिणा',
+    pooja_book_now: 'पूजा बुक करें ›',
+    pooja_explore_all: 'सभी पूजाएँ देखें ›',
+
+    // Muhurthams & Festivals
+    muhurtham_title: 'आगामी शुभ मुहूर्त',
+    muhurtham_calendar_link: 'कैलेंडर',
+    muhurtham_footnote: 'हैदराबाद पंचांग अनुसार शुभ तिथियाँ। आपके पुरोहित अंतिम मुहूर्त की पुष्टि करेंगे।',
+    muhurtham_book_btn: 'बुक करें ›',
+    festivals_title: 'आगामी व्रत एवं त्योहार',
+    festival_major_tag: 'प्रमुख त्योहार',
+    festival_sacred_tag: 'पवित्र दिवस',
+
+    // Popular Poojas
+    popular_poojas_title: 'हैदराबाद में सर्वाधिक लोकप्रिय पूजाएँ',
+    popular_poojas_subtitle: 'पारिवारिक सुख, शांति एवं समृद्धि हेतु भक्तों द्वारा सर्वाधिक पसंद किए जाने वाले अनुष्ठान।',
+
+    // How It Works
+    how_works_title: 'पूजा सेतु कैसे कार्य करता है?',
+    how_step1_title: '1. पूजा एवं मुहूर्त चुनें',
+    how_step1_desc: 'अपनी इच्छित पूजा चुनें और पंचांग अनुसार शुभ दिन व समय का चयन करें।',
+    how_step2_title: '2. प्रमाणित पुरोहित का चयन',
+    how_step2_desc: 'अपने संप्रदाय (स्मार्त, माध्व, श्री वैष्णव) के योग्य वैदिक पुरोहित चुनें।',
+    how_step3_title: '3. घर पर सम्पूर्ण अनुष्ठान',
+    how_step3_desc: 'पुरोहित शुद्ध सामग्री किट के साथ आपके घर पधारेंगे। अनुष्ठान संपन्न होने के बाद दक्षिणा दें।',
+
+    // All Poojas Page
+    all_poojas_header: 'समस्त वैदिक अनुष्ठान',
+    all_poojas_filter_tradition: 'संप्रदाय अनुसार फ़िल्टर',
+    all_poojas_filter_category: 'पूजा श्रेणियाँ',
+    all_poojas_sort_by: 'क्रमबद्ध करें',
+    all_poojas_sort_popular: 'सर्वाधिक लोकप्रिय',
+    all_poojas_sort_low_high: 'मूल्य: कम से अधिक',
+    all_poojas_sort_high_low: 'मूल्य: अधिक से कम',
+    all_poojas_showing: '{count} पूजाएँ उपलब्ध हैं',
+    all_poojas_no_results: 'चुने गए फ़िल्टर के अनुसार कोई पूजा नहीं मिली। "सभी संप्रदाय" चुनकर देखें।',
+
+    // Pooja Details Page
+    pooja_detail_back: 'पूजा सूची पर वापस जाएँ',
+    pooja_detail_includes: 'पैकेज में क्या शामिल है',
+    pooja_detail_samagri_included: 'शुद्ध पूजा सामग्री किट शामिल',
+    pooja_detail_purohit_dakshina: 'वैदिक पुरोहित दक्षिणा',
+    pooja_detail_family_arranges: 'परिवार द्वारा घर पर की जाने वाली व्यवस्था',
+    pooja_detail_faqs: 'अक्सर पूछे जाने वाले वैदिक प्रश्न',
+    pooja_detail_book_cta: 'अभी पूजा बुक करें',
+
+    // Booking Page
+    booking_step1: '1. समय एवं स्थान',
+    booking_step2: '2. पुरोहित चयन',
+    booking_step3: '3. पैकेज एवं अतिरिक्त सेवाएँ',
+    booking_step4: '4. समीक्षा एवं पुष्टि',
+    booking_select_muhurtham: 'शुभ मुहूर्त चुनें',
+    booking_ceremony_address: 'पूजा स्थल का पता',
+    booking_continue_purohit: 'पुरोहित चयन के लिए आगे बढ़ें',
+    booking_continue_package: 'पैकेज एवं सामग्री के लिए आगे बढ़ें',
+    booking_continue_review: 'समीक्षा के लिए आगे बढ़ें',
+    booking_confirm_pay: 'पुष्टि करें एवं भुगतान करें',
+    booking_catering_title: 'सात्विक भोजन (शुद्ध शाकाहारी केटरिंग)',
+    booking_catering_desc: 'बिना प्याज-लहसुन, पारंपरिक वैदिक शुद्धता के साथ तैयार भोजन।',
+    booking_delivery_window: 'सामग्री किट डिलीवरी समय',
+    booking_free_cancellation: 'मुहूर्त से 72 घंटे पहले तक निःशुल्क रद्दीकरण सुविधा।',
+
+    // Profile Page
+    profile_title: 'मेरी भक्त प्रोफ़ाइल',
+    profile_family_members: 'संकल्प हेतु परिवार के सदस्य',
+    profile_family_desc: 'लाइव पूजा संकल्प में वैदिक पुरोहित द्वारा उच्चारित नाम, गोत्र और जन्म नक्षत्र।',
+    profile_add_member: 'सदस्य जोड़ें',
+    profile_saved_addresses: 'सहेजे गए पते',
+    profile_vedic_identity: 'पारिवारिक एवं वैदिक पहचान',
+
+    // Common
+    common_loading: 'लोड हो रहा है...',
+    common_cancel: 'रद्द करें',
+    common_save: 'सुरक्षित करें',
+    common_delete: 'हटाएं',
+    common_edit: 'संपादित करें',
+    common_success: 'सफल',
+    common_error: 'त्रुटि'
   }
 };
 
@@ -302,7 +443,7 @@ const LanguageContext = createContext<LanguageContextType>({
 export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [lang, setLangState] = useState<Language>(() => {
     const saved = localStorage.getItem('pooja_sethu_lang');
-    return saved === 'te' ? 'te' : 'en';
+    return saved === 'te' ? 'te' : saved === 'hi' ? 'hi' : 'en';
   });
 
   const setLang = (newLang: Language) => {

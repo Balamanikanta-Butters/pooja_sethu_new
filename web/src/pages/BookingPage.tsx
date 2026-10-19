@@ -13,6 +13,8 @@ interface BookingPageProps {
   onNavigateHome: () => void;
   onNavigatePoojaDetail: () => void;
   onBookingComplete: (bookingDetails: any) => void;
+  user?: any;
+  onOpenAuth?: () => void;
 }
 
 interface SavedAddressItem {
@@ -44,7 +46,9 @@ export const BookingPage: React.FC<BookingPageProps> = ({
   initialTradition = 'Smartha',
   onNavigateHome,
   onNavigatePoojaDetail,
-  onBookingComplete
+  onBookingComplete,
+  user,
+  onOpenAuth
 }) => {
   // Wizard steps: 1 = When and where, 2 = Purohit, 3 = Package, 4 = Review and pay
   const [currentStep, setCurrentStep] = useState(1);
@@ -127,12 +131,22 @@ export const BookingPage: React.FC<BookingPageProps> = ({
   const [cateringMenus, setCateringMenus] = useState<any[]>([]);
   const mealRate = cateringType === 'Festive' ? 500 : 350;
 
-  // Step 4: Karta Details & Payment
-  const [kartaName, setKartaName] = useState('Bala Manikanta');
+  // Step 4: Karta Details & Payment Options
+  const [kartaName, setKartaName] = useState(user?.name || 'Bala Manikanta');
   const [spouseName, setSpouseName] = useState('Lakshmi');
-  const [gotram, setGotram] = useState('Kashyapa');
+  const [gotram, setGotram] = useState(user?.gotram || 'Kashyapa');
   const [nakshatram, setNakshatram] = useState('Rohini');
-  const [phoneNumber, setPhoneNumber] = useState('+91 98765 43210');
+  const [phoneNumber, setPhoneNumber] = useState(user?.mobileNumber || user?.phone || '+91 98765 43210');
+
+  // Payment Option for Purohit Only: 1 = Pay Now, 2 = Pay Later
+  const [purohitPaymentOption, setPurohitPaymentOption] = useState<'pay_now' | 'pay_later'>('pay_now');
+
+  // Pre-fill user details if logged in
+  useEffect(() => {
+    if (user?.name) setKartaName(user.name);
+    if (user?.mobileNumber || user?.phone) setPhoneNumber(user.mobileNumber || user.phone);
+    if (user?.gotram) setGotram(user.gotram);
+  }, [user]);
 
   // Load live user addresses and purohits from backend on mount
   useEffect(() => {
@@ -406,6 +420,8 @@ export const BookingPage: React.FC<BookingPageProps> = ({
   const coordinationFee = isPurohitOnly ? 0 : 499;
   const gst = isPurohitOnly ? 0 : 90;
   const totalAmount = isPurohitOnly ? dakshinaAmount : (dakshinaAmount + samagriAmount + bhojanaluAmount + coordinationFee + gst);
+  const advanceAmount = !isPurohitOnly ? Math.round(totalAmount / 4) : totalAmount;
+  const remainingAmount = !isPurohitOnly ? (totalAmount - advanceAmount) : 0;
 
   // Selected address summary
   const selectedAddrObj = addresses.find(a => a.id === selectedAddressId) || addresses[0];
@@ -420,11 +436,74 @@ export const BookingPage: React.FC<BookingPageProps> = ({
   };
 
   const handleNext = async () => {
-    if (currentStep < 4) {
-      setCurrentStep(currentStep + 1);
+    setBookingError('');
+
+    // Step 1 Validation: Ceremony Address is mandatory
+    if (currentStep === 1) {
+      if (locationType === 'Home' && (!selectedAddrObj || !selectedAddrObj.line?.trim() || !selectedAddrObj.pincode?.trim())) {
+        setBookingError('Please add and select your ceremony venue address with a valid 6-digit pincode.');
+        showToast({ type: 'warning', message: 'Ceremony address is required' });
+        return;
+      }
+      setCurrentStep(2);
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    } else {
-      // Step 4: Submit real booking to backend API
+      return;
+    }
+
+    // Step 2 Validation: Purohit is mandatory
+    if (currentStep === 2) {
+      if (!selectedPurohitId) {
+        setBookingError('Please select a verified Vedic Purohit to continue.');
+        showToast({ type: 'warning', message: 'Purohit selection is required' });
+        return;
+      }
+      setCurrentStep(3);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    if (currentStep === 3) {
+      setCurrentStep(4);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    if (currentStep === 4) {
+      // Step 4 Mandatory Security Checks (matching mobile app)
+      const token = localStorage.getItem('jwt_token') || localStorage.getItem('pooja_sethu_token');
+      if (!token && !user) {
+        setBookingError('Please sign in with your mobile number to complete your booking.');
+        showToast({ type: 'warning', message: 'Sign in required to proceed with booking' });
+        if (onOpenAuth) onOpenAuth();
+        return;
+      }
+
+      if (!kartaName || !kartaName.trim()) {
+        setBookingError('Karta (Main Devotee) full name is mandatory for Sankalpam.');
+        showToast({ type: 'warning', message: 'Karta name is required' });
+        return;
+      }
+
+      const cleanPhone = phoneNumber.replace(/[^\d]/g, '').slice(-10);
+      if (!cleanPhone || cleanPhone.length !== 10) {
+        setBookingError('Valid 10-digit mobile number is mandatory for WhatsApp ceremony updates.');
+        showToast({ type: 'warning', message: 'Valid 10-digit phone number is required' });
+        return;
+      }
+
+      if (!gotram || !gotram.trim()) {
+        setBookingError('Family Gotram is mandatory for reciting the Vedic Sankalpam.');
+        showToast({ type: 'warning', message: 'Gotram is required' });
+        return;
+      }
+
+      if (locationType === 'Home' && (!selectedAddrObj || !selectedAddrObj.line?.trim() || !selectedAddrObj.pincode?.trim())) {
+        setBookingError('Ceremony street address and pincode are mandatory.');
+        showToast({ type: 'warning', message: 'Address and pincode are required' });
+        return;
+      }
+
+      // Submit booking to backend API
       setIsSubmittingBooking(true);
       setBookingError('');
       
@@ -445,6 +524,8 @@ export const BookingPage: React.FC<BookingPageProps> = ({
         }
       }
 
+      const isPayLater = isPurohitOnly && purohitPaymentOption === 'pay_later';
+
       const bookingPayload = {
         pooja_id: pooja.id || 'ff33f14c-2cbd-48a4-b620-933afd600aad',
         sampradayam: initialTradition || 'Smartha',
@@ -457,6 +538,7 @@ export const BookingPage: React.FC<BookingPageProps> = ({
         pincode: locationType === 'Home' ? (selectedAddrObj?.pincode || '500081') : (locationType === 'Temple' ? templePincode : hallPincode),
         guests: (!isPurohitOnly && includeBhojanalu) ? guestCount : 0,
         mode: isPurohitOnly ? 'purohit_only' : 'package',
+        payment_mode: isPayLater ? 'pay_later' : 'pay_now',
         dakshina_amount: dakshinaAmount,
         samagri_amount: samagriAmount,
         food_amount: bhojanaluAmount,
@@ -471,30 +553,51 @@ export const BookingPage: React.FC<BookingPageProps> = ({
       };
 
       try {
-        // 1. Create booking draft in database
+        // 1. Create booking in database
         const res = await apiRequest('/api/bookings', {
           method: 'POST',
           body: JSON.stringify(bookingPayload)
         });
 
         if (!res.success) {
-          throw new Error(res.error || 'Failed to save booking draft to database.');
+          throw new Error(res.error || 'Failed to save booking to database.');
         }
 
         const data = res.raw || res.data;
         const createdBookingId = data?.booking?.id || data?.data?.id || data?.id;
         const createdBookingNo = data?.booking?.booking_no || data?.data?.booking_no || data?.booking_no || `PS-BK-${Math.floor(10000 + Math.random() * 90000)}`;
 
+        // If Pay Later: confirm immediately without opening Razorpay
+        if (isPayLater) {
+          showToast({ type: 'success', message: 'Booking confirmed! (Pay Later at Venue)' });
+          onBookingComplete({
+            pooja,
+            slot: activeSlotDisplay,
+            address: finalAddressLine,
+            purohit: chosenPurohit,
+            guestCount: 0,
+            total: totalAmount,
+            karta: kartaName,
+            phone: phoneNumber,
+            bookingNo: createdBookingNo,
+            bookingId: createdBookingId,
+            paymentId: 'PAY_LATER',
+            mode: 'Purohit only (Pay Later)'
+          });
+          return;
+        }
+
+        // Online Payment Flow (Purohit Only Pay Now OR Complete Package 1/4th Advance)
         let razorpayKey = 'rzp_test_TlpNdLGDOhtL2O';
         let razorpayOrderId: string | undefined = undefined;
-        let amountInPaise = Math.round(totalAmount * 100);
+        let amountInPaise = Math.round((!isPurohitOnly ? advanceAmount : totalAmount) * 100);
 
-        // 2. Request official Razorpay Order from backend
+        // 2. Request Razorpay Order from backend
         if (createdBookingId) {
           try {
             const orderRes = await apiRequest('/api/payments/create-order', {
               method: 'POST',
-              body: JSON.stringify({ bookingId: createdBookingId })
+              body: JSON.stringify({ bookingId: createdBookingId, isAdvance: !isPurohitOnly })
             });
             const orderData = orderRes.raw || orderRes.data;
             if (orderRes.success && orderData) {
@@ -513,7 +616,7 @@ export const BookingPage: React.FC<BookingPageProps> = ({
           amount: amountInPaise,
           currency: 'INR',
           name: 'Pooja Sethu',
-          description: `${pooja.title} Ceremony Booking`,
+          description: `${pooja.title} ${!isPurohitOnly ? 'Advance Payment (1/4)' : 'Ceremony Booking'}`,
           order_id: razorpayOrderId,
           theme: { color: '#7C1B2C' },
           prefill: {
@@ -542,7 +645,7 @@ export const BookingPage: React.FC<BookingPageProps> = ({
           }
         }
 
-        showToast({ type: 'success', message: 'Booking confirmed successfully!' });
+        showToast({ type: 'success', message: !isPurohitOnly ? 'Advance payment received! Booking confirmed.' : 'Booking confirmed successfully!' });
 
         // 5. Complete Booking & Show Confirmation Modal
         onBookingComplete({
@@ -552,17 +655,19 @@ export const BookingPage: React.FC<BookingPageProps> = ({
           purohit: chosenPurohit,
           guestCount: (!isPurohitOnly && includeBhojanalu) ? guestCount : 0,
           total: totalAmount,
+          advancePaid: !isPurohitOnly ? advanceAmount : totalAmount,
+          remainingBalance: !isPurohitOnly ? remainingAmount : 0,
           karta: kartaName,
           phone: phoneNumber,
           bookingNo: createdBookingNo,
           bookingId: createdBookingId,
           paymentId: paymentResult.razorpay_payment_id,
-          mode: isPurohitOnly ? 'Purohit only' : 'Complete Package'
+          mode: isPurohitOnly ? 'Purohit only (Paid Online)' : 'Complete Package (1/4 Advance Paid)'
         });
       } catch (err: any) {
         const msg = String(err?.message || '');
         if (msg.toLowerCase().includes('cancel') || msg.toLowerCase().includes('dismiss') || msg.toLowerCase().includes('closed')) {
-          setBookingError('Payment window was closed or cancelled. Click "Confirm & Pay" to try again.');
+          setBookingError('Payment window was closed or cancelled. Click to try again.');
           showToast({ type: 'warning', message: 'Payment cancelled by user' });
         } else {
           const userFriendly = err?.isDbOffline
@@ -1480,9 +1585,118 @@ export const BookingPage: React.FC<BookingPageProps> = ({
                 </div>
               </div>
 
+              {/* If Purohit Only: 2 Options (1. Pay Now, 2. Pay Later) */}
+              {isPurohitOnly && (
+                <div className="step-box" style={{ marginTop: '16px', border: '1px solid #E5E0D8' }}>
+                  <h3 className="box-title" style={{ fontSize: '1.1rem', marginBottom: '6px' }}>Select Payment Option</h3>
+                  <p className="box-sub" style={{ margin: 0 }}>Choose whether you prefer to pay online now or pay the Purohit directly at the ceremony.</p>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '14px', marginTop: '14px' }}>
+                    {/* Option 1: Pay Now */}
+                    <div
+                      onClick={() => setPurohitPaymentOption('pay_now')}
+                      style={{
+                        padding: '16px',
+                        borderRadius: '10px',
+                        border: purohitPaymentOption === 'pay_now' ? '2px solid #7C1B2C' : '1px solid #D9D2C9',
+                        backgroundColor: purohitPaymentOption === 'pay_now' ? '#FDF8F5' : '#FFFFFF',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between'
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                          <div style={{
+                            width: '18px',
+                            height: '18px',
+                            borderRadius: '50%',
+                            border: purohitPaymentOption === 'pay_now' ? '5px solid #7C1B2C' : '2px solid #B0A79E',
+                            backgroundColor: '#FFF'
+                          }} />
+                          <span style={{ fontWeight: 700, fontSize: '1rem', color: '#1B1510' }}>1. Pay Now</span>
+                        </div>
+                        <p style={{ margin: '4px 0 10px 28px', fontSize: '0.84rem', color: '#6A6258', lineHeight: 1.4 }}>
+                          Pay online securely now via UPI (GPay/PhonePe), Credit/Debit Card, or NetBanking.
+                        </p>
+                      </div>
+                      <div style={{ textAlign: 'right', fontWeight: 800, color: '#7C1B2C', fontSize: '1.15rem' }}>
+                        ₹{totalAmount.toLocaleString('en-IN')}
+                      </div>
+                    </div>
+
+                    {/* Option 2: Pay Later */}
+                    <div
+                      onClick={() => setPurohitPaymentOption('pay_later')}
+                      style={{
+                        padding: '16px',
+                        borderRadius: '10px',
+                        border: purohitPaymentOption === 'pay_later' ? '2px solid #7C1B2C' : '1px solid #D9D2C9',
+                        backgroundColor: purohitPaymentOption === 'pay_later' ? '#FDF8F5' : '#FFFFFF',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between'
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                          <div style={{
+                            width: '18px',
+                            height: '18px',
+                            borderRadius: '50%',
+                            border: purohitPaymentOption === 'pay_later' ? '5px solid #7C1B2C' : '2px solid #B0A79E',
+                            backgroundColor: '#FFF'
+                          }} />
+                          <span style={{ fontWeight: 700, fontSize: '1rem', color: '#1B1510' }}>2. Pay Later</span>
+                        </div>
+                        <p style={{ margin: '4px 0 10px 28px', fontSize: '0.84rem', color: '#6A6258', lineHeight: 1.4 }}>
+                          Pay Dakshina directly to the Purohit at your home/venue after the ceremony is conducted.
+                        </p>
+                      </div>
+                      <div style={{ textAlign: 'right', fontWeight: 700, color: '#15803D', fontSize: '0.98rem' }}>
+                        Pay at Venue (Cash/UPI)
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* If Complete Package: 1/4th Advance Notice */}
+              {!isPurohitOnly && (
+                <div className="step-box" style={{ marginTop: '16px', background: '#FFFDF9', border: '1px solid #F5DEB3' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '1.25rem' }}>💳</span>
+                      <h4 style={{ margin: 0, fontSize: '1.02rem', fontWeight: 700, color: '#7C1B2C' }}>
+                        1/4 Advance Deposit Required
+                      </h4>
+                    </div>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 700, background: '#FBEBEF', color: '#7C1B2C', padding: '3px 10px', borderRadius: '12px' }}>
+                      25% Advance
+                    </span>
+                  </div>
+                  <p style={{ margin: '0 0 12px 0', fontSize: '0.88rem', color: '#6A5D52', lineHeight: 1.4 }}>
+                    To confirm the complete arranged package with Samagri kit sourcing and catering slots, 1/4th of the total package amount is payable today. The remaining 3/4th balance is due on the ceremony day.
+                  </p>
+                  <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', paddingTop: '10px', borderTop: '1px dashed #E5D5C5' }}>
+                    <div>
+                      <span style={{ fontSize: '0.78rem', color: '#888', display: 'block' }}>Advance Due Today (1/4):</span>
+                      <strong style={{ fontSize: '1.25rem', color: '#7C1B2C' }}>₹{advanceAmount.toLocaleString('en-IN')}</strong>
+                    </div>
+                    <div style={{ borderLeft: '1px solid #E5D5C5', paddingLeft: '20px' }}>
+                      <span style={{ fontSize: '0.78rem', color: '#888', display: 'block' }}>Remaining Balance (3/4):</span>
+                      <strong style={{ fontSize: '1.1rem', color: '#444' }}>₹{remainingAmount.toLocaleString('en-IN')}</strong>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {bookingError && (
-                <div className="booking-error-banner">
+                <div className="booking-error-banner" style={{ marginTop: '16px' }}>
                   {bookingError}
                 </div>
               )}
@@ -1498,7 +1712,13 @@ export const BookingPage: React.FC<BookingPageProps> = ({
                   onClick={handleNext}
                   disabled={isSubmittingBooking}
                 >
-                  {isSubmittingBooking ? 'Saving Booking to Database...' : `Confirm & Pay ₹${totalAmount.toLocaleString('en-IN')}`}
+                  {isSubmittingBooking
+                    ? 'Saving Booking to Database...'
+                    : isPurohitOnly
+                      ? (purohitPaymentOption === 'pay_now'
+                          ? `Pay Now · ₹${totalAmount.toLocaleString('en-IN')}`
+                          : 'Confirm Booking (Pay Later)')
+                      : `Pay Advance (1/4) · ₹${advanceAmount.toLocaleString('en-IN')}`}
                 </button>
               </div>
             </div>
@@ -1592,11 +1812,25 @@ export const BookingPage: React.FC<BookingPageProps> = ({
 
             {/* Total Row */}
             <div className="summary-total-row">
-              <span className="total-label">{bookingType === 'purohit' ? 'Total Payable (Purohit only)' : 'Total for package'}</span>
+              <span className="total-label">{bookingType === 'purohit' ? 'Total Payable (Purohit only)' : 'Total Package Value'}</span>
               <span className="total-amount" style={{ color: chosenPurohit ? '#7C1B2C' : '#888', fontSize: chosenPurohit ? '1.5rem' : '1.15rem' }}>
                 {chosenPurohit ? `₹${totalAmount.toLocaleString('en-IN')}` : 'Pending selection'}
               </span>
             </div>
+
+            {/* Advance 1/4th row for Complete Package */}
+            {currentStep >= 3 && bookingType === 'complete' && chosenPurohit && (
+              <div style={{ marginTop: '10px', padding: '10px 12px', background: '#FFFDF9', border: '1px solid #F5DEB3', borderRadius: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 700, color: '#7C1B2C' }}>
+                  <span>Advance Due Today (1/4):</span>
+                  <span style={{ fontSize: '1.05rem' }}>₹{advanceAmount.toLocaleString('en-IN')}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.84rem', color: '#666', marginTop: '4px' }}>
+                  <span>Balance Due at Venue (3/4):</span>
+                  <span>₹{remainingAmount.toLocaleString('en-IN')}</span>
+                </div>
+              </div>
+            )}
 
             {/* Safety Trust Note */}
             <p className="summary-trust-note">

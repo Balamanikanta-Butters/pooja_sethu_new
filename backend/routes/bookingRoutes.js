@@ -16,5 +16,8 @@ router.post('/', authMiddleware.optional, bookingController.createBooking);
 router.get('/my-bookings', authMiddleware.optional, bookingController.getMyBookings);
 router.post('/:id/cancel', authMiddleware.optional, bookingController.cancelBooking);
 router.patch('/:id/cancel', authMiddleware.optional, bookingController.cancelBooking);
+router.post('/:id/status', authMiddleware.optional, bookingController.updateBookingStatus);
+router.patch('/:id/status', authMiddleware.optional, bookingController.updateBookingStatus);
+
 
 module.exports = router;

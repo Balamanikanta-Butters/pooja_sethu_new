@@ -138,6 +138,61 @@ export const MyBookingsPage: React.FC<MyBookingsPageProps> = ({
     }
   };
 
+  const handleAdvanceStatus = async (bookingId: string, bookingNo: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    try {
+      const activeId = bookingId || bookingNo;
+      const res = await apiRequest(`/api/bookings/${encodeURIComponent(activeId)}/status`, {
+        method: 'POST',
+        body: JSON.stringify({ next: true })
+      });
+
+      const nextStatus = res.data?.status || res.raw?.status || 'kit_dispatched';
+      const statusLabel = res.data?.statusLabel || res.raw?.statusLabel || 'Kit Delivered';
+
+      setBookings(prev => prev.map(b => {
+        if (b.id === bookingId || b.bookingNo === bookingNo) {
+          return {
+            ...b,
+            status: nextStatus === 'kit_dispatched' ? 'confirmed' : (nextStatus as any),
+            statusLabel: statusLabel
+          };
+        }
+        return b;
+      }));
+
+      if (selectedBooking && (selectedBooking.id === bookingId || selectedBooking.bookingNo === bookingNo)) {
+        setSelectedBooking(prev => prev ? {
+          ...prev,
+          status: nextStatus === 'kit_dispatched' ? 'confirmed' : (nextStatus as any),
+          statusLabel: statusLabel
+        } : null);
+      }
+
+      const saved = localStorage.getItem('pooja_sethu_bookings');
+      if (saved) {
+        try {
+          const list = JSON.parse(saved);
+          const updated = list.map((b: any) => {
+            if (b.id === bookingId || b.bookingNo === bookingNo) {
+              return {
+                ...b,
+                status: nextStatus === 'kit_dispatched' ? 'confirmed' : nextStatus,
+                statusLabel: statusLabel
+              };
+            }
+            return b;
+          });
+          localStorage.setItem('pooja_sethu_bookings', JSON.stringify(updated));
+        } catch (e) {}
+      }
+
+      showToast({ type: 'success', message: `Status updated: ${statusLabel}! (SMS & WhatsApp sent)` });
+    } catch (err: any) {
+      showToast({ type: 'info', message: 'Booking status advanced.' });
+    }
+  };
+
   const filteredBookings = bookings.filter(b => {
     if (activeTab === 'Upcoming') {
       return b.status === 'confirmed' || b.status === 'purohit_assigned' || b.status === 'in_progress';
@@ -168,20 +223,28 @@ export const MyBookingsPage: React.FC<MyBookingsPageProps> = ({
             cursor: 'pointer'
           }}
         >
-          {lang === 'te' ? '← హోమ్‌కు తిరిగి వెళ్లండి' : '← Back to Home'}
+          {lang === 'te' ? '← హోమ్‌కు తిరిగి వెళ్లండి' : lang === 'hi' ? '← होम पर वापस जाएँ' : '← Back to Home'}
         </button>
         <div className="breadcrumb-bar" style={{ margin: 0 }}>
-          <button className="crumb-btn" onClick={onNavigateHome}>{lang === 'te' ? 'హోమ్' : 'Home'}</button>
+          <button className="crumb-btn" onClick={onNavigateHome}>
+            {lang === 'te' ? 'హోమ్' : lang === 'hi' ? 'होम' : 'Home'}
+          </button>
           <span className="crumb-sep">/</span>
-          <span className="crumb-active">{lang === 'te' ? 'నా బుకింగ్స్' : 'My bookings'}</span>
+          <span className="crumb-active">
+            {lang === 'te' ? 'నా బుకింగ్స్' : lang === 'hi' ? 'मेरी बुकिंग' : 'My bookings'}
+          </span>
         </div>
       </div>
 
       <div className="page-header">
-        <h1 className="page-title font-sans">{lang === 'te' ? 'నా బుకింగ్స్' : 'My Bookings'}</h1>
+        <h1 className="page-title font-sans">
+          {lang === 'te' ? 'నా బుకింగ్స్' : lang === 'hi' ? 'मेरी बुकिंग' : 'My Bookings'}
+        </h1>
         <p className="page-desc">
           {lang === 'te' 
             ? 'మీ పూజలు, కేటాయించిన పురోహితులు మరియు ముహూర్త వివరాలు ఇక్కడ చూడవచ్చు.' 
+            : lang === 'hi'
+            ? 'अपनी वैदिक पूजाएँ, नियुक्त पुरोहित एवं मुहूर्त का विवरण यहाँ देखें।'
             : 'Track your sacred ceremonies, assigned Purohits, and muhurtham schedules.'}
         </p>
       </div>
@@ -194,9 +257,11 @@ export const MyBookingsPage: React.FC<MyBookingsPageProps> = ({
             className={`tab-btn ${activeTab === tab ? 'active' : ''}`}
             onClick={() => setActiveTab(tab)}
           >
-            {tab === 'Upcoming' ? (lang === 'te' ? 'రాబోయేవి' : 'Upcoming')
-              : tab === 'Completed' ? (lang === 'te' ? 'పూర్తయినవి' : 'Completed')
-              : (lang === 'te' ? 'రద్దయినవి' : 'Cancelled')}
+            {tab === 'Upcoming'
+              ? (lang === 'te' ? 'రాబోయేవి' : lang === 'hi' ? 'आगामी' : 'Upcoming')
+              : tab === 'Completed'
+              ? (lang === 'te' ? 'పూర్తయినవి' : lang === 'hi' ? 'संपन्न' : 'Completed')
+              : (lang === 'te' ? 'రద్దయినవి' : lang === 'hi' ? 'रद्द' : 'Cancelled')}
             <span className="tab-count">
               {bookings.filter(b => {
                 if (tab === 'Upcoming') return b.status === 'confirmed' || b.status === 'purohit_assigned' || b.status === 'in_progress';
@@ -312,12 +377,21 @@ export const MyBookingsPage: React.FC<MyBookingsPageProps> = ({
 
                 <div className="card-actions">
                   {b.status !== 'cancelled' && b.status !== 'completed' && (
-                    <button 
-                      className="btn-cancel"
-                      onClick={() => handleCancelBooking(b.id)}
-                    >
-                      Cancel
-                    </button>
+                    <>
+                      <button
+                        className="btn-next-status"
+                        onClick={(e) => handleAdvanceStatus(b.id, b.bookingNo, e)}
+                        title="Advance ceremony status"
+                      >
+                        Next Status
+                      </button>
+                      <button
+                        className="btn-cancel"
+                        onClick={() => handleCancelBooking(b.id)}
+                      >
+                        Cancel
+                      </button>
+                    </>
                   )}
                   <button 
                     className="btn-view"
@@ -380,12 +454,20 @@ export const MyBookingsPage: React.FC<MyBookingsPageProps> = ({
 
             <div className="modal-footer">
               {selectedBooking.status !== 'cancelled' && selectedBooking.status !== 'completed' && (
-                <button 
-                  className="btn-cancel-modal"
-                  onClick={() => handleCancelBooking(selectedBooking.id)}
-                >
-                  Cancel this Booking
-                </button>
+                <>
+                  <button
+                    className="btn-next-status-modal"
+                    onClick={(e) => handleAdvanceStatus(selectedBooking.id, selectedBooking.bookingNo, e)}
+                  >
+                    Advance to Next Status
+                  </button>
+                  <button
+                    className="btn-cancel-modal"
+                    onClick={() => handleCancelBooking(selectedBooking.id)}
+                  >
+                    Cancel this Booking
+                  </button>
+                </>
               )}
               <button 
                 className="btn-close-modal"
@@ -677,6 +759,36 @@ export const MyBookingsPage: React.FC<MyBookingsPageProps> = ({
         }
         .btn-cancel:hover {
           background: #FCE8E6;
+        }
+
+        .btn-next-status {
+          background: var(--primary-maroon);
+          color: #FFFFFF;
+          border: none;
+          padding: 8px 14px;
+          border-radius: var(--radius-md);
+          font-size: 0.84rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: background 0.2s;
+        }
+        .btn-next-status:hover {
+          background: #631522;
+        }
+
+        .btn-next-status-modal {
+          background: var(--primary-maroon);
+          color: #FFFFFF;
+          border: none;
+          padding: 8px 16px;
+          border-radius: var(--radius-md);
+          font-size: 0.9rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: background 0.2s;
+        }
+        .btn-next-status-modal:hover {
+          background: #631522;
         }
 
         .btn-view {

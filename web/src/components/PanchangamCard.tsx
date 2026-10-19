@@ -27,15 +27,17 @@ export const PanchangamCard: React.FC<PanchangamCardProps> = ({ onOpenFullPancha
             return match ? `${match.from} – ${match.to}` : null;
           };
 
-          let formattedDate = lang === 'te' ? 'నేడు · హైదరాబాద్' : 'Today · Hyderabad';
+          let formattedDate = lang === 'te' ? 'నేడు · హైదరాబాద్' : lang === 'hi' ? 'आज · हैदराबाद' : 'Today · Hyderabad';
           if (p.day) {
             const d = new Date(p.day);
-            formattedDate = `${d.toLocaleDateString(lang === 'te' ? 'te-IN' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Kolkata' })} · ${lang === 'te' ? 'హైదరాబాద్' : 'Hyderabad'}`;
+            const locale = lang === 'te' ? 'te-IN' : lang === 'hi' ? 'hi-IN' : 'en-US';
+            const city = lang === 'te' ? 'హైదరాబాద్' : lang === 'hi' ? 'हैदराबाद' : 'Hyderabad';
+            formattedDate = `${d.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Kolkata' })} · ${city}`;
           }
 
           const specialNote = (typeof p.significance === 'object' && p.significance?.en)
-            ? (lang === 'te' && p.significance?.te ? p.significance.te : p.significance.en)
-            : (typeof p.significance === 'string' ? p.significance : (p.festivals || (lang === 'te' ? 'శుభ ముహూర్త దినం మరియు అర్చన.' : 'Auspicious muhurtham day for sacred ceremonies and archana.')));
+            ? (lang === 'te' && p.significance?.te ? p.significance.te : lang === 'hi' && p.significance?.hi ? p.significance.hi : p.significance.en)
+            : (typeof p.significance === 'string' ? p.significance : (p.festivals || (lang === 'te' ? 'శుభ ముహూర్త దినం మరియు అర్చన.' : lang === 'hi' ? 'शुभ मुहूर्त दिवस एवं पवित्र अनुष्ठान।' : 'Auspicious muhurtham day for sacred ceremonies and archana.')));
 
           setData({
             dateStr: formattedDate,
@@ -80,10 +82,14 @@ export const PanchangamCard: React.FC<PanchangamCardProps> = ({ onOpenFullPancha
   if (dbOffline || !data) {
     return (
       <div className="panchangam-card" style={{ padding: '28px 24px', textAlign: 'center', border: '1px solid #E2D9C8' }}>
-        <span className="today-pill" style={{ marginBottom: '10px' }}>{lang === 'te' ? 'నేడు' : 'TODAY'}</span>
+        <span className="today-pill" style={{ marginBottom: '10px' }}>{lang === 'te' ? 'నేడు' : lang === 'hi' ? 'आज' : 'TODAY'}</span>
         <h2 className="panchangam-title font-serif" style={{ margin: '8px 0' }}>{t('panchangam_title', "Today's Panchangam")}</h2>
         <p style={{ color: '#666', fontSize: '0.9rem', maxWidth: '480px', margin: '0 auto 12px auto' }}>
-          {lang === 'te' ? 'డేటాబేస్ సేవ ప్రస్తుతం ఆఫ్‌లైన్‌లో ఉంది. వేదిక పంచాంగ వివరాలు త్వరలో లోడ్ అవుతాయి.' : 'Database service is currently offline. When PostgreSQL is started, live Vedic Panchangam coordinates will automatically populate.'}
+          {lang === 'te'
+            ? 'డేటాబేస్ సేవ ప్రస్తుతం ఆఫ్‌లైన్‌లో ఉంది. వేదిక పంచాంగ వివరాలు త్వరలో లోడ్ అవుతాయి.'
+            : lang === 'hi'
+            ? 'पंचांग डेटा शीघ्र ही उपलब्ध होगा।'
+            : 'Database service is currently offline. Live Vedic Panchangam coordinates will automatically populate.'}
         </p>
       </div>
     );
@@ -94,7 +100,7 @@ export const PanchangamCard: React.FC<PanchangamCardProps> = ({ onOpenFullPancha
       {/* Top Meta & Today Pill */}
       <div className="panchangam-header">
         <span className="panchangam-meta">{data.dateStr}</span>
-        <span className="today-pill">{lang === 'te' ? 'నేడు' : 'TODAY'}</span>
+        <span className="today-pill">{lang === 'te' ? 'నేడు' : lang === 'hi' ? 'आज' : 'TODAY'}</span>
       </div>
 
       {/* Card Title */}

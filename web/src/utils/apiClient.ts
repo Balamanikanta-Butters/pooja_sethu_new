@@ -66,7 +66,10 @@ export async function apiRequest<T = any>(
         ...(headers as Record<string, string>)
       };
 
-      const response = await fetch(url, {
+      const baseUrl = ((import.meta.env.VITE_API_BASE_URL as string) || '').replace(/\/+$/, '');
+      const finalUrl = url.startsWith('/') && baseUrl ? `${baseUrl}${url}` : url;
+
+      const response = await fetch(finalUrl, {
         ...restOptions,
         headers: authHeaders,
         signal: controller.signal

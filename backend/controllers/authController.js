@@ -2,7 +2,7 @@ const db = require('../config/db');
 const jwt = require('jsonwebtoken');
 const notificationService = require('../services/notificationService');
 
-const JWT_SECRET = 'your-secret-key-for-jwt';
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-for-jwt';
 
 // Mock OTP store
 const mockOtpStore = {};

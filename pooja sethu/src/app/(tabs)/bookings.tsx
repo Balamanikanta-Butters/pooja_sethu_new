@@ -42,7 +42,7 @@ export default function BookingsTabScreen() {
   }, [userData?.mobileNumber]);
 
   const filteredBookings = bookings.filter(b => {
-    if (activeTab === 'Upcoming') return b.status === 'draft' || b.status === 'confirmed' || b.status === 'requested' || b.status === 'purohit_assigned' || b.status === 'in_progress';
+    if (activeTab === 'Upcoming') return b.status === 'draft' || b.status === 'confirmed' || b.status === 'requested' || b.status === 'kit_dispatched' || b.status === 'purohit_assigned' || b.status === 'in_progress';
     if (activeTab === 'Completed') return b.status === 'completed';
     if (activeTab === 'Cancelled') return b.status === 'cancelled';
     return true;
@@ -114,6 +114,7 @@ export default function BookingsTabScreen() {
                       bookingId: b.id,
                       booking_no: b.booking_no,
                       title: b.pooja_name,
+                      poojaTitle: b.pooja_name,
                       purohitName: b.purohit_name,
                       selectedMuhurtham: b.starts_at ? new Date(b.starts_at).toLocaleString() : '',
                       total_payable: b.total_payable

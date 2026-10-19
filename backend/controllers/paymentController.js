@@ -16,8 +16,8 @@ const getRazorpayClient = () => {
     if (!keyId || !keySecret) {
         throw configurationError('Razorpay test credentials are not configured');
     }
-    if (!keyId.startsWith('rzp_test_')) {
-        throw configurationError('Payment service is restricted to Razorpay test credentials');
+    if (!keyId.startsWith('rzp_test_') && !keyId.startsWith('rzp_live_')) {
+        throw configurationError('Invalid Razorpay Key ID format. Expected rzp_test_... or rzp_live_...');
     }
 
     return {
@@ -37,7 +37,7 @@ exports.createOrder = async (req, res) => {
         }
 
         const bookingResult = await db.query(
-            `SELECT id, total_payable, status, payment_status, razorpay_order_id
+            `SELECT id, total_payable, status, payment_status, razorpay_order_id, mode
              FROM ps.booking
              WHERE id = $1`,
             [bookingId]
@@ -50,7 +50,13 @@ exports.createOrder = async (req, res) => {
             return res.status(409).json({ success: false, message: 'Booking is not awaiting payment' });
         }
 
-        const amountInPaise = Math.round(Number(booking.total_payable) * 100);
+        let amountToCharge = Number(booking.total_payable);
+        // If Complete Package, only charge 1/4th (25%) of total amount in advance
+        if (booking.mode === 'package' || req.body.isAdvance) {
+            amountToCharge = Math.round(Number(booking.total_payable) / 4);
+        }
+
+        const amountInPaise = Math.round(amountToCharge * 100);
         if (!Number.isSafeInteger(amountInPaise) || amountInPaise <= 0) {
             return res.status(400).json({ success: false, message: 'Booking amount is invalid' });
         }
@@ -128,8 +134,9 @@ exports.verifyPayment = async (req, res) => {
         }
 
         const keySecret = process.env.RAZORPAY_KEY_SECRET;
-        if (!process.env.RAZORPAY_KEY_ID?.startsWith('rzp_test_') || !keySecret) {
-            throw configurationError('Razorpay test credentials are not configured');
+        const keyId = process.env.RAZORPAY_KEY_ID;
+        if ((!keyId?.startsWith('rzp_test_') && !keyId?.startsWith('rzp_live_')) || !keySecret) {
+            throw configurationError('Razorpay credentials are not configured');
         }
         const expectedSignature = crypto
             .createHmac('sha256', keySecret)

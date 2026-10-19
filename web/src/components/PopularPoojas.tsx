@@ -75,7 +75,7 @@ export const PopularPoojas: React.FC<PopularPoojasProps> = ({ onSelectPooja }) =
   return (
     <section className="popular-poojas-section">
       <h2 className="section-title">
-        {lang === 'te' ? 'హైదరాబాద్‌లో అత్యధికంగా బుక్ అయ్యే పూజలు' : 'Popular Poojas'}
+        {lang === 'te' ? 'హైదరాబాద్‌లో అత్యధికంగా బుక్ అయ్యే పూజలు' : lang === 'hi' ? 'हैदराबाद में सर्वाधिक लोकप्रिय पूजाएँ' : 'Popular Poojas'}
       </h2>
 
       <div className="popular-grid">
@@ -90,7 +90,7 @@ export const PopularPoojas: React.FC<PopularPoojasProps> = ({ onSelectPooja }) =
               <div className="popular-footer">
                 <span className="popular-duration">{pooja.duration}</span>
                 <span className="popular-price">
-                  {lang === 'te' ? 'ప్రారంభం ' : 'from '}<strong>₹{pooja.price.toLocaleString('en-IN')}</strong>
+                  {lang === 'te' ? 'ప్రారంభం ' : lang === 'hi' ? 'प्रारंभिक ' : 'from '}<strong>₹{pooja.price.toLocaleString('en-IN')}</strong>
                 </span>
               </div>
             </div>

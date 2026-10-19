@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Platform, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Platform, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useLanguage } from '../../context/LanguageContext';
@@ -14,47 +14,97 @@ export default function BookingSuccessScreen() {
 
   const [currentStep, setCurrentStep] = useState(1);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+  // Dynamic Pooja Title and Muhurtham
+  const isUuid = (str?: unknown) =>
+    typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str.trim());
+
+  const rawTitle = (params.poojaTitle || params.title) as string | undefined;
+  const displayTitle = (!rawTitle || isUuid(rawTitle)) ? 'Gruhapravesam' : rawTitle;
+
+  const displayMuhurtham = (() => {
+    if (params.displayMuhurtham && !isUuid(params.displayMuhurtham)) return String(params.displayMuhurtham);
+    if (params.selectedMuhurtham && !isUuid(params.selectedMuhurtham)) return String(params.selectedMuhurtham);
+    if (params.customDate) return `${params.customDate} ${params.customTime || ''}`.trim();
+    return 'Sun, 25 Oct · 6:40 – 8:15 AM';
+  })();
+
+  const bookingNo = (params.booking_no || params.bookingNo || 'PS-26-10482') as string;
+  const bookingId = (params.bookingId || params.id || bookingNo) as string;
 
   const steps = [
     {
       id: 1,
+      statusKey: 'confirmed',
       title: `${t('confirmedWith')} ${params.purohitName || 'Brahmasri V. Subrahmanya Sastry'}`,
       desc: t('confirmationSent'),
     },
     {
       id: 2,
+      statusKey: 'kit_dispatched',
       title: t('samagriKitDelivered'),
       desc: t('dayBeforeDelivery'),
     },
     {
       id: 3,
+      statusKey: 'purohit_assigned',
       title: t('purohitContactUnlocks'),
       desc: t('twentyFourHoursBefore'),
     },
     {
       id: 4,
+      statusKey: 'in_progress',
       title: t('purohitOnTheWay'),
       desc: t('liveStatusOnTheDay'),
     },
     {
       id: 5,
+      statusKey: 'completed',
       title: t('ceremonyComplete'),
       desc: t('shareOtp'),
     },
   ];
 
-  const handleNextStatus = () => {
-    setCurrentStep((prev) => (prev < steps.length ? prev + 1 : 1));
+  const handleNextStatus = async () => {
+    const nextStep = currentStep < steps.length ? currentStep + 1 : 1;
+    setCurrentStep(nextStep);
+
+    const targetStatus = steps[nextStep - 1]?.statusKey || 'confirmed';
+
+    setIsUpdatingStatus(true);
+    setStatusMessage(null);
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/bookings/${encodeURIComponent(bookingId)}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: targetStatus })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setStatusMessage(`Updated: ${steps[nextStep - 1]?.title} (Notification Dispatched)`);
+      } else {
+        setStatusMessage(`Step advanced: ${steps[nextStep - 1]?.title}`);
+      }
+    } catch (err: any) {
+      console.warn('Backend status sync notice:', err.message);
+      setStatusMessage(`Step advanced: ${steps[nextStep - 1]?.title}`);
+    } finally {
+      setIsUpdatingStatus(false);
+      setTimeout(() => setStatusMessage(null), 4500);
+    }
   };
 
   const handleMarkComplete = () => {
     router.push({
       pathname: '/booking/review',
       params: {
-        booking_no: params.booking_no || 'PS-26-10482',
-        title: params.title || 'Vahana Pooja',
+        booking_no: bookingNo,
+        title: displayTitle,
         purohitName: params.purohitName || 'Sri Raghava Ramanujacharyulu',
-        dateTime: params.selectedMuhurtham || `${params.customDate || ''} ${params.customTime || ''}`.trim() || 'Sun, 25 Oct · 6:40 – 8:15 AM'
+        dateTime: displayMuhurtham
       }
     });
   };
@@ -62,10 +112,11 @@ export default function BookingSuccessScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.replace('/login')} style={styles.closeButton}>
+        {/* Navigate to Home on Close */}
+        <TouchableOpacity onPress={() => router.replace('/(tabs)')} style={styles.closeButton} accessibilityLabel="Return to Home">
           <Ionicons name="close" size={24} color="#1F1A18" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t('bookingTitle')} {params.booking_no || 'PS-26-10482'}</Text>
+        <Text style={styles.headerTitle}>{t('bookingTitle')} {bookingNo}</Text>
         <TouchableOpacity style={styles.chatButton} onPress={() => {}}>
           <Ionicons name="chatbubble-outline" size={22} color="#1F1A18" />
         </TouchableOpacity>
@@ -78,16 +129,22 @@ export default function BookingSuccessScreen() {
             <Ionicons name="checkmark" size={32} color="#15803D" />
           </View>
           <Text style={styles.title}>{t('bookingConfirmed')}</Text>
-          <Text style={styles.subtitle}>{params.title || 'Office opening Pooja'} · {params.selectedMuhurtham || `${params.customDate || ''} ${params.customTime || ''}`.trim() || 'Sun, 25 Oct · 6:40 – 8:15 AM'}</Text>
+          <Text style={styles.subtitle}>{displayTitle} · {displayMuhurtham}</Text>
         </View>
 
-        {/* ── HERO BANNER ILLUSTRATION (Matching Image 5) ── */}
+        {/* ── DYNAMIC POOJA BANNER ILLUSTRATION ── */}
         <View style={styles.illustrationWrapper}>
-          <PoojaHeroIllustration type={params.title || 'Office opening Pooja'} height={150} />
+          <PoojaHeroIllustration type={displayTitle} height={150} />
         </View>
 
+        {/* ── TIMELINE CARD WITH NEXT STATUS BUTTON ── */}
         <View style={styles.timelineCard}>
-          <Text style={styles.timelineTitle}>{t('whatHappensNext')}</Text>
+          <View style={styles.timelineHeaderRow}>
+            <Text style={styles.timelineTitle}>{t('whatHappensNext')}</Text>
+            <View style={styles.stepBadge}>
+              <Text style={styles.stepBadgeText}>Step {currentStep} of {steps.length}</Text>
+            </View>
+          </View>
 
           {steps.map((step, index) => {
             const isCompleted = index < currentStep;
@@ -126,6 +183,34 @@ export default function BookingSuccessScreen() {
               </View>
             );
           })}
+
+          {/* ── NEXT STATUS ACTION BUTTON ── */}
+          <View style={styles.nextStatusCardSection}>
+            {statusMessage && (
+              <View style={styles.statusToast}>
+                <Ionicons name="notifications" size={15} color="#15803D" style={{ marginRight: 6 }} />
+                <Text style={styles.statusToastText}>{statusMessage}</Text>
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={styles.nextStatusBtn}
+              onPress={handleNextStatus}
+              disabled={isUpdatingStatus}
+              activeOpacity={0.8}
+            >
+              {isUpdatingStatus ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons name="arrow-forward-circle" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+                  <Text style={styles.nextStatusBtnText}>
+                    {currentStep >= steps.length ? 'Restart Ceremony Status' : `Next Status: ${steps[currentStep]?.title}`}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.helpBanner}>
@@ -137,10 +222,10 @@ export default function BookingSuccessScreen() {
         </View>
 
         <View style={styles.actionRow}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.actionButton}
             onPress={() => {
-              const msg = `Booking for ${params.title || 'Pooja'} (${params.selectedMuhurtham || 'Sun, 25 Oct · 6:40 AM'}) added to your calendar!`;
+              const msg = `Booking for ${displayTitle} (${displayMuhurtham}) added to your calendar!`;
               if (Platform.OS === 'web') alert(msg);
               else Alert.alert('Calendar', msg);
             }}
@@ -154,14 +239,35 @@ export default function BookingSuccessScreen() {
               params: {
                 ...params,
                 id: params.id || params.poojaId || 'gruhapravesam',
-                title: params.title || 'Gruhapravesam',
+                title: displayTitle,
                 dakshina: params.dakshina || '₹5,100',
-                booking_no: params.booking_no || 'PS-26-10482',
+                booking_no: bookingNo,
                 isReschedule: 'true',
               }
             })}
           >
             <Text style={styles.actionButtonText}>{t('reschedule')}</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ── HOME & BOOKINGS NAVIGATION BUTTONS ── */}
+        <View style={styles.navActionsCard}>
+          <TouchableOpacity
+            style={styles.returnHomeBtn}
+            onPress={() => router.replace('/(tabs)')}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="home" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+            <Text style={styles.returnHomeBtnText}>Return to Home</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.viewMyBookingsBtn}
+            onPress={() => router.replace('/(tabs)/bookings')}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="receipt-outline" size={18} color="#7C1B2C" style={{ marginRight: 8 }} />
+            <Text style={styles.viewMyBookingsBtnText}>{t('viewAllBookings')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -174,14 +280,10 @@ export default function BookingSuccessScreen() {
           <Text style={styles.cancelBookingRowText}>Cancel this booking</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => router.replace('/bookings')}>
-          <Text style={styles.viewAllText}>{t('viewAllBookings')}</Text>
-        </TouchableOpacity>
-
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* ── CANCEL BOOKING MODAL (Matching Image 1) ── */}
+      {/* ── CANCEL BOOKING MODAL ── */}
       {showCancelModal && (
         <View style={styles.modalOverlay}>
           <TouchableOpacity 
@@ -193,7 +295,7 @@ export default function BookingSuccessScreen() {
             <View style={styles.sheetHandle} />
             <Text style={styles.sheetTitle}>Cancel this booking?</Text>
             <Text style={styles.sheetSubtitle}>
-              {params.title || 'Office opening Pooja'} on {params.selectedMuhurtham || `${params.customDate || ''} ${params.customTime || ''}`.trim() || 'Sun, 25 Oct · 6:40 – 8:15 AM'} with {params.purohitName || 'Brahmasri V. Subrahmanya Sastry'}.
+              {displayTitle} on {displayMuhurtham} with {params.purohitName || 'Brahmasri V. Subrahmanya Sastry'}.
             </Text>
 
             <View style={styles.refundCard}>
@@ -214,9 +316,9 @@ export default function BookingSuccessScreen() {
                 style={styles.cancelBookingBtn} 
                 onPress={async () => {
                   try {
-                    const bookingId = params.bookingId || params.id || params.booking_no;
-                    if (bookingId) {
-                      await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/cancel`, {
+                    const idToCancel = bookingId || bookingNo;
+                    if (idToCancel) {
+                      await fetch(`${API_BASE_URL}/api/bookings/${idToCancel}/cancel`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' }
                       });
@@ -225,7 +327,7 @@ export default function BookingSuccessScreen() {
                     console.error('Cancel booking error:', err);
                   }
                   setShowCancelModal(false);
-                  router.replace('/bookings');
+                  router.replace('/(tabs)/bookings');
                 }}
               >
                 <Text style={styles.cancelBookingText}>Yes, cancel</Text>
@@ -525,6 +627,104 @@ const styles = StyleSheet.create({
   },
   cancelBookingText: {
     color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
+  timelineHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  stepBadge: {
+    backgroundColor: '#FDF2F4',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#F5D0D6',
+  },
+  stepBadgeText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#7C1B2C',
+  },
+  nextStatusCardSection: {
+    marginTop: 12,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F0EBE1',
+  },
+  statusToast: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9',
+    borderWidth: 1,
+    borderColor: '#C8E6C9',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 12,
+  },
+  statusToastText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#1B5E20',
+    flex: 1,
+  },
+  nextStatusBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#7C1B2C',
+    paddingVertical: 13,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    shadowColor: '#7C1B2C',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  nextStatusBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  navActionsCard: {
+    marginBottom: 20,
+    gap: 10,
+  },
+  returnHomeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#7C1B2C',
+    paddingVertical: 15,
+    borderRadius: 12,
+    shadowColor: '#7C1B2C',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 4,
+  },
+  returnHomeBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15.5,
+    fontWeight: 'bold',
+  },
+  viewMyBookingsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#7C1B2C',
+    paddingVertical: 14,
+    borderRadius: 12,
+  },
+  viewMyBookingsBtnText: {
+    color: '#7C1B2C',
     fontSize: 15,
     fontWeight: 'bold',
   },

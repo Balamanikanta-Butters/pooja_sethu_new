@@ -338,7 +338,6 @@ async function sendBookingConfirmation({
     date: date || 'Selected Date',
     booking_no: bookingNo || 'PS-26-BOOKING'
   };
-
   const results = { whatsapp: null, sms: null };
 
   // 1. WhatsApp Confirmation
@@ -458,12 +457,37 @@ async function sendSamagriUpdate({ userId, phone, bookingId, poojaName, language
   return dispatchResult;
 }
 
+/**
+ * Send Lifecycle Status Update notification (e.g., Kit Delivered, Purohit on way, Ceremony Completed)
+ */
+async function sendStatusUpdateNotification({ userId, phone, bookingId, bookingNo, poojaName, status, statusText }) {
+  const cleanPhone = String(phone).replace(/[^0-9]/g, '').slice(-10);
+  const ceremony = poojaName || 'Pooja Ceremony';
+  const displayStatus = statusText || status || 'In Progress';
+  const message = `Namaste! Update for your Pooja Sethu Booking #${bookingNo || 'PS-BK'} (${ceremony}): Status is now "${displayStatus}". May divine grace accompany your ceremony!`;
+
+  const smsRes = await dispatchSms({ to: cleanPhone, message });
+  const waRes = await dispatchWhatsApp({ to: cleanPhone, message, templateName: 'status_update' });
+
+  await logNotification({
+    recipientType: 'customer',
+    recipientId: userId,
+    bookingId,
+    channel: 'sms',
+    status: smsRes.success ? 'sent' : 'failed',
+    providerRef: smsRes.providerRef
+  });
+
+  return { sms: smsRes, wa: waRes };
+}
+
 module.exports = {
   dispatchSms,
   dispatchWhatsApp,
   sendBookingConfirmation,
   sendOtpSms,
   sendSamagriUpdate,
+  sendStatusUpdateNotification,
   getCompiledTemplate,
   logNotification
 };

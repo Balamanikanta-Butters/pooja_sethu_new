@@ -39,7 +39,7 @@ export const App: React.FC = () => {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isPanchangamOpen, setIsPanchangamOpen] = useState(false);
   const [policyModalTab, setPolicyModalTab] = useState<PolicyModalTab | null>(null);
-  const [confirmedBooking, setConfirmedBooking] = useState<{ pooja: PoojaItem; date: string; bookingNo?: string; paymentId?: string } | null>(null);
+  const [confirmedBooking, setConfirmedBooking] = useState<{ pooja: PoojaItem; date: string; bookingNo?: string; bookingId?: string; paymentId?: string } | null>(null);
 
   // User state
   const [user, setUser] = useState<any>(null);
@@ -125,7 +125,12 @@ export const App: React.FC = () => {
 
   const handleSignOut = () => {
     localStorage.removeItem('jwt_token');
+    localStorage.removeItem('pooja_sethu_token');
     setUser(null);
+    if (activeTab === 'Profile') {
+      setActiveTab('Home');
+      setCurrentView('default');
+    }
   };
 
   const handleOpenPoojaDetail = (pooja: PoojaItem) => {
@@ -173,10 +178,13 @@ export const App: React.FC = () => {
     }
     localStorage.setItem('pooja_sethu_bookings', JSON.stringify([newRecord, ...existing]));
 
+    setCurrentView('default');
+    setActiveTab('Home');
     setConfirmedBooking({
       pooja: details.pooja,
       date: details.slot,
       bookingNo: details.bookingNo,
+      bookingId: details.bookingId,
       paymentId: details.paymentId
     });
   };
@@ -241,6 +249,8 @@ export const App: React.FC = () => {
               setCurrentView('pooja-detail');
             }}
             onBookingComplete={handleBookingComplete}
+            user={user}
+            onOpenAuth={() => setIsAuthOpen(true)}
           />
         ) : currentView === 'pooja-detail' && detailPooja ? (
           <PoojaDetailPage
@@ -434,12 +444,25 @@ export const App: React.FC = () => {
 
       <BookingConfirmationModal
         isOpen={!!confirmedBooking}
-        onClose={() => setConfirmedBooking(null)}
+        onClose={() => {
+          setConfirmedBooking(null);
+          setCurrentView('default');
+          setActiveTab('Home');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onNavigateBookings={() => {
+          setConfirmedBooking(null);
+          setCurrentView('default');
+          setActiveTab('Bookings');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
         pooja={confirmedBooking?.pooja || null}
         date={confirmedBooking?.date || ''}
         bookingNo={confirmedBooking?.bookingNo}
+        bookingId={confirmedBooking?.bookingId}
         paymentId={confirmedBooking?.paymentId}
       />
+
 
       <ToastContainer />
 

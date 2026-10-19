@@ -7,6 +7,7 @@ export type PoojaItem = {
   duration: string;
   price: number;
   illustrationType: 'house' | 'vastu' | 'bhoomi' | 'satyanarayana' | 'homam' | 'abdikam' | 'upanyanam';
+  image?: string;
 };
 
 export type MuhurthamItem = {
