@@ -34,38 +34,41 @@ export default function BookingSuccessScreen() {
   const bookingNo = (params.booking_no || params.bookingNo || 'PS-26-10482') as string;
   const bookingId = (params.bookingId || params.id || bookingNo) as string;
 
-  const steps = [
+  const isPurohitOnly = params.isPurohitOnly === 'true' ||
+    params.hasSamagri === 'false' ||
+    params.bookingType === 'purohit' ||
+    params.bookingType === 'purohit_only' ||
+    params.samagriChecked === 'false';
+
+  const rawSteps = [
     {
-      id: 1,
       statusKey: 'confirmed',
       title: `${t('confirmedWith')} ${params.purohitName || 'Brahmasri V. Subrahmanya Sastry'}`,
       desc: t('confirmationSent'),
     },
-    {
-      id: 2,
+    ...(!isPurohitOnly ? [{
       statusKey: 'kit_dispatched',
       title: t('samagriKitDelivered'),
       desc: t('dayBeforeDelivery'),
-    },
+    }] : []),
     {
-      id: 3,
       statusKey: 'purohit_assigned',
       title: t('purohitContactUnlocks'),
       desc: t('twentyFourHoursBefore'),
     },
     {
-      id: 4,
       statusKey: 'in_progress',
       title: t('purohitOnTheWay'),
       desc: t('liveStatusOnTheDay'),
     },
     {
-      id: 5,
       statusKey: 'completed',
       title: t('ceremonyComplete'),
       desc: t('shareOtp'),
     },
   ];
+
+  const steps = rawSteps.map((s, idx) => ({ ...s, id: idx + 1 }));
 
   const handleNextStatus = async () => {
     const nextStep = currentStep < steps.length ? currentStep + 1 : 1;
@@ -216,7 +219,11 @@ export default function BookingSuccessScreen() {
         <View style={styles.helpBanner}>
           <Ionicons name="lock-closed-outline" size={16} color="#333333" style={{ marginRight: 12, marginTop: 2 }} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.helpText}>{t('purohitNumberAppears')}</Text>
+            <Text style={styles.helpText}>
+              {isPurohitOnly
+                ? "Purohit's direct contact unlocks 24 hours prior. Please ensure your pooja samagri is kept ready as per the vidhi checklist."
+                : t('purohitNumberAppears')}
+            </Text>
             <Text style={styles.helpText}>{t('needHelpNow')} <Text style={styles.helpLink}>{t('chatWithUs')}</Text></Text>
           </View>
         </View>

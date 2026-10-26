@@ -13,6 +13,8 @@ interface BookingConfirmationModalProps {
   bookingNo?: string;
   bookingId?: string;
   paymentId?: string;
+  includeSamagri?: boolean;
+  isPurohitOnly?: boolean;
 }
 
 export const BookingConfirmationModal: React.FC<BookingConfirmationModalProps> = ({
@@ -23,10 +25,13 @@ export const BookingConfirmationModal: React.FC<BookingConfirmationModalProps> =
   date,
   bookingNo,
   bookingId,
-  paymentId
+  paymentId,
+  includeSamagri,
+  isPurohitOnly
 }) => {
   if (!isOpen || !pooja) return null;
 
+  const isPurohitOnlyBooking = Boolean(isPurohitOnly || includeSamagri === false);
   const refNumber = bookingNo || ('PS-' + Math.floor(100000 + Math.random() * 900000));
   const activeId = bookingId || refNumber;
 
@@ -36,7 +41,7 @@ export const BookingConfirmationModal: React.FC<BookingConfirmationModalProps> =
 
   const steps = [
     { key: 'confirmed', label: 'Booking Confirmed with Purohit', desc: 'Acharya assigned & muhurtham locked' },
-    { key: 'kit_dispatched', label: 'Samagri Kit Delivered', desc: 'Sacred samagri box arrived at venue' },
+    ...(!isPurohitOnlyBooking ? [{ key: 'kit_dispatched', label: 'Samagri Kit Delivered', desc: 'Sacred samagri box arrived at venue' }] : []),
     { key: 'purohit_assigned', label: 'Purohit Contact Unlocked', desc: 'Acharya phone unlocked & in transit' },
     { key: 'in_progress', label: 'Ceremony In Progress', desc: 'Vedic sankalpam & rituals commenced' },
     { key: 'completed', label: 'Ceremony Completed', desc: 'Maha Mangala Harati & Prasadam blessed' }
@@ -212,7 +217,11 @@ export const BookingConfirmationModal: React.FC<BookingConfirmationModalProps> =
           <div>
             <strong>Vedic Assurance Guarantee:</strong>
             <p style={{ margin: '4px 0 0 0', fontSize: '0.84rem', lineHeight: '1.4' }}>
-              Your Samagri kit will be delivered by <strong>19:00 on the evening prior</strong>. Our Acharya desk unlocks Purohit direct contact 24 hours prior to ceremony.
+              {!isPurohitOnlyBooking ? (
+                <>Your Samagri kit will be delivered by <strong>19:00 on the evening prior</strong>. Our Acharya desk unlocks Purohit direct contact 24 hours prior to ceremony.</>
+              ) : (
+                <>You have chosen <strong>Purohit Only</strong> (self-arranged samagri). Please keep the sacred pooja items ready as per the checklist before the ceremony. Our Acharya desk unlocks Purohit direct contact 24 hours prior to ceremony.</>
+              )}
             </p>
           </div>
         </div>

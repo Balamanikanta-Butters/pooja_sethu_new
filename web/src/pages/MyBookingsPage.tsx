@@ -19,6 +19,7 @@ interface BookingRecord {
   purohitPhone: string;
   totalAmount: number;
   guestCount?: number;
+  mode?: string;
   includeSamagri: boolean;
   includeBhojanalu: boolean;
   kartaName: string;
@@ -69,6 +70,7 @@ export const MyBookingsPage: React.FC<MyBookingsPageProps> = ({
           purohitPhone: b.purohit_phone || '+91 94401 23456',
           totalAmount: Number(b.total_payable) || 4300,
           guestCount: b.guests || 0,
+          mode: b.mode,
           includeSamagri: b.mode !== 'purohit_only',
           includeBhojanalu: Number(b.food_amount) > 0,
           kartaName: b.booked_for_name || 'Bala Manikanta',
@@ -147,8 +149,13 @@ export const MyBookingsPage: React.FC<MyBookingsPageProps> = ({
         body: JSON.stringify({ next: true })
       });
 
-      const nextStatus = res.data?.status || res.raw?.status || 'kit_dispatched';
-      const statusLabel = res.data?.statusLabel || res.raw?.statusLabel || 'Kit Delivered';
+      const targetBooking = bookings.find(b => b.id === bookingId || b.bookingNo === bookingNo);
+      const isPurohitOnly = targetBooking ? (targetBooking.includeSamagri === false || targetBooking.mode === 'purohit_only') : false;
+      const defaultStatus = isPurohitOnly ? 'purohit_assigned' : 'kit_dispatched';
+      const defaultLabel = isPurohitOnly ? 'Purohit Assigned' : 'Kit Delivered';
+
+      const nextStatus = res.data?.status || res.raw?.status || defaultStatus;
+      const statusLabel = res.data?.statusLabel || res.raw?.statusLabel || defaultLabel;
 
       setBookings(prev => prev.map(b => {
         if (b.id === bookingId || b.bookingNo === bookingNo) {

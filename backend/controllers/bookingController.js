@@ -393,14 +393,23 @@ exports.updateBookingStatus = async (req, res) => {
     const booking = bookingRes.rows[0];
     const fromStatus = booking.status;
 
+    // Check if purohit-only or without samagri kit
+    const isPurohitOnly = booking.mode === 'purohit_only' || Number(booking.samagri_amount) === 0;
+
     // Ordered sequence of booking lifecycle statuses
-    const progression = ['confirmed', 'kit_dispatched', 'purohit_assigned', 'in_progress', 'completed'];
+    const progression = isPurohitOnly
+      ? ['confirmed', 'purohit_assigned', 'in_progress', 'completed']
+      : ['confirmed', 'kit_dispatched', 'purohit_assigned', 'in_progress', 'completed'];
 
     let targetStatus = status;
+    if (isPurohitOnly && targetStatus === 'kit_dispatched') {
+      targetStatus = 'purohit_assigned';
+    }
+
     if (!targetStatus || next) {
       const currIdx = progression.indexOf(fromStatus);
       if (currIdx === -1) {
-        targetStatus = 'confirmed';
+        targetStatus = progression[0];
       } else if (currIdx < progression.length - 1) {
         targetStatus = progression[currIdx + 1];
       } else {

@@ -39,7 +39,15 @@ export const App: React.FC = () => {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isPanchangamOpen, setIsPanchangamOpen] = useState(false);
   const [policyModalTab, setPolicyModalTab] = useState<PolicyModalTab | null>(null);
-  const [confirmedBooking, setConfirmedBooking] = useState<{ pooja: PoojaItem; date: string; bookingNo?: string; bookingId?: string; paymentId?: string } | null>(null);
+  const [confirmedBooking, setConfirmedBooking] = useState<{
+    pooja: PoojaItem;
+    date: string;
+    bookingNo?: string;
+    bookingId?: string;
+    paymentId?: string;
+    includeSamagri?: boolean;
+    isPurohitOnly?: boolean;
+  } | null>(null);
 
   // User state
   const [user, setUser] = useState<any>(null);
@@ -149,6 +157,10 @@ export const App: React.FC = () => {
     setCurrentView('default');
 
     // Save newly booked pooja to localStorage for My Bookings tab
+    const hasSamagri = details.includeSamagri !== undefined
+      ? Boolean(details.includeSamagri)
+      : (details.isPurohitOnly ? false : details.mode !== 'Purohit only (Pay Later)' && !details.mode?.includes('Purohit only'));
+
     const newRecord = {
       id: details.bookingId || `bk-${Date.now()}`,
       bookingNo: details.bookingNo || `PS-BK-${Math.floor(10000 + Math.random() * 90000)}`,
@@ -164,7 +176,7 @@ export const App: React.FC = () => {
       purohitPhone: '+91 94401 23456',
       totalAmount: details.total,
       guestCount: details.guestCount,
-      includeSamagri: true,
+      includeSamagri: hasSamagri,
       includeBhojanalu: details.guestCount > 0,
       kartaName: details.karta || 'Bala Manikanta',
       gotram: 'Kashyapa',
@@ -185,7 +197,9 @@ export const App: React.FC = () => {
       date: details.slot,
       bookingNo: details.bookingNo,
       bookingId: details.bookingId,
-      paymentId: details.paymentId
+      paymentId: details.paymentId,
+      includeSamagri: hasSamagri,
+      isPurohitOnly: !hasSamagri
     });
   };
 
@@ -461,6 +475,8 @@ export const App: React.FC = () => {
         bookingNo={confirmedBooking?.bookingNo}
         bookingId={confirmedBooking?.bookingId}
         paymentId={confirmedBooking?.paymentId}
+        includeSamagri={confirmedBooking?.includeSamagri}
+        isPurohitOnly={confirmedBooking?.isPurohitOnly}
       />
 
 

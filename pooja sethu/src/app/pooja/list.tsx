@@ -28,6 +28,20 @@ const DEFAULT_CATEGORIES = [
   { key: 'All', label: 'All', icon: 'grid-outline' },
 ];
 
+const formatTraditionBadge = (traditionStr?: string) => {
+  if (!traditionStr || traditionStr === 'All Sampradayams') {
+    return 'All Traditions';
+  }
+  const list = traditionStr.split(',').map((s) => s.trim()).filter(Boolean);
+  if (list.length >= 3) {
+    return 'All Traditions';
+  }
+  if (list.length === 2) {
+    return `${list[0].split(' ')[0]}, ${list[1].split(' ')[0]}`;
+  }
+  return list[0] || 'All Traditions';
+};
+
 export default function PoojaListScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -100,7 +114,8 @@ export default function PoojaListScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* ── HEADER ── */}
+      <View style={styles.appContainer}>
+        {/* ── HEADER ── */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => {
@@ -192,6 +207,7 @@ export default function PoojaListScreen() {
                   desc: pooja.desc,
                   duration: pooja.duration,
                   price: pooja.price,
+                  sampradayam: pooja.sampradayam,
                 },
               })
             }
@@ -199,7 +215,7 @@ export default function PoojaListScreen() {
           >
             {/* Left Square Illustration Box */}
             <View style={styles.cardIllustrationBox}>
-              <PoojaCardIllustration type={pooja.title} width={90} height={90} />
+              <PoojaCardIllustration type={pooja.title} width={82} height={82} />
             </View>
 
             {/* Right Content */}
@@ -211,25 +227,26 @@ export default function PoojaListScreen() {
                 <Text style={styles.durationText}>{pooja.duration}</Text>
               </View>
 
-              <Text style={styles.cardSubtitle}>{pooja.subtitle}</Text>
+              <Text style={styles.cardSubtitle} numberOfLines={1}>{pooja.subtitle}</Text>
               <Text style={styles.cardDesc} numberOfLines={2}>
                 {pooja.desc}
               </Text>
 
               <View style={styles.cardFooter}>
                 <View style={styles.badge}>
-                  <Text style={styles.badgeText}>
-                    {pooja.sampradayam || 'All Sampradayams'}
+                  <Text style={styles.badgeText} numberOfLines={1}>
+                    {formatTraditionBadge(pooja.sampradayam)}
                   </Text>
                 </View>
-                <Text style={styles.priceText}>{pooja.price}</Text>
+                <Text style={styles.priceText} numberOfLines={1}>{pooja.price}</Text>
               </View>
             </View>
           </TouchableOpacity>
         ))}
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: 60 }} />
       </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -238,6 +255,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FAF7F2',
+    alignItems: 'center',
+  },
+  appContainer: {
+    flex: 1,
+    width: '100%',
+    maxWidth: 480,
   },
   header: {
     flexDirection: 'row',
@@ -289,10 +312,11 @@ const styles = StyleSheet.create({
     color: '#1F1A18',
   },
   filterScroll: {
+    marginHorizontal: -16,
     marginBottom: 10,
   },
   filterScrollContent: {
-    paddingRight: 8,
+    paddingHorizontal: 16,
   },
   filterPill: {
     flexDirection: 'row',
@@ -324,6 +348,7 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: 16,
     paddingTop: 4,
+    paddingBottom: 70,
   },
   resultsCount: {
     fontSize: 13,
@@ -344,17 +369,21 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 3,
     elevation: 1,
+    overflow: 'hidden',
   },
   cardIllustrationBox: {
-    width: 90,
-    height: 90,
+    width: 82,
+    height: 82,
     borderRadius: 12,
     overflow: 'hidden',
-    marginRight: 12,
+    marginRight: 10,
+    flexShrink: 0,
   },
   cardRightContent: {
     flex: 1,
+    minWidth: 0,
     justifyContent: 'space-between',
+    paddingVertical: 1,
   },
   cardTitleRow: {
     flexDirection: 'row',
@@ -366,35 +395,40 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1F1A18',
     flex: 1,
-    marginRight: 8,
+    marginRight: 6,
   },
   durationText: {
     fontSize: 12,
     color: '#7E7771',
     fontWeight: '500',
+    flexShrink: 0,
   },
   cardSubtitle: {
     fontSize: 11,
     color: '#7E7771',
     marginTop: 1,
-    marginBottom: 3,
+    marginBottom: 2,
   },
   cardDesc: {
     fontSize: 12,
     color: '#554E48',
     lineHeight: 16,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: 4,
+    gap: 6,
   },
   badge: {
     backgroundColor: '#F3EDE2',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
+    flexShrink: 1,
+    maxWidth: '58%',
   },
   badgeText: {
     fontSize: 11,
@@ -405,5 +439,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#1F1A18',
+    flexShrink: 0,
+    textAlign: 'right',
   },
 });

@@ -272,7 +272,11 @@ export default function BookingSummaryScreen() {
               selectedMuhurtham: displayMuhurtham,
               purohitName,
               totalAmount: grandTotal,
-              paymentMode: 'pay_later'
+              paymentMode: 'pay_later',
+              bookingType,
+              samagriChecked: samagriChecked ? 'true' : 'false',
+              isPurohitOnly: (isPurohitOnly || !samagriChecked) ? 'true' : 'false',
+              hasSamagri: (!isPurohitOnly && samagriChecked) ? 'true' : 'false'
             }
           });
           return;
@@ -366,6 +370,10 @@ export default function BookingSummaryScreen() {
           title: poojaTitle,
           poojaTitle: poojaTitle,
           selectedMuhurtham: displayMuhurtham,
+          bookingType,
+          samagriChecked: samagriChecked ? 'true' : 'false',
+          isPurohitOnly: (isPurohitOnly || !samagriChecked) ? 'true' : 'false',
+          hasSamagri: (!isPurohitOnly && samagriChecked) ? 'true' : 'false'
         }
       });
     }

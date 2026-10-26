@@ -77,7 +77,7 @@ exports.getAllPoojas = async (req, res) => {
 exports.getCategories = async (req, res) => {
     try {
         const result = await db.query(`
-            SELECT 
+            SELECT
                 id,
                 code,
                 name->>'en' as name,
@@ -191,8 +191,8 @@ exports.getPurohits = async (req, res) => {
 exports.getAddons = async (req, res) => {
     try {
         const result = await db.query(`
-            SELECT id, code, name->>'en' as name, default_price 
-            FROM ps.addon_type 
+            SELECT id, code, name->>'en' as name, default_price
+            FROM ps.addon_type
             WHERE status = 'active'
         `);
         res.status(200).json({ success: true, data: result.rows });
@@ -209,7 +209,7 @@ exports.getPoojaDetails = async (req, res) => {
 
         // 1. Resolve Pooja record from ps.pooja
         const poojaRes = await db.query(`
-            SELECT 
+            SELECT
                 p.id,
                 p.code,
                 p.name->>'en' as title,
@@ -222,9 +222,9 @@ exports.getPoojaDetails = async (req, res) => {
                 (SELECT MAX(vv.duration_minutes) FROM ps.pooja_vidhi pv JOIN ps.vidhi_version vv ON pv.current_version_id = vv.id WHERE pv.pooja_id = p.id) as duration
             FROM ps.pooja p
             LEFT JOIN ps.pooja_category c ON p.category_id = c.id
-            WHERE p.id::text = $1 
-               OR p.code = $1 
-               OR LOWER(p.name->>'en') = LOWER($1) 
+            WHERE p.id::text = $1
+               OR p.code = $1
+               OR LOWER(p.name->>'en') = LOWER($1)
                OR p.code ILIKE '%' || $1 || '%'
                OR LOWER(p.name->>'en') ILIKE '%' || $1 || '%'
             LIMIT 1
@@ -268,53 +268,157 @@ exports.getPoojaDetails = async (req, res) => {
         if (mappedSampradayam === 'Not sure') mappedSampradayam = 'Smartha';
 
         const fetchDetailsForSampradayam = async (filter) => {
-            const stepsRes = await db.query(`
-                SELECT vs.name->>'en' as step_name
+            const versionRes = await db.query(`
+                SELECT vv.id as vidhi_version_id
                 FROM ps.pooja_vidhi pv
                 JOIN ps.sampradayam s ON pv.sampradayam_id = s.id
                 JOIN ps.vidhi_version vv ON pv.current_version_id = vv.id
-                JOIN ps.vidhi_step vs ON vv.id = vs.vidhi_version_id
                 WHERE pv.pooja_id = $1 AND s.name->>'en' = $2
-                ORDER BY vs.step_no ASC
+                LIMIT 1
             `, [resolvedPoojaId, filter]);
+
+            const vidhiVersionId = versionRes.rows[0]?.vidhi_version_id;
+
+            if (!vidhiVersionId) {
+                return {
+                    vidhiVersionId: null,
+                    vidhiSteps: [],
+                    stepDetails: [],
+                    kathaChapters: [],
+                    checklistGroups: {
+                        pooja_items: [],
+                        prasadam_ingredients: [],
+                        panchamrutham_ingredients: [],
+                        katha_sankalpam_items: []
+                    },
+                    samagriItems: [],
+                    familyArranges: [],
+                    faqs: []
+                };
+            }
+
+            const stepsRes = await db.query(`
+                SELECT
+                    vs.step_no,
+                    vs.name->>'en' as step_name,
+                    vs.name->>'te' as step_name_te,
+                    vs.description->>'en' as step_desc,
+                    vs.description->>'te' as step_desc_te,
+                    vs.duration_minutes,
+                    vs.performed_by
+                FROM ps.vidhi_step vs
+                WHERE vs.vidhi_version_id = $1
+                ORDER BY vs.step_no ASC
+            `, [vidhiVersionId]);
+
+            const chaptersRes = await db.query(`
+                SELECT
+                    chapter_no,
+                    title->>'en' as title,
+                    title->>'te' as title_te,
+                    summary->>'en' as summary,
+                    summary->>'te' as summary_te,
+                    source_reference
+                FROM ps.vidhi_katha_chapter
+                WHERE vidhi_version_id = $1
+                ORDER BY chapter_no ASC
+            `, [vidhiVersionId]);
+
+            const checklistRes = await db.query(`
+                SELECT
+                    id,
+                    checklist_group,
+                    item_name->>'en' as item_name,
+                    item_name->>'te' as item_name_te,
+                    is_optional,
+                    sort_order
+                FROM ps.vidhi_samagri_checklist
+                WHERE vidhi_version_id = $1
+                ORDER BY checklist_group, sort_order ASC
+            `, [vidhiVersionId]);
+
+            const checklistGroups = {
+                pooja_items: [],
+                prasadam_ingredients: [],
+                panchamrutham_ingredients: [],
+                katha_sankalpam_items: []
+            };
+
+            for (const item of checklistRes.rows) {
+                if (checklistGroups[item.checklist_group]) {
+                    checklistGroups[item.checklist_group].push({
+                        id: item.id,
+                        name: item.item_name,
+                        name_te: item.item_name_te,
+                        is_optional: item.is_optional,
+                        sort_order: item.sort_order
+                    });
+                }
+            }
 
             const samagriRes = await db.query(`
                 SELECT si.name->>'en' as item_name
-                FROM ps.pooja_vidhi pv
-                JOIN ps.sampradayam s ON pv.sampradayam_id = s.id
-                JOIN ps.vidhi_version vv ON pv.current_version_id = vv.id
-                JOIN ps.vidhi_samagri vsa ON vv.id = vsa.vidhi_version_id
+                FROM ps.vidhi_samagri vsa
                 JOIN ps.samagri_item si ON vsa.samagri_item_id = si.id
-                WHERE pv.pooja_id = $1 AND s.name->>'en' = $2 AND vsa.supplied_by != 'family'
-            `, [resolvedPoojaId, filter]);
+                WHERE vsa.vidhi_version_id = $1 AND vsa.supplied_by != 'family'
+            `, [vidhiVersionId]);
 
             const tasksRes = await db.query(`
                 SELECT vft.task->>'en' as task_name
-                FROM ps.pooja_vidhi pv
-                JOIN ps.sampradayam s ON pv.sampradayam_id = s.id
-                JOIN ps.vidhi_version vv ON pv.current_version_id = vv.id
-                JOIN ps.vidhi_family_task vft ON vv.id = vft.vidhi_version_id
-                WHERE pv.pooja_id = $1 AND s.name->>'en' = $2
+                FROM ps.vidhi_family_task vft
+                WHERE vft.vidhi_version_id = $1
                 ORDER BY vft.sort_order ASC
-            `, [resolvedPoojaId, filter]);
+            `, [vidhiVersionId]);
 
             const familySamagriRes = await db.query(`
                 SELECT si.name->>'en' as item_name
-                FROM ps.pooja_vidhi pv
-                JOIN ps.sampradayam s ON pv.sampradayam_id = s.id
-                JOIN ps.vidhi_version vv ON pv.current_version_id = vv.id
-                JOIN ps.vidhi_samagri vsa ON vv.id = vsa.vidhi_version_id
+                FROM ps.vidhi_samagri vsa
                 JOIN ps.samagri_item si ON vsa.samagri_item_id = si.id
-                WHERE pv.pooja_id = $1 AND s.name->>'en' = $2 AND vsa.supplied_by = 'family'
-            `, [resolvedPoojaId, filter]);
+                WHERE vsa.vidhi_version_id = $1 AND vsa.supplied_by = 'family'
+            `, [vidhiVersionId]);
+
+            const versionFaqRes = await db.query(`
+                SELECT
+                    f.id,
+                    f.question->>'en' as q,
+                    f.question->>'te' as q_te,
+                    f.answer->>'en' as a,
+                    f.answer->>'te' as a_te,
+                    f.sort_order
+                FROM ps.vidhi_faq f
+                WHERE f.vidhi_version_id = $1
+                ORDER BY f.sort_order ASC
+            `, [vidhiVersionId]);
+
+            const rawFamilyArranges = [
+                ...tasksRes.rows.map(r => r.task_name),
+                ...familySamagriRes.rows.map(r => r.item_name)
+            ];
 
             return {
+                vidhiVersionId,
                 vidhiSteps: stepsRes.rows.map(r => r.step_name),
-                samagriItems: samagriRes.rows.map(r => r.item_name),
-                familyArranges: [
-                    ...tasksRes.rows.map(r => r.task_name),
-                    ...familySamagriRes.rows.map(r => r.item_name)
-                ]
+                stepDetails: stepsRes.rows.map(r => ({
+                    step_no: r.step_no,
+                    name: r.step_name,
+                    name_te: r.step_name_te,
+                    desc: r.step_desc,
+                    desc_te: r.step_desc_te,
+                    duration_minutes: r.duration_minutes,
+                    performed_by: r.performed_by
+                })),
+                kathaChapters: chaptersRes.rows.map(r => ({
+                    chapter_no: r.chapter_no,
+                    title: r.title,
+                    title_te: r.title_te,
+                    summary: r.summary,
+                    summary_te: r.summary_te,
+                    source_reference: r.source_reference
+                })),
+                checklistGroups,
+                samagriItems: Array.from(new Set(samagriRes.rows.map(r => r.item_name).filter(Boolean))),
+                familyArranges: Array.from(new Set(rawFamilyArranges.filter(Boolean))),
+                faqs: versionFaqRes.rows.map(r => ({ id: r.id, q: r.q, q_te: r.q_te, a: r.a, a_te: r.a_te }))
             };
         };
 
@@ -330,31 +434,50 @@ exports.getPoojaDetails = async (req, res) => {
             }
         }
 
-        // FAQs from ps.vidhi_faq
-        const faqRes = await db.query(`
-            SELECT 
-                f.id,
-                f.question->>'en' as q,
-                f.answer->>'en' as a
-            FROM ps.pooja_vidhi pv
-            JOIN ps.vidhi_version vv ON pv.current_version_id = vv.id
-            JOIN ps.vidhi_faq f ON vv.id = f.vidhi_version_id
-            WHERE pv.pooja_id = $1
-            ORDER BY f.sort_order ASC
-        `, [resolvedPoojaId]);
+        // FAQs: use the tradition's version FAQs first; fallback to pooja-level deduplicated FAQs
+        let faqs = details.faqs || [];
+        if (faqs.length === 0) {
+            const faqRes = await db.query(`
+                SELECT DISTINCT ON (f.question->>'en')
+                    f.id,
+                    f.question->>'en' as q,
+                    f.question->>'te' as q_te,
+                    f.answer->>'en' as a,
+                    f.answer->>'te' as a_te,
+                    f.sort_order
+                FROM ps.pooja_vidhi pv
+                JOIN ps.vidhi_version vv ON pv.current_version_id = vv.id
+                JOIN ps.vidhi_faq f ON vv.id = f.vidhi_version_id
+                WHERE pv.pooja_id = $1
+                ORDER BY f.question->>'en', f.sort_order ASC
+            `, [resolvedPoojaId]);
+            faqs = faqRes.rows.sort((a, b) => a.sort_order - b.sort_order).map(({ id, q, q_te, a, a_te }) => ({ id, q, q_te, a, a_te }));
+        }
 
-        let faqs = faqRes.rows;
         if (faqs.length === 0) {
             const generalFaqRes = await db.query(`
                 SELECT DISTINCT ON (f.question->>'en')
                     f.id,
                     f.question->>'en' as q,
-                    f.answer->>'en' as a
+                    f.question->>'te' as q_te,
+                    f.answer->>'en' as a,
+                    f.answer->>'te' as a_te
                 FROM ps.vidhi_faq f
                 ORDER BY f.question->>'en', f.sort_order ASC
                 LIMIT 5
             `);
             faqs = generalFaqRes.rows;
+        }
+
+        // Deduplicate FAQs by question string just in case
+        const seenFaqQuestions = new Set();
+        const deduplicatedFaqs = [];
+        for (const f of faqs) {
+            const qKey = (f.q || '').trim().toLowerCase();
+            if (qKey && !seenFaqQuestions.has(qKey)) {
+                seenFaqQuestions.add(qKey);
+                deduplicatedFaqs.push(f);
+            }
         }
 
         res.status(200).json({
@@ -369,9 +492,12 @@ exports.getPoojaDetails = async (req, res) => {
                 price: priceText,
                 duration: durationText,
                 vidhiSteps: details.vidhiSteps,
+                stepDetails: details.stepDetails,
+                kathaChapters: details.kathaChapters,
+                checklistGroups: details.checklistGroups,
                 samagriItems: details.samagriItems,
                 familyArranges: details.familyArranges,
-                faqs: faqs
+                faqs: deduplicatedFaqs
             }
         });
     } catch (err) {
@@ -398,17 +524,17 @@ exports.getMuhurthams = async (req, res) => {
     try {
         const { poojaId } = req.query;
         let query = `
-            SELECT 
-                m.id, 
+            SELECT
+                m.id,
                 m.pooja_id,
-                m.starts_at, 
-                m.ends_at, 
-                m.lagnam, 
-                m.note->>'en' as note, 
+                m.starts_at,
+                m.ends_at,
+                m.lagnam,
+                m.note->>'en' as note,
                 m.quality,
                 p.name->>'en' as pooja_name,
                 p.name->>'te' as pooja_name_te
-            FROM ps.muhurtham_suggestion m 
+            FROM ps.muhurtham_suggestion m
             LEFT JOIN ps.pooja p ON m.pooja_id = p.id
         `;
         const params = [];
@@ -421,17 +547,17 @@ exports.getMuhurthams = async (req, res) => {
 
         if (result.rows.length === 0 && poojaId) {
             result = await db.query(`
-                SELECT 
-                    m.id, 
+                SELECT
+                    m.id,
                     m.pooja_id,
-                    m.starts_at, 
-                    m.ends_at, 
-                    m.lagnam, 
-                    m.note->>'en' as note, 
+                    m.starts_at,
+                    m.ends_at,
+                    m.lagnam,
+                    m.note->>'en' as note,
                     m.quality,
                     p.name->>'en' as pooja_name,
                     p.name->>'te' as pooja_name_te
-                FROM ps.muhurtham_suggestion m 
+                FROM ps.muhurtham_suggestion m
                 LEFT JOIN ps.pooja p ON m.pooja_id = p.id
                 ORDER BY m.starts_at ASC
             `);
@@ -494,7 +620,7 @@ exports.getPurohitReviews = async (req, res) => {
     try {
         const { id } = req.params;
         const result = await db.query(`
-            SELECT 
+            SELECT
                 r.id,
                 r.rating,
                 r.body,
@@ -505,7 +631,7 @@ exports.getPurohitReviews = async (req, res) => {
             WHERE r.purohit_id = $1 AND r.moderation = 'approved'
             ORDER BY r.created_at DESC
         `, [id]);
-        
+
         res.status(200).json({ success: true, data: result.rows });
     } catch (err) {
         console.error(err);
@@ -518,8 +644,8 @@ exports.getPackageOptions = async (req, res) => {
         const catererRes = await db.query(`SELECT name->>'en' as name, price_per_plate, min_guests FROM ps.caterer_menu WHERE status = 'active'`);
         const addonsRes = await db.query(`SELECT code, name->>'en' as name, default_price FROM ps.addon_type WHERE status = 'active'`);
         const settingsRes = await db.query(`
-            SELECT key, value 
-            FROM ps.app_setting 
+            SELECT key, value
+            FROM ps.app_setting
             WHERE key IN ('min_bhojanam_guests', 'coordination_fee_inr', 'gst_on_fees_pct')
         `);
 
@@ -545,8 +671,8 @@ exports.getPackageOptions = async (req, res) => {
 exports.getCateringMenu = async (req, res) => {
     try {
         const menusRes = await db.query(`
-            SELECT id, name->>'en' as name, name->>'te' as name_te, price_per_plate, min_guests, diet 
-            FROM ps.caterer_menu 
+            SELECT id, name->>'en' as name, name->>'te' as name_te, price_per_plate, min_guests, diet
+            FROM ps.caterer_menu
             WHERE status = 'active' AND diet = 'satvik'
             ORDER BY price_per_plate ASC
         `);

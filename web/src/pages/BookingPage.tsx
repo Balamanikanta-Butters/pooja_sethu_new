@@ -582,7 +582,10 @@ export const BookingPage: React.FC<BookingPageProps> = ({
             bookingNo: createdBookingNo,
             bookingId: createdBookingId,
             paymentId: 'PAY_LATER',
-            mode: 'Purohit only (Pay Later)'
+            mode: 'Purohit only (Pay Later)',
+            includeSamagri: !isPurohitOnly && includeSamagri,
+            isPurohitOnly: true,
+            bookingType: 'purohit'
           });
           return;
         }
@@ -662,7 +665,10 @@ export const BookingPage: React.FC<BookingPageProps> = ({
           bookingNo: createdBookingNo,
           bookingId: createdBookingId,
           paymentId: paymentResult.razorpay_payment_id,
-          mode: isPurohitOnly ? 'Purohit only (Paid Online)' : 'Complete Package (1/4 Advance Paid)'
+          mode: isPurohitOnly ? 'Purohit only (Paid Online)' : 'Complete Package (1/4 Advance Paid)',
+          includeSamagri: !isPurohitOnly && includeSamagri,
+          isPurohitOnly: isPurohitOnly || !includeSamagri,
+          bookingType: (isPurohitOnly || !includeSamagri) ? 'purohit' : 'complete'
         });
       } catch (err: any) {
         const msg = String(err?.message || '');

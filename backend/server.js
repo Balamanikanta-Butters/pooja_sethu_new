@@ -82,6 +82,20 @@ app.locals.schemaFixesReady = db.query(schemaFixes)
         return true;
     });
 
+const satyanarayanaSchema = fs.readFileSync(
+    path.join(__dirname, 'migrations', '005_satyanarayana_vratam_tables.sql'),
+    'utf8'
+);
+app.locals.satyanarayanaSchemaReady = db.query(satyanarayanaSchema)
+    .then(() => {
+        console.log('Satyanarayana Vratam tables schema is ready.');
+        return true;
+    })
+    .catch((err) => {
+        console.warn('Satyanarayana Vratam schema already applied or skipped:', err.message);
+        return true;
+    });
+
 app.listen(PORT, '0.0.0.0', async () => {
     console.log(`Backend server is running on http://0.0.0.0:${PORT}`);
     console.log(`Modular backend initialized. Mock OTP is enabled (use 1234).`);

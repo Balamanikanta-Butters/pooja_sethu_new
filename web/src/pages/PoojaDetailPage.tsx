@@ -113,6 +113,20 @@ export const PoojaDetailPage: React.FC<PoojaDetailPageProps> = ({
 
   const traditions = ['Smartha', 'Madhva', 'Sri Vaishnava', 'Vaikhanasa', 'Not sure'];
   const [showAllSamagri, setShowAllSamagri] = useState(false);
+  const [stepDetails, setStepDetails] = useState<any[]>([]);
+  const [kathaChapters, setKathaChapters] = useState<any[]>([]);
+  const [checklistGroups, setChecklistGroups] = useState<Record<string, any[]>>({});
+  const [activeChecklistTab, setActiveChecklistTab] = useState<string>('pooja_items');
+  const [checkedChecklistItems, setCheckedChecklistItems] = useState<Record<string, boolean>>({});
+  const [openChapter, setOpenChapter] = useState<number | null>(null);
+  const [kathaExpanded, setKathaExpanded] = useState(false);
+  const [checklistExpanded, setChecklistExpanded] = useState(false);
+  const [expandedStepIdx, setExpandedStepIdx] = useState<number | null>(null);
+
+  const totalChecklistCount = Object.values(checklistGroups).reduce(
+    (acc, curr) => acc + (Array.isArray(curr) ? curr.length : 0),
+    0
+  );
 
   // 1. Fetch live Pooja Details from PostgreSQL database (/api/services/poojas/:id/details)
   useEffect(() => {
@@ -140,6 +154,15 @@ export const PoojaDetailPage: React.FC<PoojaDetailPageProps> = ({
 
           if (Array.isArray(d.vidhiSteps) && d.vidhiSteps.length > 0) {
             setVidhiSteps(d.vidhiSteps);
+          }
+          if (Array.isArray(d.stepDetails) && d.stepDetails.length > 0) {
+            setStepDetails(d.stepDetails);
+          }
+          if (Array.isArray(d.kathaChapters) && d.kathaChapters.length > 0) {
+            setKathaChapters(d.kathaChapters);
+          }
+          if (d.checklistGroups && Object.keys(d.checklistGroups).length > 0) {
+            setChecklistGroups(d.checklistGroups);
           }
           if (Array.isArray(d.samagriItems) && d.samagriItems.length > 0) {
             setSamagriItems(d.samagriItems);
@@ -236,7 +259,7 @@ export const PoojaDetailPage: React.FC<PoojaDetailPageProps> = ({
     <div className="pooja-detail-page">
       {/* Top Header with Prominent Back Button */}
       <div className="detail-top-nav-row" style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '18px' }}>
-        <button 
+        <button
           type="button"
           onClick={onNavigatePoojas}
           style={{
@@ -297,35 +320,376 @@ export const PoojaDetailPage: React.FC<PoojaDetailPageProps> = ({
             </div>
           </div>
 
-          {/* Section: Ritual Steps from Database */}
+          {/* Section: Ritual Steps from Database (Collapsible Step Descriptions) */}
           <div className="detail-section-card">
-            <h3 className="section-title">
-              {lang === 'te'
-                ? 'వైదిక పూజా విధానం'
-                : lang === 'hi'
-                ? 'वैदिक पूजा विधि चरण'
-                : 'Ritual Vidhi Steps'} · {vidhiSteps.length} {lang === 'te' ? 'దశలు' : lang === 'hi' ? 'चरण' : 'Steps'}
-            </h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <h3 className="section-title" style={{ margin: 0 }}>
+                {lang === 'te'
+                  ? 'వైదిక పూజా విధానం'
+                  : lang === 'hi'
+                  ? 'वैदिक पूजा विधि चरण'
+                  : 'Ritual Vidhi Steps'} · {stepDetails.length > 0 ? stepDetails.length : vidhiSteps.length} {lang === 'te' ? 'దశలు' : lang === 'hi' ? 'चरण' : 'Steps'}
+              </h3>
+              <span style={{ fontSize: '0.8rem', color: '#8E857C', fontStyle: 'italic' }}>
+                Tap step for details
+              </span>
+            </div>
+            <p style={{ margin: '0 0 14px', fontSize: '0.88rem', color: '#6B635B' }}>
+              Ordered Vedic sequence performed by the certified Purohit with your family.
+            </p>
+
             <div className="ritual-steps-list">
-              {vidhiSteps.map((step, idx) => (
-                <div key={idx} className="ritual-step-item">
-                  <div className="step-num-circle">{idx + 1}</div>
-                  <div className="step-text-box">
-                    <h4 className="step-title">{step}</h4>
+              {stepDetails.length > 0 ? (
+                stepDetails.map((step, idx) => {
+                  const isStepOpen = expandedStepIdx === idx;
+                  return (
+                    <div
+                      key={idx}
+                      className="ritual-step-item"
+                      onClick={() => setExpandedStepIdx(isStepOpen ? null : idx)}
+                      style={{
+                        alignItems: 'flex-start',
+                        cursor: 'pointer',
+                        padding: '12px 14px',
+                        borderRadius: '8px',
+                        border: isStepOpen ? '1px solid #7C1B2C' : '1px solid transparent',
+                        background: isStepOpen ? '#FAF5EE' : 'transparent',
+                        transition: 'all 0.2s ease',
+                        marginBottom: '6px'
+                      }}
+                    >
+                      <div className="step-num-circle" style={{ marginTop: '2px', flexShrink: 0 }}>
+                        {step.step_no || idx + 1}
+                      </div>
+                      <div className="step-text-box" style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                          <h4 className="step-title" style={{ fontSize: '0.98rem', fontWeight: 700, margin: 0 }}>
+                            {step.name} {step.name_te ? <span style={{ color: '#7C1B2C', fontWeight: 600 }}>· {step.name_te}</span> : ''}
+                          </h4>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            {step.duration_minutes ? (
+                              <span style={{ fontSize: '0.75rem', background: '#FDF2F4', color: '#7C1B2C', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
+                                {step.duration_minutes} min
+                              </span>
+                            ) : null}
+                            <span style={{ color: '#8E857C', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                              {isStepOpen ? '▲' : '▼'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {isStepOpen && (
+                          <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #EFE8DC' }}>
+                            {step.desc && (
+                              <p style={{ margin: '0 0 6px', fontSize: '0.88rem', color: '#554E48', lineHeight: 1.55 }}>
+                                {step.desc}
+                              </p>
+                            )}
+                            {step.performed_by && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '6px' }}>
+                                <span style={{ fontSize: '0.75rem', background: '#FEF3C7', color: '#854D0E', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
+                                  👤 Performed by: {step.performed_by === 'karta' ? 'Family (Karta)' : step.performed_by === 'purohit' ? 'Vedic Purohit' : 'Purohit & Family'}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                vidhiSteps.map((step, idx) => (
+                  <div key={idx} className="ritual-step-item">
+                    <div className="step-num-circle">{idx + 1}</div>
+                    <div className="step-text-box">
+                      <h4 className="step-title">{step}</h4>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
+
+          {/* Section: Vratha Katha Chapters (Collapsible Accordion - Opens only when clicked) */}
+          {kathaChapters.length > 0 && (
+            <div className="detail-section-card" style={{ padding: 0, overflow: 'hidden' }}>
+              <button
+                type="button"
+                onClick={() => setKathaExpanded(!kathaExpanded)}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '16px 20px',
+                  background: kathaExpanded ? '#FDF9F3' : '#FFFDF9',
+                  border: 'none',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  borderBottom: kathaExpanded ? '1px solid #EFE8DC' : 'none',
+                  transition: 'background 0.2s ease'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '50%',
+                    background: '#FAF0E6',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#7C1B2C',
+                    fontSize: '1.15rem',
+                    flexShrink: 0
+                  }}>
+                    📖
+                  </div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '1.02rem', fontWeight: 700, color: '#1F1A18' }}>
+                      Vratha Katha Chapters · <span style={{ color: '#7C1B2C' }}>శ్రీ సత్యనారాయణ వ్రత కథ</span>
+                    </h3>
+                    <p style={{ margin: '2px 0 0', fontSize: '0.82rem', color: '#6B635B' }}>
+                      {kathaExpanded ? 'Click to collapse' : 'Click to read the 5 sacred chapters from Skanda Purana'}
+                    </p>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ background: '#FAF0E6', color: '#7C1B2C', fontSize: '0.78rem', fontWeight: 700, padding: '4px 10px', borderRadius: '6px', border: '1px solid #EFE8DC' }}>
+                    5 Chapters
+                  </span>
+                  <span style={{ color: '#7C1B2C', fontSize: '1rem', fontWeight: 'bold' }}>{kathaExpanded ? '▲' : '▼'}</span>
+                </div>
+              </button>
+
+              {kathaExpanded && (
+                <div style={{ padding: '18px 20px' }}>
+                  <p style={{ margin: '0 0 14px', fontSize: '0.88rem', color: '#6B635B' }}>
+                    Devotees listen to the sacred 5 chapters of Sri Satyanarayana Vratha Katha during the ceremony to receive divine grace.
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {kathaChapters.map((ch) => {
+                      const isOpen = openChapter === ch.chapter_no;
+                      return (
+                        <div
+                          key={ch.chapter_no}
+                          style={{
+                            border: '1px solid #EFE8DC',
+                            borderRadius: '10px',
+                            overflow: 'hidden',
+                            background: isOpen ? '#FAF5EE' : '#FFFDF9'
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => setOpenChapter(isOpen ? null : ch.chapter_no)}
+                            style={{
+                              width: '100%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '12px 16px',
+                              background: 'transparent',
+                              border: 'none',
+                              cursor: 'pointer',
+                              textAlign: 'left',
+                              gap: '12px'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <span style={{ background: '#7C1B2C', color: '#FFFFFF', padding: '3px 8px', borderRadius: '4px', fontSize: '0.78rem', fontWeight: 700 }}>
+                                Adhyayam {ch.chapter_no}
+                              </span>
+                              <span style={{ fontWeight: 700, fontSize: '0.94rem', color: '#1F1A18' }}>
+                                {ch.title} {ch.title_te ? <span style={{ color: '#7C1B2C', fontWeight: 600 }}>· {ch.title_te}</span> : ''}
+                              </span>
+                            </div>
+                            <span style={{ color: '#7C1B2C', fontWeight: 'bold' }}>{isOpen ? '▲' : '▼'}</span>
+                          </button>
+
+                          {isOpen && (
+                            <div style={{ padding: '0 16px 14px', borderTop: '1px solid #EFE8DC' }}>
+                              <p style={{ margin: '10px 0 6px', fontSize: '0.9rem', color: '#2E2825', lineHeight: 1.6 }}>
+                                {ch.summary}
+                              </p>
+                              {ch.summary_te && (
+                                <p style={{ margin: '6px 0', fontSize: '0.86rem', color: '#5A524C', lineHeight: 1.55 }}>
+                                  {ch.summary_te}
+                                </p>
+                              )}
+                              <div style={{ marginTop: '8px', fontSize: '0.78rem', color: '#854D0E', fontStyle: 'italic' }}>
+                                Source: {ch.source_reference || 'Skanda Purana, Reva Khanda'}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Section: Home Preparation Checklist (Collapsible Accordion - Opens only when clicked) */}
+          {checklistGroups && Object.keys(checklistGroups).length > 0 && (
+            <div className="detail-section-card" style={{ padding: 0, overflow: 'hidden' }}>
+              <button
+                type="button"
+                onClick={() => setChecklistExpanded(!checklistExpanded)}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '16px 20px',
+                  background: checklistExpanded ? '#F2FAF4' : '#FFFDF9',
+                  border: 'none',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  borderBottom: checklistExpanded ? '1px solid #EFE8DC' : 'none',
+                  transition: 'background 0.2s ease'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '50%',
+                    background: '#DCFCE7',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#15803D',
+                    fontSize: '1.15rem',
+                    flexShrink: 0
+                  }}>
+                    ✓
+                  </div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '1.02rem', fontWeight: 700, color: '#1F1A18' }}>
+                      Home Preparation Checklist · <span style={{ color: '#7C1B2C' }}>పూజా ఏర్పాట్ల జాబితా</span>
+                    </h3>
+                    <p style={{ margin: '2px 0 0', fontSize: '0.82rem', color: '#6B635B' }}>
+                      {checklistExpanded ? 'Click to collapse' : `Click to view & mark ${totalChecklistCount} standard items ready at home`}
+                    </p>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ background: '#DCFCE7', color: '#15803D', fontSize: '0.78rem', fontWeight: 700, padding: '4px 10px', borderRadius: '6px' }}>
+                    {totalChecklistCount} items
+                  </span>
+                  <span style={{ color: '#15803D', fontSize: '1rem', fontWeight: 'bold' }}>{checklistExpanded ? '▲' : '▼'}</span>
+                </div>
+              </button>
+
+              {checklistExpanded && (
+                <div style={{ padding: '18px 20px' }}>
+                  <p style={{ margin: '0 0 14px', fontSize: '0.88rem', color: '#6B635B' }}>
+                    Quantity-free checklist of items to keep ready at home before Purohit arrives. Click items to check them off as you prepare.
+                  </p>
+
+                  {/* Group Tabs */}
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
+                    {[
+                      { key: 'pooja_items', label: 'Pooja Items', count: checklistGroups['pooja_items']?.length || 0 },
+                      { key: 'prasadam_ingredients', label: 'Prasadam', count: checklistGroups['prasadam_ingredients']?.length || 0 },
+                      { key: 'panchamrutham_ingredients', label: 'Panchamrutham', count: checklistGroups['panchamrutham_ingredients']?.length || 0 },
+                      { key: 'katha_sankalpam_items', label: 'Katha & Sankalpam', count: checklistGroups['katha_sankalpam_items']?.length || 0 },
+                    ].map((tab) => {
+                      const isActive = activeChecklistTab === tab.key;
+                      return (
+                        <button
+                          key={tab.key}
+                          type="button"
+                          onClick={() => setActiveChecklistTab(tab.key)}
+                          style={{
+                            padding: '6px 14px',
+                            borderRadius: '20px',
+                            border: isActive ? '1px solid #7C1B2C' : '1px solid #D9D2C9',
+                            background: isActive ? '#7C1B2C' : '#FFFFFF',
+                            color: isActive ? '#FFFFFF' : '#7C1B2C',
+                            fontWeight: 600,
+                            fontSize: '0.84rem',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease'
+                          }}
+                        >
+                          {tab.label} ({tab.count})
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Checklist Items Grid */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '10px' }}>
+                    {(checklistGroups[activeChecklistTab] || []).map((item: any, idx: number) => {
+                      const itemKey = `${activeChecklistTab}_${item.id || item.name || idx}`;
+                      const isChecked = !!checkedChecklistItems[itemKey];
+                      return (
+                        <div
+                          key={itemKey}
+                          onClick={() => setCheckedChecklistItems(prev => ({ ...prev, [itemKey]: !prev[itemKey] }))}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            padding: '8px 12px',
+                            background: isChecked ? '#F3ECE2' : '#FFFDF9',
+                            border: '1px solid #EAE5DE',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            userSelect: 'none'
+                          }}
+                        >
+                          <span style={{
+                            width: '18px',
+                            height: '18px',
+                            borderRadius: '4px',
+                            border: isChecked ? '1px solid #15803D' : '1px solid #BDB3A6',
+                            background: isChecked ? '#15803D' : '#FFFFFF',
+                            color: '#FFFFFF',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '11px',
+                            flexShrink: 0
+                          }}>
+                            {isChecked ? '✓' : ''}
+                          </span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <span style={{
+                              fontSize: '0.9rem',
+                              color: isChecked ? '#8E857C' : '#1F1A18',
+                              textDecoration: isChecked ? 'line-through' : 'none',
+                              fontWeight: 500
+                            }}>
+                              {item.name} {item.name_te ? <span style={{ color: '#7C1B2C', fontSize: '0.82rem' }}>· {item.name_te}</span> : ''}
+                            </span>
+                            {item.is_optional && (
+                              <span style={{ marginLeft: '6px', fontSize: '0.72rem', background: '#FEF3C7', color: '#854D0E', padding: '1px 6px', borderRadius: '4px' }}>
+                                Optional
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Section: Pooja Samagri from Database */}
           <div className="detail-section-card">
             <div className="samagri-card-header">
               <h3 className="section-title">
-                {lang === 'te' ? 'పూజా సామాగ్రి' : lang === 'hi' ? 'पूजा सामग्री' : 'Pooja Samagri'} · {samagriItems.length} {lang === 'te' ? 'వస్తువులు' : lang === 'hi' ? 'वस्तुएं' : 'items'}
+                {lang === 'te' ? 'పూజా సామాగ్రి కిట్' : lang === 'hi' ? 'पूजा सामग्री किट' : 'Pooja Samagri Kit'} · {samagriItems.length} {lang === 'te' ? 'వస్తువులు' : lang === 'hi' ? 'वस्तुएं' : 'items'}
               </h3>
               <span className="samagri-included-pill">
-                {lang === 'te' ? 'కిట్‌లో చేర్చబడినవి' : lang === 'hi' ? 'किट में सम्मिलित' : 'Included in package kit'}
+                {lang === 'te' ? 'పురోహితులు తెచ్చే కిట్' : lang === 'hi' ? 'पंडितजी द्वारा लाया गया किट' : 'Provided by Purohit'}
               </span>
             </div>
 
@@ -345,7 +709,7 @@ export const PoojaDetailPage: React.FC<PoojaDetailPageProps> = ({
                   className="samagri-toggle-btn"
                   onClick={() => setShowAllSamagri(!showAllSamagri)}
                 >
-                  {showAllSamagri 
+                  {showAllSamagri
                     ? (lang === 'te' ? 'తక్కువ వస్తువులు చూడండి ▲' : lang === 'hi' ? 'कम देखें ▲' : 'See less ▲')
                     : (lang === 'te'
                         ? `మరిన్ని చూడండి (${samagriItems.length - 8} మరిన్ని వస్తువులు) ▼`
@@ -379,7 +743,7 @@ export const PoojaDetailPage: React.FC<PoojaDetailPageProps> = ({
                 const isOpen = openFaq === index;
                 return (
                   <div key={index} className="faq-item">
-                    <button 
+                    <button
                       type="button"
                       className="faq-question-btn"
                       onClick={() => setOpenFaq(isOpen ? null : index)}
@@ -451,14 +815,14 @@ export const PoojaDetailPage: React.FC<PoojaDetailPageProps> = ({
                   const fullStr = `${opt.date} · ${opt.time}`;
                   const isSelected = selectedMuhurtham === fullStr;
                   return (
-                    <label 
-                      key={opt.id} 
+                    <label
+                      key={opt.id}
                       className={`muhurtham-radio-card ${isSelected ? 'selected' : ''}`}
                       onClick={() => setSelectedMuhurtham(fullStr)}
                     >
-                      <input 
-                        type="radio" 
-                        name="muhurtham" 
+                      <input
+                        type="radio"
+                        name="muhurtham"
                         checked={isSelected}
                         onChange={() => setSelectedMuhurtham(fullStr)}
                         className="radio-input"
@@ -495,7 +859,7 @@ export const PoojaDetailPage: React.FC<PoojaDetailPageProps> = ({
             </div>
 
             {/* Action CTA */}
-            <button 
+            <button
               type="button"
               className="btn-continue-booking"
               onClick={() => {
